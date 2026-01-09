@@ -507,8 +507,8 @@ const Customers = () => {
     [safeCustomers]
   );
 
-  const categorizedUsers = useMemo(() =>
-    safeCustomers.filter((user) => user.category || user.category_details).length,
+  const categorizedUsers = useMemo(
+    () => safeCustomers.filter((user) => user.category || user.category_details).length,
     [safeCustomers]
   );
 

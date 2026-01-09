@@ -87,8 +87,7 @@ const Push = () => {
       .join(' ')
       .toLowerCase();
     const matchesSearch = haystack.includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === 'all'
+    const matchesStatus = statusFilter === 'all'
       || (statusFilter === 'sent' && log.is_sent)
       || (statusFilter === 'failed' && !log.is_sent);
     return matchesSearch && matchesStatus;
