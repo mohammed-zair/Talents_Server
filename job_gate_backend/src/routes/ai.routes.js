@@ -1,0 +1,161 @@
+// file: src/routes/ai.routes.js
+const express = require("express");
+const router = express.Router();
+const aiController = require("../controllers/ai.controller");
+const { verifyToken } = require("../middleware/authJwt");
+const { uploadCV } = require("../middleware/upload.middleware");
+
+// ============================================
+//          AI APIs
+// ============================================
+
+// تحليل CV نصي
+router.post("/cv/analyze-text", 
+  verifyToken, 
+  aiController.analyzeCVText
+);
+
+// تحليل CV ملف (Multipart) عبر الـ Backend ثم AI Core
+router.post(
+  "/cv/analyze-file",
+  verifyToken,
+  uploadCV,
+  aiController.analyzeCVFile
+);
+
+// بدء محادثة chatbot
+router.post("/chatbot/start", 
+  verifyToken, 
+  aiController.startChatbotSession
+);
+
+// إرسال رسالة chatbot
+router.post("/chatbot/chat", 
+  verifyToken, 
+  aiController.sendChatbotMessage
+);
+
+// الحصول على تحليل CV محفوظ
+router.get("/cv/analysis/:cvId", 
+  verifyToken, 
+  aiController.getCVAnalysis
+);
+
+// فحص صحة AI service
+router.get("/health", 
+  aiController.aiHealthCheck
+);
+
+// Debug auth configuration + probe (safe)
+router.get(
+  "/debug/auth",
+  verifyToken,
+  aiController.debugAuth
+);
+
+// ============================================
+//       APIs لاختبار AI Service
+// ============================================
+
+/**
+ * @desc اختبار اتصال مع AI service (للتطوير)
+ * @route POST /api/ai/test-connection
+ * @access Private (Admin فقط)
+ */
+router.post("/test-connection", 
+  verifyToken, // تم التصحيح هنا
+  async (req, res) => {
+    try {
+      const aiService = require("../services/aiService");
+      
+      // اختبار بسيط للنص
+      const testText = `John Doe
+Email: john@example.com
+Phone: +1-555-123-4567
+
+Experience:
+- Software Developer at TechCorp (2020-2024)
+- Built REST APIs with Node.js
+
+Skills: JavaScript, Node.js, React
+Education: BS Computer Science, University (2016-2020)`;
+
+      const result = await aiService.analyzeCVText('test_user', testText, false);
+      
+      return res.status(200).json({
+        success: true,
+        message: "AI Service connection successful",
+        test_result: {
+          status: result.success || true,
+          ats_score: result.ats_score || result.score,
+          has_skills: result.features?.key_skills?.length > 0 || false
+        }
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "AI Service connection failed",
+        error: error.message
+      });
+    }
+  }
+);
+
+/**
+ * @desc الحصول على تحليل جميع CVs للمستخدم
+ * @route GET /api/ai/user/cvs
+ * @access Private
+ */
+router.get("/user/cvs", 
+  verifyToken, // تم التصحيح هنا
+  async (req, res) => {
+    try {
+      const { CV, CVStructuredData, CVFeaturesAnalytics } = require("../models");
+      const userId = req.user.user_id;
+
+      const cvs = await CV.findAll({
+        where: { user_id: userId },
+        include: [
+          { 
+            model: CVStructuredData,
+            attributes: ['cv_struct_id', 'data_json', 'created_at']
+          },
+          { 
+            model: CVFeaturesAnalytics,
+            attributes: ['ats_score', 'total_years_experience', 'key_skills', 'is_ats_compliant']
+          }
+        ],
+        order: [['created_at', 'DESC']]
+      });
+
+      const formattedCVs = cvs.map(cv => ({
+        cv_id: cv.cv_id,
+        title: cv.title,
+        file_type: cv.file_type,
+        created_at: cv.created_at,
+        last_updated_at: cv.last_updated_at,
+        has_structured_data: !!cv.CV_Structured_Data,
+        has_analytics: !!cv.CV_Features_Analytics,
+        ats_score: cv.CV_Features_Analytics?.ats_score || 0,
+        is_ats_compliant: cv.CV_Features_Analytics?.is_ats_compliant || false,
+        key_skills_count: cv.CV_Features_Analytics?.key_skills?.length || 0
+      }));
+
+      return res.status(200).json({
+        success: true,
+        message: "تم جلب CVs بنجاح",
+        count: formattedCVs.length,
+        cvs: formattedCVs
+      });
+    } catch (error) {
+      console.error('Get User CVs Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: "فشل في جلب CVs",
+        error: error.message
+      });
+    }
+  }
+);
+
+module.exports = router;

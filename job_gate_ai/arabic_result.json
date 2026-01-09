@@ -1,0 +1,26 @@
+{
+  "personal_info": {
+    "full_name": "أحمد محمد",
+    "email": "ahmed@example.com",
+    "phone": "",
+    "location": ""
+  },
+  "education": [],
+  "experience": [
+    {
+      "position": "مطور برمجيات",
+      "company": "شركة التقنية",
+      "location": "",
+      "duration": "2022-2023",
+      "description": "",
+      "achievements": []
+    }
+  ],
+  "skills": [
+    "بايثون",
+    "دجانجو",
+    "جافاسكريبت"
+  ],
+  "certifications": [],
+  "languages": []
+}

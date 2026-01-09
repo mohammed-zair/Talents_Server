@@ -1,0 +1,35 @@
+# env
+.env
+.env.*
+venv/
+.venv/
+jobgate_env/
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# tooling
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# data/artifacts
+*.log
+*.db
+*.sqlite3
+backups/
+data/
+generated_cvs/
+uploads/
+
+# misc
+.DS_Store
+Thumbs.db

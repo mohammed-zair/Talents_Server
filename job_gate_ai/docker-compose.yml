@@ -1,0 +1,39 @@
+﻿version: '3.8'
+
+services:
+  jobgate-ai:
+    build: .
+    container_name: jobgate-ai-core
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
+      - ./generated_cvs:/app/generated_cvs
+      - ./data:/app/data
+      - ./templates:/app/templates
+      - ./app:/app/app  # Mount app directory for development
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - jobgate-network
+    command: >
+      sh -c "
+        python -c 'import sys; print(\"Python:\", sys.version)' &&
+        echo 'Waiting for database...' &&
+        python -c 'import time; time.sleep(2)' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+networks:
+  jobgate-network:
+    driver: bridge

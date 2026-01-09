@@ -1,0 +1,26 @@
+{
+  "personal_info": {
+    "full_name": "John Smith",
+    "email": "john.smith@example.com",
+    "phone": "",
+    "location": ""
+  },
+  "education": [],
+  "experience": [
+    {
+      "position": "Backend Developer",
+      "company": "",
+      "location": "",
+      "duration": "3 years",
+      "description": "",
+      "achievements": []
+    }
+  ],
+  "skills": [
+    "Python",
+    "Django",
+    "JavaScript"
+  ],
+  "certifications": [],
+  "languages": []
+}

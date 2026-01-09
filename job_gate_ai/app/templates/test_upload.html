@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test CV Upload</title>
+</head>
+<body>
+    <h1>Test CV Analysis</h1>
+    
+    <div>
+        <h2>Upload CV File</h2>
+        <input type="file" id="cvFile" accept=".pdf,.docx">
+        <button onclick="uploadCV()">Analyze CV</button>
+        <div id="result"></div>
+    </div>
+    
+    <div style="margin-top: 50px;">
+        <h2>Test Chatbot</h2>
+        <button onclick="startChatbot()">Start CV Chatbot</button>
+        <div id="chatbot"></div>
+    </div>
+    
+    <script>
+        async function uploadCV() {
+            const fileInput = document.getElementById('cvFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/cv/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                document.getElementById('result').innerHTML = `
+                    <h3>Analysis Result:</h3>
+                    <p>ATS Score: ${result.ats_score}/100</p>
+                    <p>Skills Found: ${result.features?.skills_count || 0}</p>
+                    <pre>${JSON.stringify(result.structured_data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `Error: ${error}`;
+            }
+        }
+        
+        async function startChatbot() {
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/chatbot/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: 'test_user_123',
+                        language: 'english'
+                    })
+                });
+                
+                const result = await response.json();
+                document.getElementById('chatbot').innerHTML = `
+                    <h3>Chatbot Started:</h3>
+                    <p>Session ID: ${result.session_id}</p>
+                    <p>Message: ${result.welcome_message}</p>
+                    <div id="chatMessages"></div>
+                    <input type="text" id="chatInput" placeholder="Type your message...">
+                    <button onclick="sendChatMessage('${result.session_id}')">Send</button>
+                `;
+            } catch (error) {
+                document.getElementById('chatbot').innerHTML = `Error: ${error}`;
+            }
+        }
+        
+        async function sendChatMessage(sessionId) {
+            const input = document.getElementById('chatInput');
+            const message = input.value;
+            
+            if (!message) return;
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/chatbot/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: message
+                    })
+                });
+                
+                const result = await response.json();
+                const chatDiv = document.getElementById('chatMessages');
+                chatDiv.innerHTML += `
+                    <p><strong>You:</strong> ${message}</p>
+                    <p><strong>Bot:</strong> ${result.response}</p>
+                    <hr>
+                `;
+                input.value = '';
+            } catch (error) {
+                console.error('Chat error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

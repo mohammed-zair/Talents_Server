@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CV - {{personal_info.full_name}}</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 40px;
+            line-height: 1.6;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .name {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .contact-info {
+            margin-top: 10px;
+            color: #7f8c8d;
+        }
+        .section {
+            margin-top: 25px;
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+        .item {
+            margin-bottom: 15px;
+        }
+        .item-title {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .item-subtitle {
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        .skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .skill-tag {
+            background: #3498db;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="name">{{personal_info.full_name}}</div>
+        <div class="contact-info">
+            {{personal_info.email}} | {{personal_info.phone}} | {{personal_info.location}}
+        </div>
+    </div>
+    
+    {% if summary %}
+    <div class="section">
+        <div class="section-title">Professional Summary</div>
+        <div>{{summary}}</div>
+    </div>
+    {% endif %}
+    
+    {% if experience %}
+    <div class="section">
+        <div class="section-title">Experience</div>
+        {% for exp in experience %}
+        <div class="item">
+            <div class="item-title">{{exp.position}}</div>
+            <div class="item-subtitle">{{exp.company}} | {{exp.duration}} | {{exp.location}}</div>
+            <div>{{exp.description}}</div>
+            {% if exp.achievements %}
+            <ul>
+                {% for achievement in exp.achievements %}
+                <li>{{achievement}}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% if education %}
+    <div class="section">
+        <div class="section-title">Education</div>
+        {% for edu in education %}
+        <div class="item">
+            <div class="item-title">{{edu.degree}}</div>
+            <div class="item-subtitle">{{edu.institution}} | {{edu.duration}} | {{edu.location}}</div>
+            {% if edu.description %}
+            <div>{{edu.description}}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% if skills %}
+    <div class="section">
+        <div class="section-title">Skills</div>
+        <div class="skills">
+            {% for skill in skills %}
+            <span class="skill-tag">{{skill}}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>
