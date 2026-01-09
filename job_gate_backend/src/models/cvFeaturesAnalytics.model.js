@@ -5,7 +5,7 @@ const CVFeaturesAnalytics = sequelize.define(
   "CV_Features_Analytics",
   {
     analytics_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    cv_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: "CVs", key: "cv_id" } },
+    cv_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: "cvs", key: "cv_id" } },
     ats_score: { type: DataTypes.FLOAT, defaultValue: 0 },
     total_years_experience: { type: DataTypes.FLOAT, defaultValue: 0 },
     key_skills: { type: DataTypes.JSON, defaultValue: [] },
