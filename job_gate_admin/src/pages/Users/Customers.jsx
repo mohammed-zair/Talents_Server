@@ -251,7 +251,7 @@ const Customers = () => {
   const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   const selectionsettings = { persistSelection: true };
-  const toolbarOptions = ['Delete', 'Block', 'Unblock', 'Make Agent', 'Make Admin', 'Refresh'];
+  const toolbarOptions = ['Delete', 'Block', 'Unblock', 'Make Admin', 'Refresh'];
   const editing = { allowDeleting: true, allowEditing: true };
 
   const fetchCustomers = useCallback(async () => {
@@ -259,22 +259,31 @@ const Customers = () => {
       setLoading(true);
       setError(null);
 
-      try {
-        const response = await axiosInstance.get('/users/users-simple/');
-        if (Array.isArray(response.data)) {
-          setCustomers(response.data);
-          return;
-        }
-      } catch {
-        // Silently fail and try main endpoint
-      }
-
-      const response = await axiosInstance.get('/users/users/');
-      if (Array.isArray(response.data)) {
-        setCustomers(response.data);
-      } else {
-        setCustomers([]);
-      }
+      const response = await axiosInstance.get('/admin/users');
+      const rawUsers =
+        (Array.isArray(response.data?.data) && response.data.data) ||
+        (Array.isArray(response.data) && response.data) ||
+        [];
+      const mappedUsers = rawUsers.map((user) => ({
+        id: user.id ?? user.user_id ?? user.userId,
+        name: user.name ?? user.username ?? user.full_name ?? user.email ?? '',
+        full_name: user.full_name ?? user.name ?? '',
+        email: user.email ?? '',
+        phone: user.phone ?? '',
+        country: user.country ?? '',
+        role: user.role ?? user.user_type ?? 'user',
+        is_banned:
+          typeof user.is_banned === 'boolean'
+            ? user.is_banned
+            : user.is_active === false,
+        balances: user.balances ?? {},
+        category: user.category ?? null,
+        category_details: user.category_details ?? null,
+        agent_code: user.agent_code ?? null,
+        date_joined: user.date_joined ?? user.created_at ?? user.createdAt ?? null,
+        last_login: user.last_login ?? null,
+      }));
+      setCustomers(mappedUsers);
     } catch (err) {
       console.error('Error fetching customers:', err);
       setError('Failed to load customers data. Please check if the admin user is logged in.');
@@ -286,25 +295,8 @@ const Customers = () => {
 
   const fetchCategories = useCallback(async () => {
     setCategoriesLoading(true);
-    try {
-      const res = await axiosInstance.get('/users/categories/');
-      
-      let categoriesData = [];
-      if (Array.isArray(res.data)) {
-        categoriesData = res.data;
-      } else if (res.data?.results && Array.isArray(res.data.results)) {
-        categoriesData = res.data.results;
-      } else if (res.data?.data && Array.isArray(res.data.data)) {
-        categoriesData = res.data.data;
-      }
-      
-      setCategories(categoriesData);
-    } catch (err) {
-      console.error('Failed to load categories:', err);
-      setCategories([]);
-    } finally {
-      setCategoriesLoading(false);
-    }
+    setCategories([]);
+    setCategoriesLoading(false);
   }, []);
 
   useEffect(() => {
@@ -312,35 +304,19 @@ const Customers = () => {
     fetchCategories();
   }, [fetchCustomers, fetchCategories]);
 
-  const assignCategory = useCallback(async (userId, categoryId) => {
-    if (!userId) return;
-
-    setAssigningUserId(userId);
-    try {
-      const payload = {
-        user_id: userId,
-        category_id: categoryId === '' || categoryId === null ? null : Number(categoryId),
-      };
-      
-      await axiosInstance.post('/users/assign-category/', payload);
-      await fetchCustomers();
-    } catch (err) {
-      console.error('Failed to assign category:', err);
-      alert('Failed to assign category');
-    } finally {
-      setAssigningUserId(null);
-    }
-  }, [fetchCustomers]);
+  const assignCategory = useCallback(async (_userId, _categoryId) => {
+    alert('Category assignment is not available on the current backend.');
+  }, []);
 
   const promoteToAdmin = useCallback(async (userId) => {
     if (!userId) return { success: false };
 
     try {
-      const response = await axiosInstance.post(`/users/make-admin/${userId}/`);
+      await axiosInstance.put(`/admin/users/${userId}`, { user_type: 'admin' });
       await fetchCustomers();
       return {
         success: true,
-        requiresSecondPasswordSetup: response.data?.requires_second_password_setup || false,
+        requiresSecondPasswordSetup: false,
       };
     } catch (err) {
       console.error('Error promoting user to admin:', err);
@@ -350,25 +326,10 @@ const Customers = () => {
     }
   }, [fetchCustomers]);
 
-  const setAdminSecondPassword = useCallback(async (userId, password) => {
-    if (!userId || !password) return { success: false };
-
-    try {
-      await axiosInstance.post(`/users/set-admin-password/${userId}/`, {
-        second_password: password,
-        confirm_password: password,
-      });
-
-      await fetchCustomers();
-      alert('Second password set successfully!');
-      return { success: true };
-    } catch (err) {
-      console.error('Error setting admin password:', err);
-      const errorMsg = err?.response?.data?.error || 'Failed to set second password';
-      alert(`Error: ${errorMsg}`);
-      return { success: false };
-    }
-  }, [fetchCustomers]);
+  const setAdminSecondPassword = useCallback(async (_userId, _password) => {
+    alert('Setting a secondary admin password is not supported by this backend.');
+    return { success: false };
+  }, []);
 
   const openAdminPromotionModal = useCallback((user) => {
     setAdminModal({
@@ -725,7 +686,7 @@ const Customers = () => {
       if (safeSelected.length > 0) {
         try {
           const banPromises = safeSelected.map((customer) => 
-            axiosInstance.post(`/users/ban/${customer.id}/`)
+            axiosInstance.put(`/admin/users/${customer.id}`, { is_active: false })
           );
           await Promise.all(banPromises);
           await fetchCustomers();
@@ -743,7 +704,7 @@ const Customers = () => {
       if (safeSelected.length > 0) {
         try {
           const unbanPromises = safeSelected.map((customer) => 
-            axiosInstance.post(`/users/unban/${customer.id}/`)
+            axiosInstance.put(`/admin/users/${customer.id}`, { is_active: true })
           );
           await Promise.all(unbanPromises);
           await fetchCustomers();
@@ -754,42 +715,6 @@ const Customers = () => {
         }
       } else {
         alert('Please select a customer to unblock.');
-      }
-    }
-
-    if (args.item.id.includes('Make Agent')) {
-      if (safeSelected.length > 0) {
-        if (safeSelected.length > 1) {
-          alert('Please select only one user to make agent.');
-          return;
-        }
-
-        const user = safeSelected[0];
-        if (!user) return;
-
-        if (user.role === 'agent') {
-          alert(`${user.name} is already an agent.`);
-          return;
-        }
-
-        if (user.role === 'admin') {
-          alert('Cannot change admin role to agent.');
-          return;
-        }
-
-        if (window.confirm(`Are you sure you want to make ${user.name} an agent?`)) {
-          try {
-            const response = await axiosInstance.post(`/users/make-agent/${user.id}/`);
-            await fetchCustomers();
-            alert(`Success! ${user.name} is now an agent. Agent Code: ${response.data?.agent_code || 'N/A'}`);
-          } catch (err) {
-            console.error('Error making user agent:', err);
-            const errorMsg = err?.response?.data?.error || 'Failed to make user agent';
-            alert(`Error: ${errorMsg}`);
-          }
-        }
-      } else {
-        alert('Please select a user to make agent.');
       }
     }
 

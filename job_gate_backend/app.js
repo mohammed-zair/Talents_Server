@@ -98,11 +98,10 @@ app.use((err, req, res, next) => {
 
 // Database Sync
 
-const DB_SYNC_ALTER = process.env.DB_SYNC_ALTER === "true";
 const DB_SYNC_FORCE = process.env.DB_SYNC_FORCE === "true";
 
 sequelize
-  .sync({ alter: DB_SYNC_ALTER, force: DB_SYNC_FORCE })
+  .sync({ force: DB_SYNC_FORCE })
   .then(() => {
     console.log("✅ Database synced successfully");
 

@@ -46,28 +46,11 @@ const Agents = () => {
   }, []);
 
   const fetchCategories = async () => {
-    try {
-      const res = await axiosInstance.get('/users/categories/');
-      setCategories(res.data || []);
-    } catch (err) {
-      console.error('Failed to fetch categories for agents page:', err);
-    }
+    setCategories([]);
   };
 
-  const assignCategory = async (userId, categoryId) => {
-    try {
-      setAssigningUserId(userId);
-      await axiosInstance.post('/users/assign-category/', {
-        user_id: userId,
-        category_id: categoryId === '' ? null : Number(categoryId),
-      });
-      await fetchAgents();
-    } catch (err) {
-      console.error('Failed to assign category to agent:', err);
-      alert('Failed to assign category');
-    } finally {
-      setAssigningUserId(null);
-    }
+  const assignCategory = async (_userId, _categoryId) => {
+    alert('Category assignment is not available on the current backend.');
   };
 
   const formattedAgentsData = agentsData.map((agent) => ({

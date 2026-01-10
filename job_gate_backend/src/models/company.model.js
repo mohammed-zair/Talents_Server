@@ -75,5 +75,7 @@ const Company = sequelize.define("Company", {
   timestamps: true,
 });
 
+Company.removeAttribute("id");
+
 module.exports = Company;
  
