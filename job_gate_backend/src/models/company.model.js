@@ -72,11 +72,10 @@ const Company = sequelize.define("Company", {
   },
 }, {
   tableName: "companies",
-  timestamps: false,
+  timestamps: true,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
   freezeTableName: true,
-  underscored: true,
-  createdAt: "created_at",
-  updatedAt: "updated_at",
   primaryKey: "company_id",
 });
 
