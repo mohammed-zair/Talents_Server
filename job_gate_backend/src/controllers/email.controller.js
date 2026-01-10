@@ -184,7 +184,7 @@ exports.listSentEmails = async (req, res) => {
         ? [
             {
               model: Company,
-              attributes: ["id", "name", "email"],
+              attributes: ["company_id", "name", "email"],
               required: false,
             },
           ]
