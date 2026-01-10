@@ -80,7 +80,14 @@ CV.hasMany(CompanyCVDelivery, { foreignKey: "cv_id" });
 Company.hasMany(User, { foreignKey: "company_id", onDelete: "SET NULL" });
 User.belongsTo(Company, { foreignKey: "company_id" });
 Admin.belongsTo(User, { foreignKey: "user_id", onDelete: "CASCADE" });
-EmailNotification.belongsTo(Company, { foreignKey: "company_id" });
+EmailNotification.belongsTo(Company, {
+  foreignKey: "company_id",
+  targetKey: "company_id",
+});
+Company.hasMany(EmailNotification, {
+  foreignKey: "company_id",
+  sourceKey: "company_id",
+});
 PushNotification.belongsTo(User, { foreignKey: "user_id" });
 
 // --- Saved Jobs (Bookmarks) ---
