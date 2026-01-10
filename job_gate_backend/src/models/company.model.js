@@ -72,7 +72,12 @@ const Company = sequelize.define("Company", {
   },
 }, {
   tableName: "companies",
-  timestamps: true,
+  timestamps: false,
+  freezeTableName: true,
+  underscored: true,
+  createdAt: "created_at",
+  updatedAt: "updated_at",
+  primaryKey: "company_id",
 });
 
 Company.removeAttribute("id");
