@@ -260,10 +260,9 @@ const Customers = () => {
       setError(null);
 
       const response = await axiosInstance.get('/admin/users');
-      const rawUsers =
-        (Array.isArray(response.data?.data) && response.data.data) ||
-        (Array.isArray(response.data) && response.data) ||
-        [];
+      const rawUsers = (Array.isArray(response.data?.data) && response.data.data)
+        || (Array.isArray(response.data) && response.data)
+        || [];
       const mappedUsers = rawUsers.map((user) => ({
         id: user.id ?? user.user_id ?? user.userId,
         name: user.name ?? user.username ?? user.full_name ?? user.email ?? '',
