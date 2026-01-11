@@ -419,7 +419,7 @@ exports.getAndDownloadUserCV = async (req, res) => {
 exports.listCompanyRequests = async (req, res) => {
   try {
     const requests = await CompanyRequest.findAll({
-      order: [["created_at", "DESC"]],
+      order: [["request_id", "DESC"]],
     });
     return successResponse(res, requests);
   } catch (error) {
