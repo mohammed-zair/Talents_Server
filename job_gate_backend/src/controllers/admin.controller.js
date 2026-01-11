@@ -377,7 +377,7 @@ exports.getAndDownloadUserCV = async (req, res) => {
   try {
     const cv = await CV.findOne({
       where: { user_id: userId },
-      order: [["created_at", "DESC"]],
+      order: [["createdAt", "DESC"]],
     });
 
     if (!cv) {
