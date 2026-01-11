@@ -238,7 +238,7 @@ exports.listAllJobPostings = async (req, res) => {
         { model: Company, attributes: ["company_id", "name", "email"] },
       ],
       attributes: ["job_id", "title", "status", "form_type", "created_at"],
-      order: [["createdAt", "DESC"]],
+      order: [["request_id", "DESC"]],
     });
 
     return successResponse(res, jobPostings);
