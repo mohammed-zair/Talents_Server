@@ -61,6 +61,10 @@ const CompanyRequest = sequelize.define("CompanyRequest", {
 }, {
   tableName: "company_requests",
   timestamps: true,
+  // Force camelCase timestamps to match DB columns.
+  underscored: false,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
 });
 
 module.exports = CompanyRequest;
