@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://185.170.112.85/api',
+  baseURL: process.env.REACT_APP_API_BASE_URL || 'https://talents-we-trust.tech/api',
   timeout: 30000,
 });
 

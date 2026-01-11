@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://185.170.112.85/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://talents-we-trust.tech/api';
 
 const mapUser = (user) => {
   if (!user) return null;
