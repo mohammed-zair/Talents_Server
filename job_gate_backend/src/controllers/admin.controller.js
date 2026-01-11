@@ -352,7 +352,7 @@ exports.listAllCVs = async (req, res) => {
           attributes: ["user_id", "full_name", "email"],
         },
       ],
-      order: [["created_at", "DESC"]],
+      order: [["createdAt", "DESC"]],
       limit: 100,
     });
 
