@@ -9,8 +9,8 @@ const { sendEmail: sendgridSendEmail } = require("./mailer");
  * @param {object} [options] - { html }
  */
 async function sendEmail(to, subject, text, options = {}) {
-  if (!process.env.SENDGRID_API_KEY) {
-    throw new Error("SENDGRID_API_KEY is missing in environment variables.");
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is missing in environment variables.");
   }
 
   if (!to) throw new Error("Recipient email is required.");

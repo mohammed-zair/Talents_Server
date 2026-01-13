@@ -1,18 +1,14 @@
 // file: src/utils/mailer.js
-const sgMail = require("@sendgrid/mail");
+const { Resend } = require("resend");
 
-function sendEmail({ to, subject, html, text }) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-  return sgMail.send({
+async function sendEmail({ to, subject, html, text }) {
+  return resend.emails.send({
+    from: `${process.env.SMTP_FROM_NAME} <${process.env.SMTP_FROM_EMAIL}>`,
     to,
-    from: {
-      email: process.env.SMTP_FROM_EMAIL,
-      name: process.env.SMTP_FROM_NAME,
-    },
     subject,
-    text,
-    html,
+    html: html || `<pre>${text}</pre>`,
   });
 }
 
