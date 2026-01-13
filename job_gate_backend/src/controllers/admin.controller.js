@@ -352,7 +352,7 @@ exports.listAllCVs = async (req, res) => {
           attributes: ["user_id", "full_name", "email"],
         },
       ],
-      order: [["createdAt", "DESC"]],
+      order: [["created_at", "DESC"]],
       limit: 100,
     });
 
@@ -377,7 +377,7 @@ exports.getAndDownloadUserCV = async (req, res) => {
   try {
     const cv = await CV.findOne({
       where: { user_id: userId },
-      order: [["createdAt", "DESC"]],
+      order: [["created_at", "DESC"]],
     });
 
     if (!cv) {
