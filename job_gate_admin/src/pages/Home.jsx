@@ -138,7 +138,7 @@ const Home = () => {
     if (titleKey.includes('users')) {
       return { ...item, amount: loading ? '...' : stats.totalUsers.toString() };
     }
-    if (titleKey.includes('company requests')) {
+    if (titleKey.includes('company approvals') || titleKey.includes('company requests')) {
       return { ...item, amount: loading ? '...' : stats.pendingCompanyRequests.toString() };
     }
     if (titleKey.includes('companies')) {
@@ -189,7 +189,7 @@ const Home = () => {
 
   const getCountForTitle = (titleKey) => {
     if (titleKey.includes('users')) return stats.totalUsers;
-    if (titleKey.includes('company-requests')) return stats.pendingCompanyRequests;
+    if (titleKey.includes('company-requests') || titleKey.includes('company-approvals')) return stats.pendingCompanyRequests;
     if (titleKey.includes('companies')) return stats.totalCompanies;
     if (titleKey.includes('applications')) return stats.totalApplications;
     if (titleKey.includes('job-postings')) return stats.totalJobPostings;
@@ -205,7 +205,7 @@ const Home = () => {
   const routeMap = {
     Users: 'users',
     Companies: 'companies',
-    'Company Requests': 'company-requests',
+    'Company Approvals': 'company-requests',
     Applications: 'applications',
     'Job Postings': 'job-postings',
     'CV Requests': 'cv-requests',
@@ -256,7 +256,7 @@ const Home = () => {
               </button>
               <div className="grid grid-cols-2 gap-3 text-center">
                 <div className="bg-white/10 rounded-xl p-3">
-                  <p className="text-xs text-indigo-200">Pending Requests</p>
+                  <p className="text-xs text-indigo-200">Pending Company Approvals</p>
                   <p className="text-xl font-semibold">{stats.pendingCompanyRequests}</p>
                 </div>
                 <div className="bg-white/10 rounded-xl p-3">
@@ -304,7 +304,10 @@ const Home = () => {
               >
                 {!item.title.toLowerCase().includes("revenue") && (
                   <div className="absolute -top-2 -right-2 flex flex-col items-end">
-                    {count > 0 && item.title.toLowerCase().includes("company requests") && (
+                    {count > 0 && (
+                      item.title.toLowerCase().includes("company approvals") ||
+                      item.title.toLowerCase().includes("company requests")
+                    ) && (
                       <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full mb-1">
                         {count} Pending
                       </span>
@@ -432,7 +435,7 @@ const Home = () => {
                 <span>
                   <GoPrimitiveDot />
                 </span>
-                <span>Company Requests</span>
+                <span>Company Approvals</span>
               </p>
             </div>
           </div>
@@ -451,7 +454,7 @@ const Home = () => {
               </div>
               <div>
                 <p className="text-2xl font-semibold">{stats.pendingCompanyRequests}</p>
-                <p className="text-gray-500 mt-1">Pending Company Requests</p>
+                <p className="text-gray-500 mt-1">Pending Company Approvals</p>
               </div>
             </div>
             <div className="flex-1 min-w-[300px]">
@@ -492,7 +495,7 @@ const Home = () => {
             </div>
             <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
               <span className="text-orange-600 dark:text-orange-300 font-medium">
-                Pending Company Requests
+                Pending Company Approvals
               </span>
               <span className="bg-orange-100 dark:bg-orange-800 text-orange-800 dark:text-orange-200 px-2 py-1 rounded text-sm font-bold">
                 {stats.pendingCompanyRequests}

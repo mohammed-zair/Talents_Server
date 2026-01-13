@@ -24,17 +24,39 @@ exports.loginCompany = async (req, res) => {
 
     const company = await Company.findOne({ where: { email } });
 
-    if (!company || !company.is_approved) {
-      return errorResponse(res, "بيانات تسجيل الدخول غير صحيحة", null, 401);
+    if (!company) {
+      return errorResponse(
+        res,
+        "Invalid email or password.",
+        null,
+        401
+      );
     }
 
-    // التحقق من وجود كلمة مرور
+    if (company.rejected_at) {
+      return errorResponse(
+        res,
+        "Your company registration was rejected. Check your email and try again.",
+        null,
+        403
+      );
+    }
+
+    if (!company.is_approved) {
+      return errorResponse(
+        res,
+        "Your company is pending admin approval.",
+        null,
+        403
+      );
+    }
+
     if (!company.password) {
       return errorResponse(
         res,
-        "لم يتم تعيين كلمة مرور لحسابك. يرجى استخدام رابط التعيين",
+        "Password not set for this company account.",
         null,
-        401
+        403
       );
     }
 

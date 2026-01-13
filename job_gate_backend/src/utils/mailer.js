@@ -12,7 +12,7 @@ function getResend() {
 async function sendEmail({ to, subject, html, text }) {
   const resend = getResend();
 
-  const fromName = process.env.SMTP_FROM_NAME || "Talents We Trust";
+  const fromName = process.env.SMTP_FROM_NAME || "Talents";
   const fromEmail = process.env.SMTP_FROM_EMAIL || "onboarding@resend.dev";
 
   return resend.emails.send({

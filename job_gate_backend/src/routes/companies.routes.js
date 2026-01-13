@@ -22,6 +22,9 @@ router.post("/login", companyAuthController.loginCompany);
 // 📌 تعيين كلمة المرور (أول مرة)
 router.post("/set-password", companyAuthController.setCompanyPassword);
 
+// Company registration (pending approval)
+router.post("/register", companiesController.registerCompany);
+
 // 📌 قائمة الشركات المعتمدة
 router.get("/", companiesController.listApprovedCompanies);
 

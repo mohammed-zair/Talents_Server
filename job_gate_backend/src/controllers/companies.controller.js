@@ -2,19 +2,18 @@
 
 const {
   Company,
-  CompanyRequest,
   JobPosting,
   Application,
   User,
   CV,
-  sequelize,
 } = require("../models");
+const bcrypt = require("bcryptjs");
 const { successResponse } = require("../utils/responseHandler");
 
-//   دوال الوصول العام (Public/Seeker Company Access)
+//   O_U^O…
 
 /**
- * @desc [Public] عرض قائمة بجميع الشركات المعتمدة
+ * @desc [Public] List approved companies
  * @route GET /api/companies
  * @access Public
  */
@@ -31,97 +30,154 @@ exports.listApprovedCompanies = async (req, res) => {
     console.error("Error listing approved companies:", error);
     return res
       .status(500)
-      .json({ message: "فشل في جلب قائمة الشركات.", error: error.message });
+      .json({ message: "Server error while listing companies.", error: error.message });
   }
 };
 
 /**
- * @desc [Public] عرض تفاصيل شركة معتمدة محددة
+ * @desc [Public] Get approved company details
  * @route GET /api/companies/:id
  * @access Public
  */
 exports.getApprovedCompanyDetails = async (req, res) => {
   try {
-    const company = await Company.findByPk(req.params.id, {
-      where: { is_approved: true },
+    const company = await Company.findOne({
+      where: { company_id: req.params.id, is_approved: true },
     });
 
     if (!company) {
       return res
         .status(404)
-        .json({ message: "الشركة غير موجودة أو غير معتمدة." });
+        .json({ message: "Company not found or not approved." });
     }
 
-    const { is_approved, ...publicCompanyDetails } = company.toJSON();
+    const { is_approved, license_doc_url, ...publicCompanyDetails } = company.toJSON();
     return successResponse(res, publicCompanyDetails);
   } catch (error) {
     console.error("Error getting approved company details:", error);
     return res
       .status(500)
-      .json({ message: "فشل في جلب تفاصيل الشركة.", error: error.message });
+      .json({ message: "Server error while fetching company details.", error: error.message });
   }
 };
 
+const getCompanyApprovalStatus = (company) => {
+  if (company.is_approved) return "approved";
+  if (company.rejected_at) return "rejected";
+  return "pending";
+};
+
 /**
- * @desc [Public] تقديم طلب تسجيل شركة جديد
- * @route POST /api/company-requests
+ * @desc [Public] Company registration (pending approval)
+ * @route POST /api/companies/register
  * @access Public
  */
-exports.submitCompanyRequest = async (req, res) => {
-  const { name, email, phone, license_doc_url, description, logo_url } =
-    req.body;
+exports.registerCompany = async (req, res) => {
+  const {
+    name,
+    email,
+    phone,
+    license_doc_url,
+    description,
+    logo_url,
+    password,
+    confirm_password,
+  } = req.body;
 
-  if (!name || !email || !license_doc_url) {
-    return res
-      .status(400)
-      .json({ message: "الاسم، البريد الإلكتروني، ورابط الرخصة إجباريون." });
+  if (!name || !email || !license_doc_url || !password || !confirm_password) {
+    return res.status(400).json({
+      message: "Please provide company name, email, license document, and password.",
+    });
+  }
+
+  if (password !== confirm_password) {
+    return res.status(400).json({ message: "Passwords do not match." });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({
+      message: "Password must be at least 6 characters.",
+    });
   }
 
   try {
-    // 1. التحقق من وجود شركة معتمدة بنفس البريد
-    const existingCompany = await Company.findOne({
-      where: { email, is_approved: true },
-    });
+    const existingCompany = await Company.findOne({ where: { email } });
     if (existingCompany) {
-      return res
-        .status(400)
-        .json({ message: "هذا البريد الإلكتروني مسجل بالفعل كشركة معتمدة." });
-    }
+      if (existingCompany.is_approved) {
+        return res.status(409).json({
+          message: "Account already approved. Please login.",
+        });
+      }
 
-    // 2. التحقق من عدم وجود طلب قيد الانتظار بنفس الإيميل
-    const existingRequest = await CompanyRequest.findOne({
-      where: { email, status: "pending" },
-    });
-    if (existingRequest) {
-      return res.status(400).json({
-        message: "هناك بالفعل طلب قيد المراجعة بهذا البريد الإلكتروني.",
+      if (existingCompany.rejected_at) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await existingCompany.update({
+          name,
+          phone,
+          license_doc_url,
+          description,
+          logo_url,
+          password: hashedPassword,
+          password_set_at: new Date(),
+          is_approved: false,
+          rejected_at: null,
+          rejection_reason: null,
+          approved_at: null,
+        });
+
+        return successResponse(
+          res,
+          {
+            company_id: existingCompany.company_id,
+            status: getCompanyApprovalStatus(existingCompany),
+          },
+          "Your company registration was re-submitted for review."
+        );
+      }
+
+      return res.status(409).json({
+        message: "Your company is already pending approval.",
       });
     }
 
-    // 3. إنشاء الطلب
-    const request = await CompanyRequest.create({
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const company = await Company.create({
       name,
       email,
       phone,
       license_doc_url,
       description,
       logo_url,
-      status: "pending",
+      password: hashedPassword,
+      password_set_at: new Date(),
+      is_approved: false,
+      rejected_at: null,
+      rejection_reason: null,
+      approved_at: null,
     });
 
     return successResponse(
       res,
-      { request_id: request.request_id, status: request.status },
-      "تم إرسال طلب التسجيل بنجاح، سيتم مراجعته",
+      { company_id: company.company_id, status: getCompanyApprovalStatus(company) },
+      "Company registration submitted. Pending admin approval.",
       201
     );
   } catch (error) {
-    console.error("Error submitting company request:", error);
-    res
+    console.error("Error registering company:", error);
+    return res
       .status(500)
-      .json({ message: "حدث خطأ أثناء إنشاء الطلب", error: error.message });
+      .json({ message: "Server error while registering company.", error: error.message });
   }
 };
+
+//   دوال الوصول العام (Public/Seeker Company Access)
+
+/**
+ * @desc [Public] Company registration (legacy route)
+ * @route POST /api/company-requests
+ * @access Public
+ */
+exports.submitCompanyRequest = exports.registerCompany;
 
 //  دوال الإدارة (Admin/Internal Company Management)
 
@@ -137,6 +193,7 @@ exports.createCompany = async (req, res) => {
     phone,
     logo_url,
     description,
+    license_doc_url,
     is_approved = true,
   } = req.body;
   try {
@@ -146,7 +203,11 @@ exports.createCompany = async (req, res) => {
       phone,
       logo_url,
       description,
+      license_doc_url,
       is_approved,
+      approved_at: is_approved ? new Date() : null,
+      rejected_at: null,
+      rejection_reason: null,
     });
     return successResponse(res, newCompany, "تم إنشاء الشركة بنجاح", 201);
   } catch (error) {
@@ -205,6 +266,14 @@ exports.updateCompany = async (req, res) => {
     const { is_verified, ...updateData } = req.body;
     updateData.is_approved =
       is_verified !== undefined ? is_verified : req.body.is_approved;
+
+    if (updateData.is_approved === true) {
+      updateData.approved_at = new Date();
+      updateData.rejected_at = null;
+      updateData.rejection_reason = null;
+    } else if (updateData.is_approved === false) {
+      updateData.approved_at = null;
+    }
 
     await company.update(updateData);
     return successResponse(res, company, "تم تحديث بيانات الشركة بنجاح");

@@ -12,6 +12,7 @@ const CompanyRequests = () => {
   const [rejectNotes, setRejectNotes] = useState('');
   const [companyProfile, setCompanyProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('pending');
 
   const fetchRequests = async () => {
     try {
@@ -21,7 +22,7 @@ const CompanyRequests = () => {
       const payload = extractData(response);
       setRequests(Array.isArray(payload) ? payload : []);
     } catch (err) {
-      setError('Failed to load company requests.');
+      setError('Failed to load company approvals.');
     } finally {
       setLoading(false);
     }
@@ -37,17 +38,15 @@ const CompanyRequests = () => {
     setShowDetails(true);
     setCompanyProfile(null);
 
-    if (request.approved_company_id) {
-      setLoadingProfile(true);
-      try {
-        const response = await axiosInstance.get(`/companies/admin/${request.approved_company_id}`);
-        const payload = extractData(response);
-        setCompanyProfile(payload || null);
-      } catch (err) {
-        setCompanyProfile(null);
-      } finally {
-        setLoadingProfile(false);
-      }
+    setLoadingProfile(true);
+    try {
+      const response = await axiosInstance.get(`/companies/admin/${request.request_id}`);
+      const payload = extractData(response);
+      setCompanyProfile(payload || null);
+    } catch (err) {
+      setCompanyProfile(null);
+    } finally {
+      setLoadingProfile(false);
     }
   };
 
@@ -87,11 +86,31 @@ const CompanyRequests = () => {
     return 'bg-yellow-100 text-yellow-700';
   };
 
+  const filteredRequests = statusFilter === 'all'
+    ? requests
+    : requests.filter((request) => (request.status || '').toLowerCase() === statusFilter);
+
   return (
     <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white rounded-3xl">
-      <Header category="Admin" title="Company Requests" />
+      <Header category="Admin" title="Company Approvals" />
 
-      <div className="flex justify-end mb-4">
+      <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {['pending', 'approved', 'rejected', 'all'].map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() => setStatusFilter(status)}
+              className={`px-3 py-1 rounded-full text-sm border ${
+                statusFilter === status
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={fetchRequests}
@@ -122,7 +141,7 @@ const CompanyRequests = () => {
               </tr>
             </thead>
             <tbody>
-              {requests.map((request) => (
+              {filteredRequests.map((request) => (
                 <tr key={request.request_id} className="border-b">
                   <td className="px-4 py-3">{request.request_id}</td>
                   <td className="px-4 py-3">{request.name}</td>
@@ -143,10 +162,10 @@ const CompanyRequests = () => {
                   </td>
                 </tr>
               ))}
-              {requests.length === 0 && (
+              {filteredRequests.length === 0 && (
                 <tr>
                   <td colSpan="5" className="px-4 py-6 text-center text-gray-500">
-                    No company requests found.
+                    No company approvals found.
                   </td>
                 </tr>
               )}
@@ -217,11 +236,9 @@ const CompanyRequests = () => {
             <div className="border rounded-lg p-4 mb-4 bg-gray-50">
               <div className="flex items-center justify-between mb-2">
                 <p className="font-semibold text-sm">Company Profile</p>
-                {activeRequest.approved_company_id && (
-                  <span className="text-xs text-gray-400">
-                    ID #{activeRequest.approved_company_id}
-                  </span>
-                )}
+                <span className="text-xs text-gray-400">
+                  ID #{activeRequest.request_id}
+                </span>
               </div>
               {loadingProfile && (
                 <div className="text-sm text-gray-500">Loading company profile...</div>
@@ -241,8 +258,8 @@ const CompanyRequests = () => {
                     <p>{companyProfile.phone || '-'}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Approved</p>
-                    <p>{companyProfile.is_approved ? 'Yes' : 'No'}</p>
+                    <p className="text-xs text-gray-500">Status</p>
+                    <p>{activeRequest.status || 'pending'}</p>
                   </div>
                   <div className="md:col-span-2">
                     <p className="text-xs text-gray-500">Description</p>
@@ -252,13 +269,13 @@ const CompanyRequests = () => {
               )}
               {!loadingProfile && !companyProfile && (
                 <div className="text-sm text-gray-500">
-                  No company profile found yet. Approve the request to create one.
+                  Company profile not available.
                 </div>
               )}
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs text-gray-500 mb-1">Admin Notes</label>
+              <label className="block text-xs text-gray-500 mb-1">Admin Notes (sent on rejection)</label>
               <textarea
                 rows="3"
                 value={rejectNotes}

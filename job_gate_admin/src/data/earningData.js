@@ -17,10 +17,10 @@ export const earningData = [
     icon: <RiBuildingLine />,
     iconColor: '#047857',
     iconBg: '#D1FAE5',
-    description: 'Approved companies',
+    description: 'Total companies',
   },
   {
-    title: 'Company Requests',
+    title: 'Company Approvals',
     amount: '0',
     icon: <RiUserReceivedLine />,
     iconColor: '#B45309',

@@ -10,6 +10,16 @@ const Companies = () => {
   const [activeCompany, setActiveCompany] = useState(null);
   const [showEdit, setShowEdit] = useState(false);
 
+  const getStatusConfig = (company) => {
+    if (company.is_approved) {
+      return { label: 'Approved', className: 'bg-green-100 text-green-700' };
+    }
+    if (company.rejected_at) {
+      return { label: 'Rejected', className: 'bg-red-100 text-red-700' };
+    }
+    return { label: 'Pending', className: 'bg-yellow-100 text-yellow-700' };
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -112,7 +122,8 @@ const Companies = () => {
                 <th className="px-4 py-3 text-left">Name</th>
                 <th className="px-4 py-3 text-left">Email</th>
                 <th className="px-4 py-3 text-left">Phone</th>
-                <th className="px-4 py-3 text-left">Approved</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Rejection Reason</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -124,9 +135,17 @@ const Companies = () => {
                   <td className="px-4 py-3">{company.email}</td>
                   <td className="px-4 py-3">{company.phone || '-'}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs ${company.is_approved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                      {company.is_approved ? 'Yes' : 'No'}
-                    </span>
+                    {(() => {
+                      const status = getStatusConfig(company);
+                      return (
+                        <span className={`px-2 py-1 rounded-full text-xs ${status.className}`}>
+                          {status.label}
+                        </span>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-4 py-3">
+                    {company.rejection_reason || '-'}
                   </td>
                   <td className="px-4 py-3 text-right space-x-2">
                     <button
@@ -148,7 +167,7 @@ const Companies = () => {
               ))}
               {companies.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="px-4 py-6 text-center text-gray-500">
+                  <td colSpan="7" className="px-4 py-6 text-center text-gray-500">
                     No companies found.
                   </td>
                 </tr>

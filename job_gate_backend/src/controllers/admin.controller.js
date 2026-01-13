@@ -8,10 +8,10 @@ const {
   Application,
   Company,
   CV,
-  CompanyRequest,
 } = require("../models");
 const bcrypt = require("bcryptjs");
 const { successResponse } = require("../utils/responseHandler");
+const sendEmail = require("../utils/sendEmail");
 const fs = require("fs");
 const util = require("util");
 const unlinkFile = util.promisify(fs.unlink); // دالة لمسح الملفات (افتراضياً)
@@ -418,13 +418,75 @@ exports.getAndDownloadUserCV = async (req, res) => {
  */
 exports.listCompanyRequests = async (req, res) => {
   try {
-    const requests = await CompanyRequest.findAll({
-      order: [["request_id", "DESC"]],
+    const companies = await Company.findAll({
+      order: [["createdAt", "DESC"]],
     });
+
+    const requests = companies.map((company) => {
+      const status = company.is_approved
+        ? "approved"
+        : company.rejected_at
+        ? "rejected"
+        : "pending";
+
+      return {
+        request_id: company.company_id,
+        name: company.name,
+        email: company.email,
+        phone: company.phone,
+        license_doc_url: company.license_doc_url,
+        description: company.description,
+        logo_url: company.logo_url,
+        status,
+        admin_review_notes: company.rejection_reason,
+        approved_company_id: company.is_approved ? company.company_id : null,
+        created_at: company.createdAt,
+      };
+    });
+
     return successResponse(res, requests);
   } catch (error) {
     res.status(500).json({
-      message: "حدث خطأ أثناء جلب طلبات الشركات",
+      message: "Server error while listing company requests.",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc [Admin Only] Get a company request by ID
+ * @route GET /api/company-requests/:id
+ * @access Admin
+ */
+exports.getCompanyRequestById = async (req, res) => {
+  try {
+    const company = await Company.findByPk(req.params.id);
+    if (!company) {
+      return res.status(404).json({ message: "Company not found." });
+    }
+
+    const status = company.is_approved
+      ? "approved"
+      : company.rejected_at
+      ? "rejected"
+      : "pending";
+
+    return successResponse(res, {
+      request_id: company.company_id,
+      name: company.name,
+      email: company.email,
+      phone: company.phone,
+      license_doc_url: company.license_doc_url,
+      description: company.description,
+      logo_url: company.logo_url,
+      status,
+      admin_review_notes: company.rejection_reason,
+      approved_company_id: company.is_approved ? company.company_id : null,
+      created_at: company.createdAt,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Server error while fetching company request.",
       error: error.message,
     });
   }
@@ -438,48 +500,64 @@ exports.listCompanyRequests = async (req, res) => {
 exports.approveCompanyRequest = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const request = await CompanyRequest.findByPk(req.params.id, {
-      transaction: t,
-    });
+    const company = await Company.findByPk(req.params.id, { transaction: t });
 
-    if (!request) {
+    if (!company) {
       await t.rollback();
-      return res.status(404).json({ message: "الطلب غير موجود" });
-    }
-    if (request.status !== "pending") {
-      await t.rollback();
-      return res.status(400).json({ message: "تم معالجة هذا الطلب مسبقاً." });
+      return res.status(404).json({ message: "Company not found." });
     }
 
-    //  إنشاء حساب الشركة
-    const newCompany = await Company.create(
-      {
-        name: request.name,
-        email: request.email,
-        phone: request.phone,
-        license_doc_url: request.license_doc_url,
-        logo_url: request.logo_url,
-        description: request.description,
-        is_approved: true,
-      },
-      { transaction: t }
-    );
+    if (company.is_approved) {
+      await t.rollback();
+      return res.status(400).json({ message: "Company is already approved." });
+    }
 
-    //  تحديث حالة الطلب
-    request.status = "approved";
-    request.approved_company_id = newCompany.company_id;
-    await request.save({ transaction: t });
+    company.is_approved = true;
+    company.approved_at = new Date();
+    company.rejected_at = null;
+    company.rejection_reason = null;
+    await company.save({ transaction: t });
 
     await t.commit();
+
+    const subject = "Talents - Company Approved";
+    const textBody = `Hello ${company.name},
+
+Your company has been approved on Talents. You can now log in and start using the platform.
+
+If you need any help, reply to this email or contact support.
+
+Thanks,
+Talents Team`;
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Welcome to Talents, ${company.name}</h2>
+        <p>Your company has been approved. You can now log in and start using the platform.</p>
+        <p>If you need any help, reply to this email or contact support.</p>
+        <p>Thanks,<br/>Talents Team</p>
+      </div>
+    `;
+
+    let emailError = null;
+    try {
+      await sendEmail(company.email, subject, textBody, { html: htmlBody });
+    } catch (err) {
+      console.error("Approval email failed:", err);
+      emailError = err;
+    }
+
     return successResponse(
       res,
-      { company: newCompany },
-      "تمت الموافقة على الطلب وإنشاء حساب الشركة بنجاح"
+      { company, email_sent: !emailError },
+      emailError
+        ? "Company approved, but email failed to send."
+        : "Company approved successfully."
     );
   } catch (error) {
     await t.rollback();
     res.status(500).json({
-      message: "حدث خطأ أثناء الموافقة على الطلب",
+      message: "Server error while approving company.",
       error: error.message,
     });
   }
@@ -492,38 +570,77 @@ exports.approveCompanyRequest = async (req, res) => {
  */
 exports.rejectCompanyRequest = async (req, res) => {
   try {
-    const request = await CompanyRequest.findByPk(req.params.id);
+    const company = await Company.findByPk(req.params.id);
 
-    if (!request) {
-      return res.status(404).json({ message: "الطلب غير موجود" });
+    if (!company) {
+      return res.status(404).json({ message: "Company not found." });
     }
 
-    if (request.status !== "pending") {
-      return res.status(400).json({
-        message: "تم معالجة هذا الطلب مسبقاً (مقبول أو مرفوض سابقًا).",
-      });
+    if (company.is_approved) {
+      return res.status(400).json({ message: "Approved companies cannot be rejected." });
     }
 
     const { admin_review_notes } = req.body;
     if (!admin_review_notes) {
       return res.status(400).json({
-        message: "ملاحظات المسؤول (admin_review_notes) مطلوبة لرفض الطلب.",
+        message: "admin_review_notes is required to reject a company.",
       });
     }
 
-    request.status = "rejected";
-    request.admin_review_notes = admin_review_notes;
-    await request.save();
+    company.is_approved = false;
+    company.approved_at = null;
+    company.rejected_at = new Date();
+    company.rejection_reason = admin_review_notes;
+    await company.save();
+
+    const subject = "Talents - Company Registration Update";
+    const textBody = `Hello ${company.name},
+
+We reviewed your company registration on Talents, but we cannot approve it yet.
+
+Reason from the admin:
+${admin_review_notes}
+
+Please update your information and try again with the correct details.
+If you need help, reply to this email or contact support.
+
+Thanks,
+Talents Team`;
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Talents Registration Update</h2>
+        <p>We reviewed your company registration, but we cannot approve it yet.</p>
+        <p><strong>Admin note:</strong></p>
+        <blockquote style="background: #f5f5f5; padding: 12px; border-left: 4px solid #ddd;">
+          ${admin_review_notes}
+        </blockquote>
+        <p>Please update your information and try again with the correct details.</p>
+        <p>If you need help, reply to this email or contact support.</p>
+        <p>Thanks,<br/>Talents Team</p>
+      </div>
+    `;
+
+    let emailError = null;
+    try {
+      await sendEmail(company.email, subject, textBody, { html: htmlBody });
+    } catch (err) {
+      console.error("Rejection email failed:", err);
+      emailError = err;
+    }
 
     return successResponse(
       res,
-      { rejectedRequest: request },
-      "تم رفض الطلب بنجاح وإرسال إشعار للشركة"
+      { rejectedCompany: company, email_sent: !emailError },
+      emailError
+        ? "Company rejected, but email failed to send."
+        : "Company rejected and email sent."
     );
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "حدث خطأ أثناء رفض الطلب", error: error.message });
+    res.status(500).json({
+      message: "Server error while rejecting company.",
+      error: error.message,
+    });
   }
 };
 

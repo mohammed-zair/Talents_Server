@@ -65,6 +65,24 @@ const Company = sequelize.define("Company", {
     allowNull: true,
   },
 
+  // Rejection timestamp (set when admin rejects)
+  rejected_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+
+  // Admin rejection reason
+  rejection_reason: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+
+  // Approval timestamp
+  approved_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+
   is_approved: {
     type: DataTypes.BOOLEAN,
     defaultValue: true, // مادامت في هذا الجدول فهي معتمدة
