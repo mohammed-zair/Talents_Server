@@ -275,7 +275,6 @@ const Customers = () => {
           typeof user.is_banned === 'boolean'
             ? user.is_banned
             : user.is_active === false,
-        balances: user.balances ?? {},
         category: user.category ?? null,
         category_details: user.category_details ?? null,
         agent_code: user.agent_code ?? null,
@@ -452,16 +451,6 @@ const Customers = () => {
   const dormantPercentage = totalUsers > 0 ? ((userActivityData[1].y / totalUsers) * 100).toFixed(1) : '0.0';
   const newPercentage = totalUsers > 0 ? ((userActivityData[2].y / totalUsers) * 100).toFixed(1) : '0.0';
 
-  const totalBalances = useMemo(() => safeCustomers.reduce((acc, customer) => {
-    if (customer?.balances && typeof customer.balances === 'object') {
-      Object.entries(customer.balances).forEach(([currency, balance]) => {
-        const numBalance = parseFloat(String(balance)) || 0;
-        acc[currency] = (acc[currency] || 0) + numBalance;
-      });
-    }
-    return acc;
-  }, {}), [safeCustomers]);
-
   const adminCount = useMemo(
     () => safeCustomers.filter((user) => user?.role === 'admin').length,
     [safeCustomers]
@@ -600,36 +589,6 @@ const Customers = () => {
           {props.is_banned ? 'Banned' : 'Active'}
         </span>
       ),
-    },
-    {
-      field: 'balances.USD',
-      headerText: 'USD Balance',
-      width: '120',
-      textAlign: 'Center',
-      template: (props) => {
-        const balance = props.balances?.USD;
-        const numBalance = parseFloat(String(balance)) || 0;
-        return (
-          <span className="font-semibold text-green-600">
-            ${numBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        );
-      },
-    },
-    {
-      field: 'balances.SYP',
-      headerText: 'SYP Balance',
-      width: '120',
-      textAlign: 'Center',
-      template: (props) => {
-        const balance = props.balances?.SYP;
-        const numBalance = parseFloat(String(balance)) || 0;
-        return (
-          <span className="font-semibold text-orange-600">
-            {numBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SYP
-          </span>
-        );
-      },
     },
     {
       field: 'agent_code',
@@ -798,7 +757,7 @@ const Customers = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-blue-800 font-semibold">Total Customers</p>
           <p className="text-2xl font-bold text-blue-600">{totalUsers}</p>
@@ -810,18 +769,6 @@ const Customers = () => {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800 font-semibold">Admin Users</p>
           <p className="text-2xl font-bold text-red-600">{adminCount}</p>
-        </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <p className="text-purple-800 font-semibold">Total USD Balance</p>
-          <p className="text-2xl font-bold text-purple-600">
-            ${(totalBalances.USD || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-        </div>
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <p className="text-orange-800 font-semibold">Total SYP Balance</p>
-          <p className="text-2xl font-bold text-orange-600">
-            {(totalBalances.SYP || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SYP
-          </p>
         </div>
       </div>
 
