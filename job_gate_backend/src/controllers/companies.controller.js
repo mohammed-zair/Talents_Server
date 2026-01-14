@@ -73,6 +73,10 @@ const getCompanyApprovalStatus = (company) => {
  * @access Public
  */
 exports.registerCompany = async (req, res) => {
+  if (!req.body) {
+    return res.status(400).json({ message: "Request body is required." });
+  }
+
   const {
     name,
     email,
