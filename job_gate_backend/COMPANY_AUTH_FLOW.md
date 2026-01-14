@@ -24,6 +24,10 @@ Optional:
 - `description`
 - `logo_url`
 
+Error (missing body):
+
+- `400` with `{ message: "Request body is required." }` when no JSON body is sent
+
 Response (success):
 
 - `{ company_id, status }` where `status` is `pending|approved|rejected`

@@ -24,7 +24,7 @@ exports.getMyCVRequests = async (req, res) => {
 
     const items = await CompanyCVRequest.findAll({
       where: { company_id: companyId },
-      order: [["createdAt", "DESC"]],
+      order: [["created_at", "DESC"]],
     });
 
     return res.status(200).json({
