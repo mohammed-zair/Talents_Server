@@ -55,6 +55,7 @@ async function sendWithGmail({ to, subject, html, text }) {
 
 async function sendEmail({ to, subject, html, text }) {
   const provider = (process.env.EMAIL_PROVIDER || "resend").toLowerCase();
+  console.log("MAILER provider =", provider);
 
   if (provider === "gmail") return sendWithGmail({ to, subject, html, text });
   return sendWithResend({ to, subject, html, text });
