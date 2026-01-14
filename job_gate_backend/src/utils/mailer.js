@@ -26,6 +26,7 @@ async function sendWithResend({ to, subject, html, text }) {
     subject,
     text: text || undefined,
     html: html || (text ? `<p>${text.replace(/\n/g, "<br>")}</p>` : undefined),
+    reply_to: process.env.REPLY_TO_EMAIL || "talentswetrust@gmail.com",
   });
 }
 
