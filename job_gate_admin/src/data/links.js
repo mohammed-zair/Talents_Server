@@ -2,6 +2,7 @@ import React from 'react';
 import { FiFileText, FiHome, FiLayers, FiList, FiUser } from 'react-icons/fi';
 import { RiBuildingLine, RiUserReceivedLine } from 'react-icons/ri';
 import { MdEmail, MdNotificationsActive } from 'react-icons/md';
+import { AiOutlineRobot } from 'react-icons/ai';
 
 export const links = [
   {
@@ -61,6 +62,11 @@ export const links = [
         name: 'push',
         label: 'Push Center',
         icon: <MdNotificationsActive />,
+      },
+      {
+        name: 'try-ai',
+        label: 'Try AI',
+        icon: <AiOutlineRobot />,
       },
     ],
   },

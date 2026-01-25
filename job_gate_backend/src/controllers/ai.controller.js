@@ -26,6 +26,8 @@ exports.analyzeCVText = async (req, res) => {
     const structuredData = analysisResult.structured_data || {};
     const features = analysisResult.features || {};
     const ats_score = analysisResult.ats_score ?? analysisResult.score ?? 0;
+    const analysis_method = analysisResult.analysis_method || analysisResult.analysisMethod || null;
+    const processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
 
     if (saveToDb) {
       const cvRecord = await CV.create({
@@ -59,6 +61,8 @@ exports.analyzeCVText = async (req, res) => {
         structured_data: structuredData,
         features,
         ats_score,
+        analysis_method,
+        processing_time,
         saved_to_db: true,
         requestId,
       }, 'تم تحليل CV بنجاح وحفظه في قاعدة البيانات');
@@ -69,6 +73,8 @@ exports.analyzeCVText = async (req, res) => {
       structured_data: structuredData,
       features,
       ats_score,
+      analysis_method,
+      processing_time,
       saved_to_db: false,
       requestId,
     }, 'تم تحليل CV بنجاح (لم يتم الحفظ)');

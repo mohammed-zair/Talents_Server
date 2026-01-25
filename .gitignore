@@ -44,3 +44,6 @@ lerna-debug.log*
 
 # Local tooling
 **/.qodo/job_gate_backend/src/config/firebase-admin.json
+
+# mobile app
+.apk
