@@ -71,6 +71,70 @@ const AIChatbot = () => {
     setError(null);
   };
 
+  const renderAssistantText = (text) => {
+    const lines = String(text || '').split(/\r?\n/);
+    const nodes = [];
+
+    const renderInline = (line, keyBase) => {
+      const parts = line.split(/\*\*(.+?)\*\*/g);
+      return parts.map((part, idx) => {
+        if (idx % 2 === 1) {
+          return (
+            <strong key={`${keyBase}-b-${idx}`} className="text-indigo-700 font-semibold">
+              {part}
+            </strong>
+          );
+        }
+        return <span key={`${keyBase}-t-${idx}`}>{part}</span>;
+      });
+    };
+
+    let listBuffer = [];
+
+    const flushList = (keyBase) => {
+      if (listBuffer.length === 0) return;
+      nodes.push(
+        <ul key={`${keyBase}-list`} className="list-disc pl-5 space-y-1 text-slate-700">
+          {listBuffer.map((item, idx) => (
+            <li key={`${keyBase}-li-${idx}`}>{renderInline(item, `${keyBase}-li-${idx}`)}</li>
+          ))}
+        </ul>
+      );
+      listBuffer = [];
+    };
+
+    lines.forEach((rawLine, lineIndex) => {
+      const line = rawLine.trim();
+      const keyBase = `line-${lineIndex}`;
+      const isBullet = /^[-*]\s+/.test(line);
+
+      if (isBullet) {
+        listBuffer.push(line.replace(/^[-*]\s+/, ''));
+        return;
+      }
+
+      flushList(keyBase);
+
+      if (!line) {
+        nodes.push(<div key={`${keyBase}-spacer`} className="h-2" />);
+        return;
+      }
+
+      const isNote = /^\(.*\)$/.test(line);
+      nodes.push(
+        <p
+          key={`${keyBase}-p`}
+          className={isNote ? 'text-xs text-slate-500 italic' : 'text-slate-700'}
+        >
+          {renderInline(line, keyBase)}
+        </p>
+      );
+    });
+
+    flushList('final');
+    return nodes;
+  };
+
   return (
     <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white rounded-3xl">
       <Header category="Admin" title="AI Chatbot" />
@@ -128,7 +192,9 @@ const AIChatbot = () => {
                       : 'bg-gradient-to-br from-white to-indigo-50 border border-indigo-100 text-slate-700 shadow-sm'
                   }`}
                 >
-                  {entry.content}
+                  {entry.role === 'assistant'
+                    ? renderAssistantText(entry.content)
+                    : entry.content}
                 </div>
               </div>
             ))}
