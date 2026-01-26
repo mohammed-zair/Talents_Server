@@ -50,6 +50,10 @@ exports.sendTalentsInviteEmails = async (req, res) => {
       },
       timeout: 20000,
     });
+    console.log("[Talents Email] Response:", {
+      status: response.status,
+      data: response.data,
+    });
 
     const failed = Array.isArray(response.data?.failed) ? response.data.failed : [];
     const failedSet = new Set(failed.map((email) => String(email).toLowerCase()));
@@ -82,6 +86,7 @@ exports.sendTalentsInviteEmails = async (req, res) => {
       sent: response.data?.sent ?? updates.length,
       failed,
       passwords_updated: updatedCount,
+      raw_response: response.data ?? null,
     });
   } catch (error) {
     const status = error.response?.status || 500;
