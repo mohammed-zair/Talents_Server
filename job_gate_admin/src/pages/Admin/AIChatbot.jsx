@@ -110,7 +110,7 @@ const AIChatbot = () => {
         </div>
 
         <div className="lg:col-span-2 bg-white border rounded-2xl p-6 flex flex-col">
-          <div className="flex-1 overflow-auto border rounded-lg p-4 bg-gray-50">
+          <div className="flex-1 overflow-auto border rounded-lg p-4 bg-gradient-to-b from-slate-50 via-white to-slate-50">
             {conversation.length === 0 && (
               <div className="text-center text-gray-500 py-10">
                 Start a session to chat with the AI assistant.
@@ -122,10 +122,10 @@ const AIChatbot = () => {
                 className={`mb-3 flex ${entry.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm ${
+                  className={`px-4 py-3 rounded-2xl max-w-[85%] text-sm leading-relaxed whitespace-pre-wrap ${
                     entry.role === 'user'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white border text-gray-800'
+                      ? 'bg-gradient-to-br from-indigo-600 to-indigo-500 text-white shadow-sm'
+                      : 'bg-gradient-to-br from-white to-indigo-50 border border-indigo-100 text-slate-700 shadow-sm'
                   }`}
                 >
                   {entry.content}

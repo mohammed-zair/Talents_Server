@@ -246,12 +246,20 @@ const Customers = () => {
     isOpen: false,
     user: null,
   });
+  const [inviteSending, setInviteSending] = useState(false);
   const [categories, setCategories] = useState([]);
   const [assigningUserId, setAssigningUserId] = useState(null);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   const selectionsettings = { persistSelection: true };
-  const toolbarOptions = ['Delete', 'Block', 'Unblock', 'Make Admin', 'Refresh'];
+  const toolbarOptions = [
+    'Delete',
+    'Block',
+    'Unblock',
+    'Make Admin',
+    { text: 'Send Invite Email', tooltipText: 'Send Talents invite email', id: 'sendInviteEmail' },
+    'Refresh',
+  ];
   const editing = { allowDeleting: true, allowEditing: true };
 
   const fetchCustomers = useCallback(async () => {
@@ -284,7 +292,7 @@ const Customers = () => {
       setCustomers(mappedUsers);
     } catch (err) {
       console.error('Error fetching customers:', err);
-      setError('Failed to load customers data. Please check if the admin user is logged in.');
+      setError('Failed to load job seeker data. Please check if the admin user is logged in.');
       setCustomers([]);
     } finally {
       setLoading(false);
@@ -335,6 +343,37 @@ const Customers = () => {
       user,
     });
   }, []);
+
+  const sendInviteEmails = useCallback(async ({ selectedUsers, sendAll }) => {
+    if (inviteSending) return;
+    setInviteSending(true);
+    try {
+      const userIds = Array.isArray(selectedUsers)
+        ? selectedUsers.map((user) => user.id).filter(Boolean)
+        : [];
+
+      const response = await axiosInstance.post('/admin/talents/invite-emails', {
+        userIds,
+        sendAll,
+      });
+
+      const payload = response.data || {};
+      alert(
+        `Invite emails requested: ${payload.requested || 0}\n` +
+        `Sent: ${payload.sent || 0}\n` +
+        `Failed: ${Array.isArray(payload.failed) ? payload.failed.length : 0}`
+      );
+    } catch (err) {
+      console.error('Error sending invite emails:', err);
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data ||
+        'Failed to send invite emails.';
+      alert(message);
+    } finally {
+      setInviteSending(false);
+    }
+  }, [inviteSending]);
 
   const closeAdminPromotionModal = useCallback(() => {
     setAdminModal({
@@ -697,10 +736,25 @@ const Customers = () => {
       }
     }
 
+    if (args.item.id.includes('sendInviteEmail')) {
+      if (inviteSending) return;
+
+      if (safeSelected.length === 0) {
+        const confirmed = window.confirm(
+          'No users selected. Send invite emails to ALL job seekers?'
+        );
+        if (!confirmed) return;
+        await sendInviteEmails({ selectedUsers: [], sendAll: true });
+        return;
+      }
+
+      await sendInviteEmails({ selectedUsers: safeSelected, sendAll: false });
+    }
+
     if (args.item.id.includes('Refresh')) {
       fetchCustomers();
     }
-  }, [gridInstance, fetchCustomers, openAdminPromotionModal]);
+  }, [gridInstance, fetchCustomers, inviteSending, openAdminPromotionModal, sendInviteEmails]);
 
   const pointRender = useCallback((args) => {
     const activityItem = userActivityData.find((item) => item.x === args.point.x);
@@ -712,9 +766,9 @@ const Customers = () => {
   if (loading) {
     return (
       <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white rounded-3xl">
-        <Header category="User Management" title="Customers" />
+        <Header category="User Management" title="Job Seekers" />
         <div className="flex justify-center items-center h-40">
-          <div className="text-lg">Loading customers data...</div>
+          <div className="text-lg">Loading job seeker data...</div>
         </div>
       </div>
     );
@@ -723,7 +777,7 @@ const Customers = () => {
   if (error) {
     return (
       <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white rounded-3xl">
-        <Header category="User Management" title="Customers" />
+        <Header category="User Management" title="Job Seekers" />
         <div className="flex flex-col justify-center items-center h-40 gap-4">
           <div className="text-lg text-red-500">{error}</div>
           <button
@@ -740,12 +794,12 @@ const Customers = () => {
 
   return (
     <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white rounded-3xl">
-      <Header category="User Management" title="Customers" />
+      <Header category="User Management" title="Job Seekers" />
 
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-600">
-            Total: {totalUsers} users • Categorized: {categorizedUsers} ({totalUsers > 0 ? ((categorizedUsers / totalUsers) * 100).toFixed(1) : 0}%)
+            Total: {totalUsers} job seekers • Categorized: {categorizedUsers} ({totalUsers > 0 ? ((categorizedUsers / totalUsers) * 100).toFixed(1) : 0}%)
           </span>
         </div>
         <button
@@ -759,7 +813,7 @@ const Customers = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-blue-800 font-semibold">Total Customers</p>
+          <p className="text-blue-800 font-semibold">Total Job Seekers</p>
           <p className="text-2xl font-bold text-blue-600">{totalUsers}</p>
         </div>
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -895,7 +949,7 @@ const Customers = () => {
         </GridComponent>
       ) : (
         <div className="text-center py-8 bg-gray-50 rounded-lg">
-          <p className="text-gray-500 text-lg">No customers found</p>
+          <p className="text-gray-500 text-lg">No job seekers found</p>
           <p className="text-gray-400 mt-2">Customer data will appear here once available</p>
         </div>
       )}

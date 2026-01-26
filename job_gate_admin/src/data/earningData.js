@@ -4,12 +4,12 @@ import { RiBuildingLine, RiUserReceivedLine } from 'react-icons/ri';
 
 export const earningData = [
   {
-    title: 'Users',
+    title: 'Job Seekers',
     amount: '0',
     icon: <FiUser />,
     iconColor: '#1D4ED8',
     iconBg: '#DBEAFE',
-    description: 'Total registered users',
+    description: 'Total registered job seekers',
   },
   {
     title: 'Companies',

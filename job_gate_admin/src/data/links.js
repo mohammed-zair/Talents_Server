@@ -20,7 +20,7 @@ export const links = [
     links: [
       {
         name: 'users',
-        label: 'Users',
+        label: 'Job Seekers',
         icon: <FiUser />,
       },
       {

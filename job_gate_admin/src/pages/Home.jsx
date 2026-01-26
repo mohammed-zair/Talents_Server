@@ -135,7 +135,7 @@ const Home = () => {
   // ... rest of the component remains the same ...
   const updatedEarningData = earningData.map((item) => {
     const titleKey = item.title.toLowerCase();
-    if (titleKey.includes('users')) {
+    if (titleKey.includes('job seekers') || titleKey.includes('users')) {
       return { ...item, amount: loading ? '...' : stats.totalUsers.toString() };
     }
     if (titleKey.includes('company approvals') || titleKey.includes('company requests')) {
@@ -188,7 +188,7 @@ const Home = () => {
   };
 
   const getCountForTitle = (titleKey) => {
-    if (titleKey.includes('users')) return stats.totalUsers;
+    if (titleKey.includes('job seekers') || titleKey.includes('users')) return stats.totalUsers;
     if (titleKey.includes('company-requests') || titleKey.includes('company-approvals')) return stats.pendingCompanyRequests;
     if (titleKey.includes('companies')) return stats.totalCompanies;
     if (titleKey.includes('applications')) return stats.totalApplications;
@@ -203,7 +203,7 @@ const Home = () => {
   };
 
   const routeMap = {
-    Users: 'users',
+    'Job Seekers': 'users',
     Companies: 'companies',
     'Company Approvals': 'company-requests',
     Applications: 'applications',
