@@ -74,6 +74,7 @@ const AIChatbot = () => {
   const renderAssistantText = (text) => {
     const lines = String(text || '').split(/\r?\n/);
     const nodes = [];
+    let hasLead = false;
 
     const renderInline = (line, keyBase) => {
       const parts = line.split(/\*\*(.+?)\*\*/g);
@@ -94,7 +95,7 @@ const AIChatbot = () => {
     const flushList = (keyBase) => {
       if (listBuffer.length === 0) return;
       nodes.push(
-        <ul key={`${keyBase}-list`} className="list-disc pl-5 space-y-1 text-slate-700">
+        <ul key={`${keyBase}-list`} className="list-disc pl-5 space-y-1 text-slate-700 text-base">
           {listBuffer.map((item, idx) => (
             <li key={`${keyBase}-li-${idx}`}>{renderInline(item, `${keyBase}-li-${idx}`)}</li>
           ))}
@@ -121,10 +122,20 @@ const AIChatbot = () => {
       }
 
       const isNote = /^\(.*\)$/.test(line);
+      const isLead = !hasLead && !isNote;
+      if (!hasLead && !isNote) {
+        hasLead = true;
+      }
       nodes.push(
         <p
           key={`${keyBase}-p`}
-          className={isNote ? 'text-xs text-slate-500 italic' : 'text-slate-700'}
+          className={
+            isNote
+              ? 'text-xs text-slate-500 italic'
+              : isLead
+                ? 'text-lg font-semibold text-slate-800'
+                : 'text-base text-slate-700'
+          }
         >
           {renderInline(line, keyBase)}
         </p>
@@ -186,10 +197,10 @@ const AIChatbot = () => {
                 className={`mb-3 flex ${entry.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`px-4 py-3 rounded-2xl max-w-[85%] text-sm leading-relaxed whitespace-pre-wrap ${
+                  className={`px-4 py-3 rounded-2xl max-w-[85%] leading-relaxed whitespace-pre-wrap ${
                     entry.role === 'user'
-                      ? 'bg-gradient-to-br from-indigo-600 to-indigo-500 text-white shadow-sm'
-                      : 'bg-gradient-to-br from-white to-indigo-50 border border-indigo-100 text-slate-700 shadow-sm'
+                      ? 'bg-gradient-to-br from-indigo-600 to-indigo-500 text-white text-sm shadow-sm'
+                      : 'bg-gradient-to-br from-white to-indigo-50 border border-indigo-100 text-slate-700 text-base shadow-sm'
                   }`}
                 >
                   {entry.role === 'assistant'
