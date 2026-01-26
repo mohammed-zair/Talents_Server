@@ -27,7 +27,11 @@ router.get("/cvs/:userId", adminController.getAndDownloadUserCV);
 // --- الإشعارات والبريد الإلكتروني ---
 router.post("/email/send", emailController.sendCustomEmail);
 router.get("/email", emailController.listSentEmails);
-router.post("/talents/invite-emails", talentsEmailController.sendTalentsInviteEmails);
+router.post(
+  "/talents/invite-emails",
+  talentsEmailController.sendTalentsInviteEmails,
+);
+router.post("/talents/import-cvs", talentsEmailController.processCvImports);
 router.post("/push/send", pushController.sendPushToUser);
 router.get("/push", pushController.listSentPushNotifications);
 
@@ -35,11 +39,11 @@ router.get("/push", pushController.listSentPushNotifications);
 router.get("/company-requests", adminController.listCompanyRequests);
 router.put(
   "/company-requests/approve/:id",
-  adminController.approveCompanyRequest
+  adminController.approveCompanyRequest,
 );
 router.put(
   "/company-requests/reject/:id",
-  adminController.rejectCompanyRequest
+  adminController.rejectCompanyRequest,
 );
 router.delete("/companies/:id", adminController.deleteCompany);
 
