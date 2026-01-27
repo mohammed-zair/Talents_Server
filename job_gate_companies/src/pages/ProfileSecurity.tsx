@@ -81,6 +81,7 @@ const ProfileSecurity: React.FC = () => {
       verified: "Verified",
       pending: "Pending Approval",
       dragDrop: "Drag & drop your logo here, or click to upload.",
+      dragDropHint: "PNG, JPG up to 2MB.",
       name: "Company Name",
       industry: "Industry",
       phone: "Phone",
@@ -102,6 +103,7 @@ const ProfileSecurity: React.FC = () => {
       verified: "موثّق",
       pending: "قيد الموافقة",
       dragDrop: "اسحب الشعار هنا أو انقر للتحميل.",
+      dragDropHint: "PNG أو JPG حتى 2MB.",
       name: "اسم الشركة",
       industry: "المجال",
       phone: "الهاتف",
@@ -126,6 +128,11 @@ const ProfileSecurity: React.FC = () => {
     lastPasswordChange: "",
   };
 
+  const strengthLabel =
+    language === "ar"
+      ? ["ضعيفة", "جيدة", "قوية"][strengthScore] ?? "ضعيفة"
+      : ["Weak", "Good", "Strong"][strengthScore] ?? "Weak";
+
   return (
     <div className="space-y-8">
       <SectionHeader
@@ -144,14 +151,35 @@ const ProfileSecurity: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                    {copy.verification}
-                  </p>
-                  <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--chip-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-                    <ShieldCheck size={14} />
-                    {data.verified ? copy.verified : copy.pending}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)]">
+                    {logoFile ? (
+                      <img
+                        src={URL.createObjectURL(logoFile)}
+                        alt="Logo preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : data.logoUrl ? (
+                      <img
+                        src={data.logoUrl}
+                        alt="Company logo"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
+                        <ShieldCheck size={18} />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                      {copy.verification}
+                    </p>
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--chip-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                      <ShieldCheck size={14} />
+                      {data.verified ? copy.verified : copy.pending}
+                    </div>
                   </div>
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">{data.email}</div>
@@ -164,24 +192,11 @@ const ProfileSecurity: React.FC = () => {
                 }`}
               >
                 <input {...getInputProps()} />
-                {logoFile ? (
-                  <img
-                    src={URL.createObjectURL(logoFile)}
-                    alt="Logo preview"
-                    className="h-16 w-16 rounded-2xl object-cover"
-                  />
-                ) : data.logoUrl ? (
-                  <img
-                    src={data.logoUrl}
-                    alt="Company logo"
-                    className="h-16 w-16 rounded-2xl object-cover"
-                  />
-                ) : (
-                  <UploadCloud size={28} className="text-[var(--accent)]" />
-                )}
+                <UploadCloud size={28} className="text-[var(--accent)]" />
                 <p className="mt-3 text-xs text-[var(--text-muted)]">
                   {copy.dragDrop}
                 </p>
+                <p className="mt-1 text-[11px] text-[var(--text-muted)]">{copy.dragDropHint}</p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -282,13 +297,15 @@ const ProfileSecurity: React.FC = () => {
                 }
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
               />
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--panel-border)]">
+                <div
+                  className="h-full rounded-full bg-[var(--accent)] transition-all"
+                  style={{ width: `${(strengthScore / 3) * 100}%` }}
+                />
+              </div>
               <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
                 <span>{copy.strengthHint}</span>
-                <span className="text-[var(--accent)]">
-                  {language === "ar"
-                    ? ["ضعيفة", "جيدة", "قوية"][strengthScore] ?? "ضعيفة"
-                    : ["Weak", "Good", "Strong"][strengthScore] ?? "Weak"}
-                </span>
+                <span className="text-[var(--accent)]">{strengthLabel}</span>
               </div>
             </div>
             <Button
