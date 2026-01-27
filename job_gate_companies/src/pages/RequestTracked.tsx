@@ -50,8 +50,12 @@ const RequestTracked: React.FC = () => {
             : "We will notify you by email once approval is complete."}
         </p>
         <div className="space-y-2">
-          <label className="text-xs text-[var(--text-muted)]">{copy.requestId}</label>
+          <label htmlFor="track-request-id" className="text-xs text-[var(--text-muted)]">
+            {copy.requestId}
+          </label>
           <input
+            id="track-request-id"
+            name="request_id"
             value={requestId}
             onChange={(event) => setRequestId(event.target.value)}
             className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"

@@ -67,8 +67,12 @@ const LoginForm: React.FC = () => {
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
-        <label className="text-xs text-[var(--text-muted)]">{labels.email}</label>
+        <label htmlFor="login-email" className="text-xs text-[var(--text-muted)]">
+          {labels.email}
+        </label>
         <input
+          id="login-email"
+          name="email"
           value={form.email}
           onChange={(event) => setForm({ ...form, email: event.target.value })}
           type="email"
@@ -77,8 +81,12 @@ const LoginForm: React.FC = () => {
         />
       </div>
       <div className="space-y-2">
-        <label className="text-xs text-[var(--text-muted)]">{labels.password}</label>
+        <label htmlFor="login-password" className="text-xs text-[var(--text-muted)]">
+          {labels.password}
+        </label>
         <input
+          id="login-password"
+          name="password"
           value={form.password}
           onChange={(event) => setForm({ ...form, password: event.target.value })}
           type="password"

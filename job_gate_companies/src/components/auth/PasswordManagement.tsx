@@ -95,8 +95,12 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <label className="text-xs text-[var(--text-muted)]">{labels.email}</label>
+        <label htmlFor="pm-email" className="text-xs text-[var(--text-muted)]">
+          {labels.email}
+        </label>
         <input
+          id="pm-email"
+          name="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           type="email"
@@ -106,8 +110,12 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
 
       {mode === "set" && (
         <div className="space-y-2">
-          <label className="text-xs text-[var(--text-muted)]">{labels.token}</label>
+          <label htmlFor="pm-token" className="text-xs text-[var(--text-muted)]">
+            {labels.token}
+          </label>
           <input
+            id="pm-token"
+            name="token"
             value={inviteToken}
             onChange={(event) => setInviteToken(event.target.value)}
             className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
@@ -123,15 +131,21 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
 
       {mode === "reset" && step === "reset" && (
         <div className="space-y-3">
-          <label className="text-xs text-[var(--text-muted)]">{labels.code}</label>
+          <label htmlFor="pm-otp" className="text-xs text-[var(--text-muted)]">
+            {labels.code}
+          </label>
           <OtpInput value={code} onChange={setCode} />
         </div>
       )}
 
       {(mode === "set" || step === "reset") && (
         <div className="space-y-2">
-          <label className="text-xs text-[var(--text-muted)]">{labels.password}</label>
+          <label htmlFor="pm-password" className="text-xs text-[var(--text-muted)]">
+            {labels.password}
+          </label>
           <input
+            id="pm-password"
+            name="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             type="password"
