@@ -24,6 +24,7 @@ const CVRequests = React.lazy(() => import("./pages/CVRequests"));
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { LanguageProvider, useLanguage } from "./contexts/LanguageContext";
 import Button from "./components/shared/Button";
+import { clearToken } from "./services/auth";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import AuthStatusOverlay from "./components/auth/AuthStatusOverlay";
 
@@ -37,6 +38,8 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       profile: "Profile & Security",
       jobs: "Jobs & Forms",
       cv: "CV Marketplace",
+      settings: "Settings",
+      logout: "Logout",
     },
     ar: {
       dashboard: "لوحة القيادة",
@@ -44,6 +47,8 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       profile: "الملف والأمان",
       jobs: "الوظائف والنماذج",
       cv: "سوق السير الذاتية",
+      settings: "الإعدادات",
+      logout: "تسجيل الخروج",
     },
   }[language];
 
@@ -63,22 +68,6 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </p>
                 <p className="text-sm font-semibold text-[var(--text-primary)]">We Trust</p>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setTheme(theme === "trust" ? "ai" : "trust")}
-                className="px-3"
-              >
-                {theme === "ai" ? <SunMedium size={16} /> : <MoonStar size={16} />}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setLanguage(language === "en" ? "ar" : "en")}
-                className="px-3"
-              >
-                {language === "en" ? "AR" : "EN"}
-              </Button>
             </div>
           </header>
           <aside
@@ -160,24 +149,39 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <p className="text-[var(--text-primary)]">Bias-Shield Mode</p>
                 <p>Encrypted anonymization starts Q2 2026.</p>
               </div>
-              <div className="flex items-center justify-between gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => setTheme(theme === "trust" ? "ai" : "trust")}
-                >
-                  {theme === "ai" ? <SunMedium size={16} /> : <MoonStar size={16} />}
-                  <span className="ms-2">{theme === "ai" ? "Light" : "Dark"}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setTheme(theme === "cloud" ? "trust" : "cloud")}
-                >
-                  Premium
-                </Button>
+              <div className="rounded-2xl border border-[var(--panel-border)] p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                  {navLabels.settings}
+                </p>
+                <div className="mt-3 flex flex-col gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setTheme(theme === "trust" ? "ai" : "trust")}
+                  >
+                    {theme === "ai" ? <SunMedium size={16} /> : <MoonStar size={16} />}
+                    <span className="ms-2">{theme === "ai" ? "Light" : "Dark"}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setTheme(theme === "cloud" ? "trust" : "cloud")}
+                  >
+                    Premium
+                  </Button>
+                  <Button variant="outline" onClick={() => setLanguage(language === "en" ? "ar" : "en")}>
+                    {language === "en" ? "AR" : "EN"} · {dir.toUpperCase()}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-red-300 text-red-500"
+                    onClick={() => {
+                      clearToken();
+                      window.location.href = "/companies/login";
+                    }}
+                  >
+                    {navLabels.logout}
+                  </Button>
+                </div>
               </div>
-              <Button variant="outline" onClick={() => setLanguage(language === "en" ? "ar" : "en")}>
-                {language === "en" ? "AR" : "EN"} · {dir.toUpperCase()}
-              </Button>
             </div>
           </aside>
 

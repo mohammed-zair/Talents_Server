@@ -22,6 +22,7 @@ const ProfileSecurity: React.FC = () => {
   const [profileForm, setProfileForm] = useState<Partial<CompanyProfile>>({});
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [passwords, setPasswords] = useState({ currentPassword: "", newPassword: "" });
+  const [showCredentials, setShowCredentials] = useState(false);
 
   const updateProfile = useMutation({
     mutationFn: companyApi.updateCompanyProfile,
@@ -64,6 +65,7 @@ const ProfileSecurity: React.FC = () => {
     if (profileForm.name) payload.append("name", profileForm.name);
     if (profileForm.industry) payload.append("industry", profileForm.industry);
     if (profileForm.phone) payload.append("phone", profileForm.phone);
+    if (profileForm.email) payload.append("email", profileForm.email);
     if (logoFile) payload.append("logo", logoFile);
     updateProfile.mutate(payload);
   };
@@ -91,6 +93,7 @@ const ProfileSecurity: React.FC = () => {
       lastChanged: "Last changed",
       currentPassword: "Current Password",
       newPassword: "New Password",
+      updateCredentials: "Update Email & Password",
       strengthHint: "Min 8 chars, 1 uppercase, 1 number",
       changePassword: "Change Password",
       saving: "Saving...",
@@ -113,6 +116,7 @@ const ProfileSecurity: React.FC = () => {
       lastChanged: "آخر تغيير",
       currentPassword: "كلمة المرور الحالية",
       newPassword: "كلمة مرور جديدة",
+      updateCredentials: "تحديث البريد وكلمة المرور",
       strengthHint: "8 أحرف على الأقل، حرف كبير ورقم",
       changePassword: "تغيير كلمة المرور",
       saving: "جارٍ الحفظ...",
@@ -268,56 +272,98 @@ const ProfileSecurity: React.FC = () => {
                 {copy.lastChanged}: {data.lastPasswordChange || "—"}
               </p>
             </div>
-            <div className="space-y-2">
-              <label htmlFor="profile-current-password" className="text-xs text-[var(--text-muted)]">
-                {copy.currentPassword}
-              </label>
-              <input
-                id="profile-current-password"
-                name="currentPassword"
-                type="password"
-                value={passwords.currentPassword}
-                onChange={(event) =>
-                  setPasswords((prev) => ({ ...prev, currentPassword: event.target.value }))
-                }
-                className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="profile-new-password" className="text-xs text-[var(--text-muted)]">
-                {copy.newPassword}
-              </label>
-              <input
-                id="profile-new-password"
-                name="newPassword"
-                type="password"
-                value={passwords.newPassword}
-                onChange={(event) =>
-                  setPasswords((prev) => ({ ...prev, newPassword: event.target.value }))
-                }
-                className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-              />
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--panel-border)]">
-                <div
-                  className="h-full rounded-full bg-[var(--accent)] transition-all"
-                  style={{ width: `${(strengthScore / 3) * 100}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-                <span>{copy.strengthHint}</span>
-                <span className="text-[var(--accent)]">{strengthLabel}</span>
-              </div>
-            </div>
             <Button
               className="w-full justify-center"
-              onClick={handlePasswordSave}
-              disabled={changePassword.isPending}
+              onClick={() => setShowCredentials(true)}
             >
-              {changePassword.isPending ? copy.saving : copy.changePassword}
+              {copy.updateCredentials}
             </Button>
           </div>
         </Card>
       </div>
+
+      {showCredentials && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
+          <div className="glass-card w-full max-w-lg rounded-3xl border p-6">
+            <h3 className="heading-serif text-xl text-[var(--text-primary)]">
+              {copy.updateCredentials}
+            </h3>
+            <div className="mt-4 space-y-3">
+              <div className="space-y-2">
+                <label htmlFor="profile-email" className="text-xs text-[var(--text-muted)]">
+                  {language === "ar" ? "البريد الإلكتروني" : "Email"}
+                </label>
+                <input
+                  id="profile-email"
+                  name="email"
+                  defaultValue={data.email}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({ ...prev, email: event.target.value }))
+                  }
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="profile-current-password" className="text-xs text-[var(--text-muted)]">
+                  {copy.currentPassword}
+                </label>
+                <input
+                  id="profile-current-password"
+                  name="currentPassword"
+                  type="password"
+                  value={passwords.currentPassword}
+                  onChange={(event) =>
+                    setPasswords((prev) => ({ ...prev, currentPassword: event.target.value }))
+                  }
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="profile-new-password" className="text-xs text-[var(--text-muted)]">
+                  {copy.newPassword}
+                </label>
+                <input
+                  id="profile-new-password"
+                  name="newPassword"
+                  type="password"
+                  value={passwords.newPassword}
+                  onChange={(event) =>
+                    setPasswords((prev) => ({ ...prev, newPassword: event.target.value }))
+                  }
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--panel-border)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--accent)] transition-all"
+                    style={{ width: `${(strengthScore / 3) * 100}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                  <span>{copy.strengthHint}</span>
+                  <span className="text-[var(--accent)]">{strengthLabel}</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setShowCredentials(false)}>
+                {language === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button
+                onClick={() => {
+                  handleProfileSave();
+                  if (passwords.currentPassword && passwords.newPassword) {
+                    handlePasswordSave();
+                  }
+                  setShowCredentials(false);
+                }}
+                disabled={updateProfile.isPending || changePassword.isPending}
+              >
+                {copy.changePassword}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

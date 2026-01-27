@@ -38,34 +38,6 @@ const MOCK_CANDIDATES: MockCandidate[] = [
     submittedAt: "2026-01-23",
   },
   {
-    id: "c-102",
-    name: "Omar K.",
-    role: "Full‑Stack Developer",
-    location: "Jeddah",
-    experienceYears: 4,
-    education: "BEng Software Engineering",
-    atsScore: { score: 84, max: 100, label: "Strong Fit" },
-    insights: ["React + Node.js", "Built ATS integrations", "Agile team lead"],
-    recommendation: "Proceed with technical screen.",
-    cvUrl: "/download/app-release.apk",
-    stage: "review",
-    submittedAt: "2026-01-24",
-  },
-  {
-    id: "c-103",
-    name: "Lina S.",
-    role: "Data Analyst",
-    location: "Dammam",
-    experienceYears: 3,
-    education: "MSc Data Science",
-    atsScore: { score: 78, max: 100, label: "Good Potential" },
-    insights: ["Power BI + SQL", "Forecasting experience", "Strong presentation"],
-    recommendation: "Review portfolio. Consider data task.",
-    cvUrl: "/download/app-release.apk",
-    stage: "review",
-    submittedAt: "2026-01-22",
-  },
-  {
     id: "c-104",
     name: "Yousef M.",
     role: "DevOps Engineer",
@@ -78,20 +50,6 @@ const MOCK_CANDIDATES: MockCandidate[] = [
     cvUrl: "/download/app-release.apk",
     stage: "shortlist",
     submittedAt: "2026-01-21",
-  },
-  {
-    id: "c-105",
-    name: "Alya N.",
-    role: "Product Manager",
-    location: "Remote",
-    experienceYears: 5,
-    education: "MBA",
-    atsScore: { score: 81, max: 100, label: "Solid Fit" },
-    insights: ["Roadmap ownership", "B2B SaaS background", "User research heavy"],
-    recommendation: "Move to stakeholder interview.",
-    cvUrl: "/download/app-release.apk",
-    stage: "interview",
-    submittedAt: "2026-01-20",
   },
 ];
 
@@ -215,8 +173,19 @@ const ApplicationList: React.FC = () => {
             filtered.map((candidate) => (
               <div
                 key={candidate.id}
-                className="grid gap-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-4 lg:grid-cols-[1.2fr_1fr]"
+                className="relative grid gap-4 rounded-2xl border border-[var(--panel-border)] bg-[linear-gradient(120deg,rgba(0,168,232,0.12),transparent_55%)] p-5 shadow-soft-ambient lg:grid-cols-[1.2fr_1fr]"
               >
+                <div
+                  className="absolute inset-y-4 start-0 w-1 rounded-full"
+                  style={{
+                    background:
+                      candidate.atsScore.score >= 90
+                        ? "#00A8E8"
+                        : candidate.atsScore.score >= 85
+                        ? "#12B5A6"
+                        : "#94A3B8",
+                  }}
+                />
                 <div>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
