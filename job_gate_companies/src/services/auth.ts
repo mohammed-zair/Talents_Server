@@ -22,11 +22,18 @@ export const clearToken = () => {
   localStorage.removeItem("twt-token");
 };
 
+const decodeBase64Url = (value: string) => {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4;
+  const padded = padding ? normalized + "=".repeat(4 - padding) : normalized;
+  return atob(padded);
+};
+
 export const decodeJwt = (token: string): JwtPayload | null => {
   try {
     const payload = token.split(".")[1];
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const decoded = atob(normalized);
+    if (!payload) return null;
+    const decoded = decodeBase64Url(payload);
     return JSON.parse(decoded) as JwtPayload;
   } catch {
     return null;

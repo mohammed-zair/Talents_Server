@@ -16,42 +16,59 @@ const corporateEmail = z
     message: "Use a corporate email address.",
   });
 
-const registerSchema = z.object({
-  companyName: z.string().min(2),
-  industry: z.string().min(2),
-  adminName: z.string().min(2),
-  email: corporateEmail,
-  phone: z.string().optional(),
-});
+const registerSchema = z
+  .object({
+    name: z.string().min(2),
+    email: corporateEmail,
+    license_doc_url: z.string().min(6),
+    password: z.string().min(6),
+    confirm_password: z.string().min(6),
+    phone: z.string().optional(),
+    description: z.string().optional(),
+    logo_url: z.string().optional(),
+  })
+  .refine((data) => data.password === data.confirm_password, {
+    message: "Passwords do not match.",
+    path: ["confirm_password"],
+  });
 
 const RegisterForm: React.FC = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    companyName: "",
-    industry: "",
-    adminName: "",
+    name: "",
     email: "",
     phone: "",
+    license_doc_url: "",
+    description: "",
+    logo_url: "",
+    password: "",
+    confirm_password: "",
   });
   const [loading, setLoading] = useState(false);
 
   const labels = {
     en: {
-      companyName: "Company Name",
-      industry: "Industry",
-      adminName: "Admin Contact",
+      name: "Company Name",
       email: "Corporate Email",
       phone: "Phone (optional)",
+      license: "License Document URL",
+      description: "Description (optional)",
+      logo: "Logo URL (optional)",
+      password: "Password",
+      confirmPassword: "Confirm Password",
       submit: "Request Access",
     },
     ar: {
-      companyName: "اسم الشركة",
-      industry: "المجال",
-      adminName: "جهة الاتصال الإدارية",
-      email: "البريد المؤسسي",
-      phone: "الهاتف (اختياري)",
-      submit: "طلب الوصول",
+      name: "Ø§Ø³Ù… Ø§Ù„Ø´Ø±ÙƒØ©",
+      email: "Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ù…Ø¤Ø³Ø³ÙŠ",
+      phone: "Ø§Ù„Ù‡Ø§ØªÙ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)",
+      license: "Ø±Ø§Ø¨Ø· ÙˆØ«ÙŠÙ‚Ø© Ø§Ù„ØªØ±Ø®ÙŠØµ",
+      description: "ÙˆØµÙ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)",
+      logo: "Ø±Ø§Ø¨Ø· Ø§Ù„Ø´Ø¹Ø§Ø± (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)",
+      password: "ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±",
+      confirmPassword: "ØªØ£ÙƒÙŠØ¯ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±",
+      submit: "Ø·Ù„Ø¨ Ø§Ù„ÙˆØµÙˆÙ„",
     },
   }[language];
 
@@ -67,7 +84,7 @@ const RegisterForm: React.FC = () => {
       await authApi.companyRegister(form);
       toast.success(
         language === "ar"
-          ? "تم إرسال الطلب. بانتظار الموافقة."
+          ? "ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø·Ù„Ø¨. Ø¨Ø§Ù†ØªØ¸Ø§Ø± Ø§Ù„Ù…ÙˆØ§ÙÙ‚Ø©."
           : "Request submitted. Pending approval."
       );
       navigate("/request-tracked", { state: { email: form.email } });
@@ -83,39 +100,13 @@ const RegisterForm: React.FC = () => {
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
         <label htmlFor="reg-company-name" className="text-xs text-[var(--text-muted)]">
-          {labels.companyName}
+          {labels.name}
         </label>
         <input
           id="reg-company-name"
-          name="companyName"
-          value={form.companyName}
-          onChange={(event) => setForm({ ...form, companyName: event.target.value })}
-          className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <label htmlFor="reg-industry" className="text-xs text-[var(--text-muted)]">
-          {labels.industry}
-        </label>
-        <input
-          id="reg-industry"
-          name="industry"
-          value={form.industry}
-          onChange={(event) => setForm({ ...form, industry: event.target.value })}
-          className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <label htmlFor="reg-admin-name" className="text-xs text-[var(--text-muted)]">
-          {labels.adminName}
-        </label>
-        <input
-          id="reg-admin-name"
-          name="adminName"
-          value={form.adminName}
-          onChange={(event) => setForm({ ...form, adminName: event.target.value })}
+          name="name"
+          value={form.name}
+          onChange={(event) => setForm({ ...form, name: event.target.value })}
           className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
           required
         />
@@ -144,6 +135,72 @@ const RegisterForm: React.FC = () => {
           value={form.phone}
           onChange={(event) => setForm({ ...form, phone: event.target.value })}
           className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+        />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="reg-license" className="text-xs text-[var(--text-muted)]">
+          {labels.license}
+        </label>
+        <input
+          id="reg-license"
+          name="license_doc_url"
+          value={form.license_doc_url}
+          onChange={(event) => setForm({ ...form, license_doc_url: event.target.value })}
+          className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="reg-description" className="text-xs text-[var(--text-muted)]">
+          {labels.description}
+        </label>
+        <textarea
+          id="reg-description"
+          name="description"
+          value={form.description}
+          onChange={(event) => setForm({ ...form, description: event.target.value })}
+          className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+          rows={3}
+        />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="reg-logo" className="text-xs text-[var(--text-muted)]">
+          {labels.logo}
+        </label>
+        <input
+          id="reg-logo"
+          name="logo_url"
+          value={form.logo_url}
+          onChange={(event) => setForm({ ...form, logo_url: event.target.value })}
+          className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+        />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="reg-password" className="text-xs text-[var(--text-muted)]">
+          {labels.password}
+        </label>
+        <input
+          id="reg-password"
+          name="password"
+          type="password"
+          value={form.password}
+          onChange={(event) => setForm({ ...form, password: event.target.value })}
+          className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="reg-confirm-password" className="text-xs text-[var(--text-muted)]">
+          {labels.confirmPassword}
+        </label>
+        <input
+          id="reg-confirm-password"
+          name="confirm_password"
+          type="password"
+          value={form.confirm_password}
+          onChange={(event) => setForm({ ...form, confirm_password: event.target.value })}
+          className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+          required
         />
       </div>
       <Button type="submit" className="w-full justify-center" disabled={loading}>
