@@ -149,6 +149,47 @@ const JobsCommandGrid: React.FC = () => {
     }));
   };
 
+  const handleQuestionRemove = (index: number) => {
+    setJobForm((prev) => ({
+      ...prev,
+      questions: prev.questions.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleOptionChange = (qIndex: number, oIndex: number, value: string) => {
+    setJobForm((prev) => ({
+      ...prev,
+      questions: prev.questions.map((q, i) => {
+        if (i !== qIndex) return q;
+        const options = q.options ? [...q.options] : [];
+        options[oIndex] = value;
+        return { ...q, options };
+      }),
+    }));
+  };
+
+  const handleOptionAdd = (qIndex: number) => {
+    setJobForm((prev) => ({
+      ...prev,
+      questions: prev.questions.map((q, i) => {
+        if (i !== qIndex) return q;
+        const options = q.options ? [...q.options, ""] : [""];
+        return { ...q, options };
+      }),
+    }));
+  };
+
+  const handleOptionRemove = (qIndex: number, oIndex: number) => {
+    setJobForm((prev) => ({
+      ...prev,
+      questions: prev.questions.map((q, i) => {
+        if (i !== qIndex) return q;
+        const options = (q.options ?? []).filter((_, idx) => idx !== oIndex);
+        return { ...q, options };
+      }),
+    }));
+  };
+
   const isSelected = (id: string) => selectedIds.includes(id);
 
   const copy = {
@@ -229,7 +270,7 @@ const JobsCommandGrid: React.FC = () => {
             {jobList.map((job) => (
               <div
                 key={job.id}
-                className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-4"
+                className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-4 shadow-soft-ambient"
               >
                 <div className="flex items-start justify-between gap-3">
                   <label className="flex items-start gap-3">
@@ -296,7 +337,7 @@ const JobsCommandGrid: React.FC = () => {
           title={copy.formTitle}
           subtitle={copy.formSubtitle}
         />
-        <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="space-y-4">
             <input
               value={jobForm.title}
@@ -320,12 +361,51 @@ const JobsCommandGrid: React.FC = () => {
                   key={question.id ?? index}
                   className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-4"
                 >
-                  <input
-                    value={question.label}
-                    onChange={(event) => handleQuestionChange(index, "label", event.target.value)}
-                    className="w-full border-b border-[var(--panel-border)] bg-transparent pb-2 text-sm text-[var(--text-primary)] outline-none"
-                  />
-                  <p className="mt-2 text-xs text-[var(--text-muted)]">Type: {question.type}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <input
+                      value={question.label}
+                      onChange={(event) => handleQuestionChange(index, "label", event.target.value)}
+                      className="w-full border-b border-[var(--panel-border)] bg-transparent pb-2 text-sm text-[var(--text-primary)] outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleQuestionRemove(index)}
+                      className="rounded-lg border border-[var(--panel-border)] px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    >
+                      {language === "ar" ? "حذف" : "Remove"}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-[var(--text-muted)]">
+                    {language === "ar" ? "النوع" : "Type"}: {question.type}
+                  </p>
+                  {question.type === "multi" && (
+                    <div className="mt-3 space-y-2">
+                      {(question.options ?? []).map((option, oIndex) => (
+                        <div key={`${question.id}-opt-${oIndex}`} className="flex items-center gap-2">
+                          <input
+                            value={option}
+                            onChange={(event) =>
+                              handleOptionChange(index, oIndex, event.target.value)
+                            }
+                            className="w-full rounded-lg border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)] outline-none"
+                            placeholder={
+                              language === "ar" ? "خيار" : `Option ${oIndex + 1}`
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleOptionRemove(index, oIndex)}
+                            className="rounded-lg border border-[var(--panel-border)] px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                          >
+                            {language === "ar" ? "×" : "×"}
+                          </button>
+                        </div>
+                      ))}
+                      <Button variant="outline" onClick={() => handleOptionAdd(index)}>
+                        {language === "ar" ? "إضافة خيار" : "Add Option"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
