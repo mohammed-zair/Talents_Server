@@ -10,7 +10,7 @@ const {
   extractEmailFromText,
 } = require("../utils/cvTextExtractor");
 
-const CV_IMPORT_DIR = path.join(__dirname, "../../uploads/cv_imports");
+const CV_IMPORT_DIR = path.join(__dirname, "../../uploads/cvs_imports");
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -50,13 +50,13 @@ const getStructuredPersonalInfo = (structuredData) => {
 
 const extractEmailFromStructuredData = (structuredData) => {
   const personal = getStructuredPersonalInfo(structuredData);
-  const email = personal.email || structuredData.email || null;
+  const email = personal.email || structuredData?.email || null;
   return email ? normalizeEmail(email) : null;
 };
 
 const extractNameFromStructuredData = (structuredData) => {
   const personal = getStructuredPersonalInfo(structuredData);
-  const name = personal.name || structuredData.name || null;
+  const name = personal.name || structuredData?.name || null;
   return name ? String(name).trim() : null;
 };
 

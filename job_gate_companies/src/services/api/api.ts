@@ -155,11 +155,14 @@ export const authApi = {
     return data;
   },
   companyRegister: async (payload: {
-    companyName: string;
-    industry: string;
+    name: string;
     email: string;
+    license_doc_url: string;
+    password: string;
+    confirm_password: string;
     phone?: string;
-    adminName: string;
+    description?: string;
+    logo_url?: string;
   }) => {
     const { data } = await api.post("/companies/register", payload);
     return data;
