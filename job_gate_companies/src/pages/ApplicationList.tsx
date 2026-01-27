@@ -12,7 +12,6 @@ import { useLanguage } from "../contexts/LanguageContext";
 const ApplicationList: React.FC = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ["company-applications"],
     queryFn: companyApi.getApplications,
@@ -62,7 +61,6 @@ const ApplicationList: React.FC = () => {
                 key={application.id}
                 type="button"
                 onClick={() => {
-                  setSelectedId(application.id);
                   navigate(`/applications/${application.id}`);
                 }}
                 className="smooth-hover flex w-full items-center justify-between rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-4 text-start hover:-translate-y-0.5"
