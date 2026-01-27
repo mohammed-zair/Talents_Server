@@ -202,7 +202,7 @@ const App: React.FC = () => {
     <ThemeProvider>
       <LanguageProvider>
         <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
+          <BrowserRouter basename="/companies">
             <AuthStatusOverlay />
             <Suspense fallback={<AppShellFallback />}>
               <Routes>
