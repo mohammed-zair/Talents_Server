@@ -147,7 +147,7 @@ const CVRequests: React.FC = () => {
                   <span className="rounded-full bg-[var(--chip-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
                     {request.status}
                   </span>
-                  {request.status === "fulfilled" && request.reportUrl && (
+                  {request.status === "delivered" && request.reportUrl && (
                     <Button variant="outline" onClick={() => window.open(request.reportUrl, "_blank")}>
                       <Download size={14} className="me-2" />
                       {language === "ar" ? "تنزيل التقرير" : "Download Report"}

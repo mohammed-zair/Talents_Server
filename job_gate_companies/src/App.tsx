@@ -5,8 +5,6 @@ import {
   Building2,
   BriefcaseBusiness,
   Globe2,
-  MoonStar,
-  SunMedium,
   Shield,
   ClipboardCheck,
   FileBadge,
@@ -22,16 +20,13 @@ const JobsCommandGrid = React.lazy(() => import("./pages/JobsCommandGrid"));
 const ApplicationDetail = React.lazy(() => import("./pages/ApplicationDetail"));
 const CVRequests = React.lazy(() => import("./pages/CVRequests"));
 const Settings = React.lazy(() => import("./pages/Settings"));
-import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { LanguageProvider, useLanguage } from "./contexts/LanguageContext";
-import Button from "./components/shared/Button";
-import { clearToken } from "./services/auth";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import AuthStatusOverlay from "./components/auth/AuthStatusOverlay";
 
 const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { theme, setTheme } = useTheme();
-  const { language, setLanguage, dir } = useLanguage();
+  const { language } = useLanguage();
   const navLabels = {
     en: {
       dashboard: "Dashboard",
