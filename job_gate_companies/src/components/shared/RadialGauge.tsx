@@ -6,15 +6,15 @@ interface RadialGaugeProps {
   size?: number;
 }
 
-const RadialGauge: React.FC<RadialGaugeProps> = ({ value, max, size = 64 }) => {
-  const radius = (size - 10) / 2;
-  const circumference = 2 * Math.PI * radius;
+const RadialGauge: React.FC<RadialGaugeProps> = ({ value, max }) => {
+  // const radius = (size - 10) / 2; , size = 64
+  // const circumference = 2 * Math.PI * radius;
   const progress = Math.min(value / max, 1);
-  const offset = circumference - progress * circumference;
+  // const offset = circumference - progress * circumference;
 
   return (
     <div className="relative flex items-center justify-center">
-      <svg width={size} height={size}>
+      {/* <svg width={size} height={size}>
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -35,7 +35,7 @@ const RadialGauge: React.FC<RadialGaugeProps> = ({ value, max, size = 64 }) => {
           strokeLinecap="round"
           style={{ transition: "stroke-dashoffset 0.4s ease" }}
         />
-      </svg>
+      </svg> */}
       <span className="absolute text-xs font-semibold text-[var(--text-primary)]">
         {Math.round(progress * 100)}%
       </span>

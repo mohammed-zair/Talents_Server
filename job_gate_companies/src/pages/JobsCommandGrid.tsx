@@ -105,7 +105,7 @@ const JobsCommandGrid: React.FC = () => {
     setSelectedIds([]);
   };
 
-  const jobList = jobs ?? [];
+  const jobList = Array.isArray(jobs) ? jobs : [];
 
   const handleQuestionAdd = (type: "text" | "multi" | "file") => {
     setJobForm((prev) => ({

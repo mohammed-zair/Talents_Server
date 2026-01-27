@@ -47,8 +47,10 @@ export const companyApi = {
     return data;
   },
   getJobPostings: async () => {
-    const { data } = await api.get<JobPosting[]>("/companies/company/job-postings");
-    return data;
+    const { data } = await api.get("/companies/company/job-postings");
+    const normalized =
+      Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    return normalized as JobPosting[];
   },
   createJobPosting: async (payload: FormData) => {
     const { data } = await api.post<JobPosting>("/companies/company/job-postings", payload, {
@@ -57,8 +59,10 @@ export const companyApi = {
     return data;
   },
   getApplications: async () => {
-    const { data } = await api.get<ApplicationItem[]>("/companies/company/applications");
-    return data;
+    const { data } = await api.get("/companies/company/applications");
+    const normalized =
+      Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    return normalized as ApplicationItem[];
   },
   getApplicationById: async (id: string) => {
     const { data } = await api.get<ApplicationItem>(`/companies/company/applications/${id}`);
@@ -110,8 +114,10 @@ export const companyApi = {
     return data;
   },
   getCvRequests: async () => {
-    const { data } = await api.get<CVRequest[]>("/company/cv-requests");
-    return data;
+    const { data } = await api.get("/company/cv-requests");
+    const normalized =
+      Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    return normalized as CVRequest[];
   },
   createCvRequest: async (payload: { query: string; count: number }) => {
     const { data } = await api.post<CVRequest>("/company/cv-requests", payload);

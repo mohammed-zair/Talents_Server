@@ -18,7 +18,7 @@ const ApplicationList: React.FC = () => {
     queryKey: ["company-applications"],
     queryFn: companyApi.getApplications,
   });
-  const applications = data ?? [];
+  const applications = Array.isArray(data) ? data : [];
   const selectedCandidate =
     applications.find((item) => item.id === selectedId)?.candidate ?? null;
 
