@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { FilePlus2, Pencil, Trash2 } from "lucide-react";
@@ -37,6 +37,17 @@ const JobsCommandGrid: React.FC = () => {
   const [editJob, setEditJob] = useState<JobPosting | null>(null);
   const [editForm, setEditForm] = useState<Partial<JobPosting>>({});
   const [jobForm, setJobForm] = useState<JobFormPayload>(emptyJobForm);
+
+  useEffect(() => {
+    setJobForm((prev) => {
+      const needsIds = prev.questions.some((q) => !q.id);
+      if (!needsIds) return prev;
+      return {
+        ...prev,
+        questions: prev.questions.map((q) => (q.id ? q : { ...q, id: createQuestionId() })),
+      };
+    });
+  }, [jobForm.questions.length]);
 
   const toggleJob = useMutation({
     mutationFn: companyApi.toggleJobPosting,
