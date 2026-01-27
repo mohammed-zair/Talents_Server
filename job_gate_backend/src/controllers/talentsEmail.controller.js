@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const fs = require("fs");
 const path = require("path");
+const aiService = require("../services/aiService");
 const { User, CV, CVStructuredData, sequelize } = require("../models");
 const {
   extractTextFromFile,
@@ -36,6 +37,42 @@ const buildNameFromEmail = (email) => {
   const safe = String(email || "").split("@")[0] || "user";
   const name = safe.replace(/[._-]+/g, " ").trim();
   return name.length > 0 ? name : "user";
+};
+
+const getStructuredPersonalInfo = (structuredData) => {
+  if (!structuredData || typeof structuredData !== "object") return {};
+  const personal =
+    structuredData.personal_info && typeof structuredData.personal_info === "object"
+      ? structuredData.personal_info
+      : {};
+  return personal;
+};
+
+const extractEmailFromStructuredData = (structuredData) => {
+  const personal = getStructuredPersonalInfo(structuredData);
+  const email = personal.email || structuredData.email || null;
+  return email ? normalizeEmail(email) : null;
+};
+
+const extractNameFromStructuredData = (structuredData) => {
+  const personal = getStructuredPersonalInfo(structuredData);
+  const name = personal.name || structuredData.name || null;
+  return name ? String(name).trim() : null;
+};
+
+const ensureStructuredEmail = (structuredData, email, name) => {
+  if (!structuredData || typeof structuredData !== "object") return structuredData;
+  const normalized = { ...structuredData };
+  if (!normalized.personal_info || typeof normalized.personal_info !== "object") {
+    normalized.personal_info = {};
+  }
+  if (email && !normalized.personal_info.email) {
+    normalized.personal_info.email = email;
+  }
+  if (name && !normalized.personal_info.name) {
+    normalized.personal_info.name = name;
+  }
+  return normalized;
 };
 
 async function sendTalentsPayload(payloadUsers) {
@@ -167,7 +204,25 @@ exports.processCvImports = async (req, res) => {
       const filePath = path.join(CV_IMPORT_DIR, fileName);
       try {
         const rawText = await extractTextFromFile(filePath);
-        const email = extractEmailFromText(rawText);
+        let structuredData = null;
+        try {
+          const analysis = await aiService.analyzeCVText(
+            `cv-import:${fileName}`,
+            rawText,
+            true,
+          );
+          structuredData =
+            analysis?.structured_data || analysis?.structuredData || null;
+        } catch (analysisError) {
+          console.warn(
+            `[CV Import] AI analysis failed for ${fileName}:`,
+            analysisError.message || analysisError,
+          );
+        }
+
+        const structuredEmail = extractEmailFromStructuredData(structuredData);
+        const textEmail = extractEmailFromText(rawText);
+        const email = structuredEmail || (textEmail ? normalizeEmail(textEmail) : null);
 
         if (!email) {
           skippedNoEmail.push(fileName);
@@ -175,13 +230,14 @@ exports.processCvImports = async (req, res) => {
         }
 
         const normalizedEmail = normalizeEmail(email);
+        const structuredName = extractNameFromStructuredData(structuredData);
+        const fullName = structuredName || buildNameFromEmail(normalizedEmail);
         let user = await User.findOne({ where: { email: normalizedEmail } });
         let password = null;
 
         if (!user) {
           password = buildTempPassword(10);
           const hashed = await bcrypt.hash(password, 10);
-          const fullName = buildNameFromEmail(normalizedEmail);
 
           user = await User.create({
             full_name: fullName,
@@ -209,13 +265,19 @@ exports.processCvImports = async (req, res) => {
           file_url: null,
         });
 
+        const normalizedStructured =
+          structuredData && Object.keys(structuredData).length > 0
+            ? ensureStructuredEmail(structuredData, normalizedEmail, fullName)
+            : {
+                personal_info: {
+                  name: fullName,
+                  email: normalizedEmail,
+                },
+              };
+
         await CVStructuredData.create({
           cv_id: cvRecord.cv_id,
-          data_json: {
-            email: normalizedEmail,
-            source_file: fileName,
-            extracted_at: new Date().toISOString(),
-          },
+          data_json: normalizedStructured,
         });
 
         await fs.promises.unlink(filePath);

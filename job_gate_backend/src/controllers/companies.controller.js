@@ -1,16 +1,10 @@
 // file: src/controllers/companies.controller.js (الملف المُحدث والنهائي)
 
-const {
-  Company,
-  JobPosting,
-  Application,
-  User,
-  CV,
-} = require("../models");
+const { Company, JobPosting, Application, User, CV } = require("../models");
 const bcrypt = require("bcryptjs");
 const { successResponse } = require("../utils/responseHandler");
 
-//   O_U^O…
+//   O_U^O
 
 /**
  * @desc [Public] List approved companies
@@ -28,9 +22,10 @@ exports.listApprovedCompanies = async (req, res) => {
     return successResponse(res, companies);
   } catch (error) {
     console.error("Error listing approved companies:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error while listing companies.", error: error.message });
+    return res.status(500).json({
+      message: "Server error while listing companies.",
+      error: error.message,
+    });
   }
 };
 
@@ -51,13 +46,15 @@ exports.getApprovedCompanyDetails = async (req, res) => {
         .json({ message: "Company not found or not approved." });
     }
 
-    const { is_approved, license_doc_url, ...publicCompanyDetails } = company.toJSON();
+    const { is_approved, license_doc_url, ...publicCompanyDetails } =
+      company.toJSON();
     return successResponse(res, publicCompanyDetails);
   } catch (error) {
     console.error("Error getting approved company details:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error while fetching company details.", error: error.message });
+    return res.status(500).json({
+      message: "Server error while fetching company details.",
+      error: error.message,
+    });
   }
 };
 
@@ -90,7 +87,8 @@ exports.registerCompany = async (req, res) => {
 
   if (!name || !email || !license_doc_url || !password || !confirm_password) {
     return res.status(400).json({
-      message: "Please provide company name, email, license document, and password.",
+      message:
+        "Please provide company name, email, license document, and password.",
     });
   }
 
@@ -135,7 +133,7 @@ exports.registerCompany = async (req, res) => {
             company_id: existingCompany.company_id,
             status: getCompanyApprovalStatus(existingCompany),
           },
-          "Your company registration was re-submitted for review."
+          "Your company registration was re-submitted for review.",
         );
       }
 
@@ -162,15 +160,19 @@ exports.registerCompany = async (req, res) => {
 
     return successResponse(
       res,
-      { company_id: company.company_id, status: getCompanyApprovalStatus(company) },
+      {
+        company_id: company.company_id,
+        status: getCompanyApprovalStatus(company),
+      },
       "Company registration submitted. Pending admin approval.",
-      201
+      201,
     );
   } catch (error) {
     console.error("Error registering company:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error while registering company.", error: error.message });
+    return res.status(500).json({
+      message: "Server error while registering company.",
+      error: error.message,
+    });
   }
 };
 
