@@ -2,6 +2,7 @@
 const sequelize = require("../config/db.config");
 const User = require("./user.model");
 const Company = require("./company.model");
+const CompanyUser = require("./companyUser.model");
 const CompanyRequest = require("./companyRequest.model");
 const Admin = require("./admin.model");
 const Consultant = require("./consultant.model");
@@ -32,6 +33,12 @@ JobPosting.hasMany(Application, { foreignKey: "job_id" });
 // --- 1. علاقات الشركة (Company) ---
 Company.hasMany(JobPosting, { foreignKey: "company_id", onDelete: "CASCADE" });
 JobPosting.belongsTo(Company, { foreignKey: "company_id" });
+
+Company.hasMany(CompanyUser, {
+  foreignKey: "company_id",
+  onDelete: "CASCADE",
+});
+CompanyUser.belongsTo(Company, { foreignKey: "company_id" });
 
 // --- 2. علاقات المستخدم (User - Job Seeker) ---
 // المستخدم لديه سير ذاتية متعددة
@@ -142,6 +149,7 @@ module.exports = {
   sequelize,
   User,
   Company,
+  CompanyUser,
   CompanyRequest,
   Admin,
   JobPosting,
