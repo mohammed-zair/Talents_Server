@@ -139,7 +139,11 @@ export const companyApi = {
 
 export const authApi = {
   companyLogin: async (payload: { email: string; password: string }) => {
-    const { data } = await api.post<{ token: string }>("/companies/login", payload);
+    const { data } = await api.post<{
+      token?: string;
+      accessToken?: string;
+      data?: { token?: string; accessToken?: string };
+    }>("/companies/login", payload);
     return data;
   },
   companyRegister: async (payload: {
