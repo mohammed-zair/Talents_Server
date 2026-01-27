@@ -642,6 +642,28 @@ exports.rejectCompanyRequest = async (req, res) => {
     company.rejection_reason = admin_review_notes;
     await company.save();
 
+    try {
+      const existingUser = await User.findOne({ where: { email: company.email } });
+      if (!existingUser) {
+        await User.create({
+          full_name: company.name,
+          email: company.email,
+          hashed_password: company.password || "",
+          user_type: "seeker",
+          profile_completed: false,
+          is_active: true,
+        });
+      } else if (existingUser.user_type !== "admin") {
+        await existingUser.update({
+          user_type: "seeker",
+          hashed_password: company.password || existingUser.hashed_password,
+          is_active: true,
+        });
+      }
+    } catch (userError) {
+      console.error("Failed to sync rejected company to user:", userError);
+    }
+
     const subject = "Talents - Company Registration Update";
     const textBody = `Hello ${company.name},
 

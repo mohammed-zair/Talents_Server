@@ -1,4 +1,4 @@
-const { Company } = require("../models");
+const { Company, CompanyUser } = require("../models");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { Op } = require("sequelize"); // أضف هذا الاستيراد
@@ -22,7 +22,24 @@ exports.loginCompany = async (req, res) => {
       );
     }
 
-    const company = await Company.findOne({ where: { email } });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    let companyUser = await CompanyUser.findOne({ where: { email: normalizedEmail } });
+    let company = null;
+    let passwordToCheck = null;
+
+    if (companyUser) {
+      company = await Company.findByPk(companyUser.company_id);
+      if (!company) {
+        return errorResponse(res, "Invalid email or password.", null, 401);
+      }
+      if (!companyUser.is_active) {
+        return errorResponse(res, "هذا الحساب غير مفعل.", null, 403);
+      }
+      passwordToCheck = companyUser.hashed_password;
+    } else {
+      company = await Company.findOne({ where: { email: normalizedEmail } });
+      passwordToCheck = company?.password || null;
+    }
 
     if (!company) {
       return errorResponse(
@@ -33,25 +50,7 @@ exports.loginCompany = async (req, res) => {
       );
     }
 
-    if (company.rejected_at) {
-      return errorResponse(
-        res,
-        "Your company registration was rejected. Check your email and try again.",
-        null,
-        403
-      );
-    }
-
-    if (!company.is_approved) {
-      return errorResponse(
-        res,
-        "Your company is pending admin approval.",
-        null,
-        403
-      );
-    }
-
-    if (!company.password) {
+    if (!passwordToCheck) {
       return errorResponse(
         res,
         "Password not set for this company account.",
@@ -60,15 +59,22 @@ exports.loginCompany = async (req, res) => {
       );
     }
 
-    const isMatch = await bcrypt.compare(password, company.password);
+    const isMatch = await bcrypt.compare(password, passwordToCheck);
     if (!isMatch) {
       return errorResponse(res, "بيانات تسجيل الدخول غير صحيحة", null, 401);
     }
+
+    const status = company.is_approved
+      ? "approved"
+      : company.rejected_at
+      ? "rejected"
+      : "pending";
 
     const token = jwt.sign(
       {
         company_id: company.company_id,
         role: "company",
+        email: normalizedEmail,
       },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
@@ -81,7 +87,9 @@ exports.loginCompany = async (req, res) => {
         company: {
           company_id: company.company_id,
           name: company.name,
-          email: company.email,
+          email: normalizedEmail,
+          status,
+          is_approved: company.is_approved,
         },
       },
       "تم تسجيل دخول الشركة بنجاح"
@@ -156,6 +164,7 @@ exports.changeCompanyPassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const company = req.company;
+    const loginEmail = req.user?.email;
 
     if (!currentPassword || !newPassword) {
       return errorResponse(
@@ -167,7 +176,12 @@ exports.changeCompanyPassword = async (req, res) => {
     }
 
     // التحقق من كلمة المرور الحالية
-    const isMatch = await bcrypt.compare(currentPassword, company.password);
+    const currentHash = loginEmail
+      ? (await CompanyUser.findOne({ where: { email: loginEmail } }))?.hashed_password
+      : company.password;
+    const isMatch = currentHash
+      ? await bcrypt.compare(currentPassword, currentHash)
+      : false;
     if (!isMatch) {
       return errorResponse(res, "كلمة المرور الحالية غير صحيحة", null, 400);
     }
@@ -188,6 +202,13 @@ exports.changeCompanyPassword = async (req, res) => {
       password: hashedPassword,
       password_set_at: new Date(),
     });
+
+    if (loginEmail) {
+      await CompanyUser.update(
+        { hashed_password: hashedPassword },
+        { where: { email: loginEmail, company_id: company.company_id } }
+      );
+    }
 
     return successResponse(res, null, "تم تغيير كلمة المرور بنجاح");
   } catch (error) {

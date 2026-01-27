@@ -1,6 +1,6 @@
 // file: src/controllers/companies.controller.js (الملف المُحدث والنهائي)
 
-const { Company, JobPosting, Application, User, CV } = require("../models");
+const { Company, CompanyUser, JobPosting, Application, User, CV } = require("../models");
 const bcrypt = require("bcryptjs");
 const { successResponse } = require("../utils/responseHandler");
 
@@ -141,6 +141,14 @@ exports.registerCompany = async (req, res) => {
     const existingCompany = await Company.findOne({
       where: { email: normalizedEmail },
     });
+    const existingCompanyUser = await CompanyUser.findOne({
+      where: { email: normalizedEmail },
+    });
+    if (existingCompanyUser && !existingCompany) {
+      return res.status(409).json({
+        message: "هذا البريد مسجل بالفعل لحساب شركة.",
+      });
+    }
     if (existingCompany) {
       if (existingCompany.is_approved) {
         return res.status(409).json({
@@ -181,6 +189,25 @@ exports.registerCompany = async (req, res) => {
 
         await existingCompany.update(updatePayload);
 
+        const primaryCompanyUser = await CompanyUser.findOne({
+          where: { company_id: existingCompany.company_id, is_primary: true },
+        });
+        if (primaryCompanyUser) {
+          await primaryCompanyUser.update({
+            email: normalizedEmail,
+            hashed_password: hashedPassword,
+            is_active: true,
+          });
+        } else {
+          await CompanyUser.create({
+            company_id: existingCompany.company_id,
+            email: normalizedEmail,
+            hashed_password: hashedPassword,
+            is_primary: true,
+            is_active: true,
+          });
+        }
+
         return successResponse(
           res,
           {
@@ -218,6 +245,14 @@ exports.registerCompany = async (req, res) => {
       rejected_at: null,
       rejection_reason: null,
       approved_at: null,
+    });
+
+    await CompanyUser.create({
+      company_id: company.company_id,
+      email: normalizedEmail,
+      hashed_password: hashedPassword,
+      is_primary: true,
+      is_active: true,
     });
 
     return successResponse(
@@ -443,6 +478,12 @@ exports.getCompanyProfile = async (req, res) => {
 
     const { is_approved, ...rest } = company.toJSON();
     const profileData = toPublicCompany(rest);
+    profileData.status = company.is_approved
+      ? "approved"
+      : company.rejected_at
+      ? "rejected"
+      : "pending";
+    profileData.is_approved = company.is_approved;
 
     return successResponse(res, profileData);
   } catch (error) {
@@ -487,6 +528,65 @@ exports.updateCompanyProfile = async (req, res) => {
     console.error("Error updating company profile:", error);
     return res.status(500).json({
       message: "فشل في تحديث بيانات الشركة",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc [Company] Add extra company user (up to 5 emails total)
+ * @route POST /api/companies/company/users
+ * @access Private (Company, Approved)
+ */
+exports.addCompanyUser = async (req, res) => {
+  try {
+    const company = req.company;
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "البريد الإلكتروني وكلمة المرور مطلوبان.",
+      });
+    }
+
+    const totalUsers = await CompanyUser.count({
+      where: { company_id: company.company_id },
+    });
+
+    if (totalUsers >= 5) {
+      return res.status(400).json({
+        message: "تم الوصول للحد الأقصى (5) من الحسابات المسموحة للشركة.",
+      });
+    }
+
+    const existingEmail = await CompanyUser.findOne({ where: { email } });
+    if (existingEmail) {
+      return res.status(409).json({
+        message: "هذا البريد مسجل مسبقاً.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const companyUser = await CompanyUser.create({
+      company_id: company.company_id,
+      email,
+      hashed_password: hashedPassword,
+      is_primary: false,
+      is_active: true,
+    });
+
+    return successResponse(
+      res,
+      {
+        company_user_id: companyUser.company_user_id,
+        email: companyUser.email,
+      },
+      "تم إضافة حساب شركة جديد بنجاح."
+    );
+  } catch (error) {
+    console.error("Error adding company user:", error);
+    return res.status(500).json({
+      message: "حدث خطأ أثناء إضافة حساب الشركة.",
       error: error.message,
     });
   }

@@ -6,7 +6,8 @@ const isImage = (mimetype) => Boolean(mimetype && mimetype.startsWith("image/"))
 const isLicenseDoc = (mimetype) =>
   mimetype === "application/pdf" ||
   mimetype ===
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+  isImage(mimetype);
 
 const fileFilter = (req, file, cb) => {
   if (file.fieldname === "logo") {
@@ -29,4 +30,3 @@ module.exports = multer({
   fileFilter,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
-

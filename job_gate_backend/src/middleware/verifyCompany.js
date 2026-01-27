@@ -37,12 +37,6 @@ const verifyCompany = async (req, res, next) => {
       });
     }
 
-    if (!company.is_approved) {
-      return res.status(403).json({
-        message: "الشركة غير معتمدة",
-      });
-    }
-
     // نربط الشركة بالـ request
     req.company = company;
 

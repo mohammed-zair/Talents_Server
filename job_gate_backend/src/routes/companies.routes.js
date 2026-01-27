@@ -8,6 +8,7 @@ const jobPostingController = require("../controllers/jobPosting.controller");
 const verifyAdmin = require("../middleware/verifyAdmin");
 const { verifyToken } = require("../middleware/authJwt");
 const verifyCompany = require("../middleware/verifyCompany");
+const verifyCompanyApproved = require("../middleware/verifyCompanyApproved");
 
 const uploadJobImage = require("../middleware/uploadJobImage");
 const uploadCompanyLogo = require("../middleware/uploadCompanyLogo");
@@ -101,6 +102,7 @@ router.get(
   "/company/dashboard",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   companiesController.getCompanyDashboard
 );
 
@@ -120,17 +122,27 @@ router.put(
   companiesController.updateCompanyProfile
 );
 
+router.post(
+  "/company/users",
+  verifyToken,
+  verifyCompany,
+  verifyCompanyApproved,
+  companiesController.addCompanyUser
+);
+
 //  Applications
 router.get(
   "/company/applications",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   companiesController.getCompanyApplications
 );
 router.get(
   "/company/applications/:id",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   companiesController.getCompanyApplicationsByID
 );
 
@@ -138,6 +150,7 @@ router.put(
   "/company/applications/:id",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   companiesController.updateApplicationStatus
 );
 
@@ -149,6 +162,7 @@ router.post(
   "/company/job-postings",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   uploadJobImage.single("job_image"),
   jobPostingController.createJobPosting
 );
@@ -158,6 +172,7 @@ router.get(
   "/company/job-postings",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   jobPostingController.getCompanyJobPostings
 );
 
@@ -166,6 +181,7 @@ router.put(
   "/company/job-postings/:id",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   jobPostingController.updateJobPosting
 );
 
@@ -174,6 +190,7 @@ router.put(
   "/company/job-postings/:id/toggle",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   jobPostingController.toggleJobPostingStatus
 );
 
@@ -182,6 +199,7 @@ router.delete(
   "/company/job-postings/:id",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   jobPostingController.deleteJobPosting
 );
 
@@ -190,6 +208,7 @@ router.post(
   "/company/job-forms",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   jobPostingController.createJobForm
 );
 
@@ -198,6 +217,7 @@ router.put(
   "/company/job-postings/:id/form",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   jobPostingController.updateJobForm
 );
 
@@ -206,6 +226,7 @@ router.delete(
   "/company/job-postings/:id/form",
   verifyToken,
   verifyCompany,
+  verifyCompanyApproved,
   jobPostingController.deleteJobForm
 );
 
