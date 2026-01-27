@@ -135,6 +135,9 @@ const ApplicationList: React.FC = () => {
       recommendation: "Recommendation",
       viewCv: "Open CV",
       experience: "yrs",
+      highMatch: "High match",
+      total: "Total",
+      shortlist: "Shortlist",
       empty: "No candidates match your search.",
     },
     ar: {
@@ -148,9 +151,19 @@ const ApplicationList: React.FC = () => {
       recommendation: "التوصية",
       viewCv: "فتح السيرة",
       experience: "سنوات",
+      highMatch: "تطابق مرتفع",
+      total: "الإجمالي",
+      shortlist: "قائمة قصيرة",
       empty: "لا توجد نتائج مطابقة.",
     },
   }[language];
+
+  const stats = useMemo(() => {
+    const total = filtered.length;
+    const highMatch = filtered.filter((c) => c.atsScore.score >= 85).length;
+    const shortlist = filtered.filter((c) => c.stage === "shortlist").length;
+    return { total, highMatch, shortlist };
+  }, [filtered]);
 
   return (
     <div className="space-y-6">
@@ -178,7 +191,22 @@ const ApplicationList: React.FC = () => {
           </span>
         </div>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/50 p-4">
+            <p className="text-xs text-[var(--text-muted)]">{copy.total}</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.total}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/50 p-4">
+            <p className="text-xs text-[var(--text-muted)]">{copy.highMatch}</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.highMatch}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/50 p-4">
+            <p className="text-xs text-[var(--text-muted)]">{copy.shortlist}</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.shortlist}</p>
+          </div>
+        </div>
+
+        <div className="mt-5 max-h-[520px] space-y-4 overflow-y-auto pe-2">
           {filtered.length === 0 ? (
             <div className="rounded-xl border border-[var(--panel-border)] p-4 text-sm text-[var(--text-muted)]">
               {copy.empty}
