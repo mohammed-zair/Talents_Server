@@ -121,7 +121,13 @@ export const companyApi = {
       Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
     return normalized as CVRequest[];
   },
-  createCvRequest: async (payload: { query: string; count: number }) => {
+  createCvRequest: async (payload: {
+    requested_role: string;
+    cv_count: number;
+    experience_years?: number | null;
+    skills?: string[];
+    location?: string;
+  }) => {
     const { data } = await api.post<CVRequest>("/company/cv-requests", payload);
     return data;
   },

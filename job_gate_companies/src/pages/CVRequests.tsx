@@ -18,7 +18,10 @@ const CVRequests: React.FC = () => {
     queryFn: companyApi.getCvRequests,
   });
   const [openModal, setOpenModal] = useState(false);
-  const [query, setQuery] = useState("");
+  const [role, setRole] = useState("");
+  const [skills, setSkills] = useState("");
+  const [location, setLocation] = useState("");
+  const [experience, setExperience] = useState<number | "">("");
   const [count, setCount] = useState(5);
 
   const createRequest = useMutation({
@@ -27,7 +30,10 @@ const CVRequests: React.FC = () => {
       toast.success(language === "ar" ? "تم إرسال الطلب" : "CV request sent");
       queryClient.invalidateQueries({ queryKey: ["cv-requests"] });
       setOpenModal(false);
-      setQuery("");
+      setRole("");
+      setSkills("");
+      setLocation("");
+      setExperience("");
       setCount(5);
     },
     onError: () =>
@@ -35,7 +41,7 @@ const CVRequests: React.FC = () => {
   });
 
   const requests = data ?? [];
-  const canSubmit = useMemo(() => query.trim().length >= 6 && count > 0, [query, count]);
+  const canSubmit = useMemo(() => role.trim().length >= 2 && count > 0, [role, count]);
 
   const copy = {
     en: {
@@ -46,8 +52,11 @@ const CVRequests: React.FC = () => {
       emptyTitle: "No requests yet",
       emptyBody: "Create your first request to start sourcing talent.",
       modalTitle: "Talent Request",
-      modalHint: 'Example: "5 Java Developers with Cloud Exp"',
-      modalQueryLabel: "What talent are you looking for?",
+      modalHint: 'Example: "Senior Java Developer, 5 years, Riyadh"',
+      modalRoleLabel: "Requested role",
+      modalSkillsLabel: "Skills (comma separated)",
+      modalLocationLabel: "Preferred location (optional)",
+      modalExperienceLabel: "Experience years (optional)",
       modalCountLabel: "How many profiles do you need?",
       modalCountHint: "We recommend 3–10 for best quality.",
       send: "Send Request",
@@ -62,8 +71,11 @@ const CVRequests: React.FC = () => {
       emptyTitle: "لا توجد طلبات بعد",
       emptyBody: "أنشئ أول طلب للبدء في مصادره المواهب.",
       modalTitle: "طلب مواهب",
-      modalHint: 'مثال: "5 مطوري جافا بخبرة سحابية"',
-      modalQueryLabel: "ما المواهب التي تبحث عنها؟",
+      modalHint: 'مثال: "مطور جافا أول، 5 سنوات، الرياض"',
+      modalRoleLabel: "المسمى المطلوب",
+      modalSkillsLabel: "المهارات (مفصولة بفواصل)",
+      modalLocationLabel: "الموقع المفضل (اختياري)",
+      modalExperienceLabel: "سنوات الخبرة (اختياري)",
       modalCountLabel: "كم عدد الملفات المطلوبة؟",
       modalCountHint: "نوصي بـ 3–10 لأفضل جودة.",
       send: "إرسال الطلب",
@@ -112,17 +124,22 @@ const CVRequests: React.FC = () => {
           <div className="space-y-3">
             {requests.map((request: CVRequest) => (
               <div
-                key={request.id}
+                key={request.request_id ?? request.requested_role}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-4"
               >
                 <div>
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{request.query}</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    {request.requested_role}
+                  </p>
                   <p className="text-xs text-[var(--text-muted)]">
-                    {request.count} profiles · {request.createdAt}
+                    {request.cv_count} profiles · {request.created_at ?? ""}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    {(request.skills ?? []).join(", ")} {request.location ? `· ${request.location}` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {request.status === "processing" && (
+                  {request.status === "processed" && (
                     <span className="shimmer-badge">
                       {language === "ar" ? "مطابقة الذكاء" : "AI Matching"}
                     </span>
@@ -169,18 +186,61 @@ const CVRequests: React.FC = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label htmlFor="cv-request-query" className="text-xs text-[var(--text-muted)]">
-                    {copy.modalQueryLabel}
+                    {copy.modalRoleLabel}
                   </label>
                   <textarea
                     id="cv-request-query"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    value={role}
+                    onChange={(event) => setRole(event.target.value)}
                     className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
                     rows={4}
-                    name="cvRequestQuery"
+                    name="requested_role"
                     aria-label={copy.modalTitle}
                     placeholder={copy.modalHint}
                   />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="cv-request-skills" className="text-xs text-[var(--text-muted)]">
+                      {copy.modalSkillsLabel}
+                    </label>
+                    <input
+                      id="cv-request-skills"
+                      value={skills}
+                      onChange={(event) => setSkills(event.target.value)}
+                      className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                      name="skills"
+                      placeholder={language === "ar" ? "Java, Spring, AWS" : "Java, Spring, AWS"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="cv-request-location" className="text-xs text-[var(--text-muted)]">
+                      {copy.modalLocationLabel}
+                    </label>
+                    <input
+                      id="cv-request-location"
+                      value={location}
+                      onChange={(event) => setLocation(event.target.value)}
+                      className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                      name="location"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="cv-request-experience" className="text-xs text-[var(--text-muted)]">
+                      {copy.modalExperienceLabel}
+                    </label>
+                    <input
+                      id="cv-request-experience"
+                      type="number"
+                      min={0}
+                      value={experience}
+                      onChange={(event) =>
+                        setExperience(event.target.value ? Number(event.target.value) : "")
+                      }
+                      className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                      name="experience_years"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="cv-request-count" className="text-xs text-[var(--text-muted)]">
@@ -221,7 +281,18 @@ const CVRequests: React.FC = () => {
                 {copy.cancel}
               </Button>
               <Button
-                onClick={() => createRequest.mutate({ query, count })}
+                onClick={() =>
+                  createRequest.mutate({
+                    requested_role: role,
+                    cv_count: count,
+                    experience_years: experience === "" ? undefined : experience,
+                    skills: skills
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                    location: location || undefined,
+                  })
+                }
                 disabled={!canSubmit || createRequest.isPending}
               >
                 {copy.send}

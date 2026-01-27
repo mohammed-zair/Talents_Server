@@ -80,11 +80,15 @@ export interface JobFormPayload {
 }
 
 export interface CVRequest {
-  id: string;
-  query: string;
-  count: number;
-  status: "pending" | "processing" | "fulfilled";
-  createdAt: string;
+  request_id?: number;
+  company_id?: number;
+  requested_role: string;
+  experience_years?: number | null;
+  skills?: string[] | null;
+  location?: string | null;
+  cv_count: number;
+  status: "pending" | "approved" | "rejected" | "processed" | "delivered";
+  created_at?: string;
   reportUrl?: string;
 }
 

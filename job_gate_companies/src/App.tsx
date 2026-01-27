@@ -21,6 +21,7 @@ const ProfileSecurity = React.lazy(() => import("./pages/ProfileSecurity"));
 const JobsCommandGrid = React.lazy(() => import("./pages/JobsCommandGrid"));
 const ApplicationDetail = React.lazy(() => import("./pages/ApplicationDetail"));
 const CVRequests = React.lazy(() => import("./pages/CVRequests"));
+const Settings = React.lazy(() => import("./pages/Settings"));
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { LanguageProvider, useLanguage } from "./contexts/LanguageContext";
 import Button from "./components/shared/Button";
@@ -39,7 +40,6 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       jobs: "Jobs & Forms",
       cv: "CV Marketplace",
       settings: "Settings",
-      logout: "Logout",
     },
     ar: {
       dashboard: "لوحة القيادة",
@@ -48,7 +48,6 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       jobs: "الوظائف والنماذج",
       cv: "سوق السير الذاتية",
       settings: "الإعدادات",
-      logout: "تسجيل الخروج",
     },
   }[language];
 
@@ -142,45 +141,23 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <FileBadge size={18} />
                 {navLabels.cv}
               </NavLink>
+              <NavLink
+                to="/settings"
+                className={({ isActive }) =>
+                  `smooth-hover flex items-center gap-3 rounded-xl px-4 py-3 text-[var(--text-primary)] ${
+                    isActive ? "bg-[var(--chip-bg)]" : "hover:bg-[var(--chip-bg)]"
+                  }`
+                }
+              >
+                <Globe2 size={18} />
+                {navLabels.settings}
+              </NavLink>
             </nav>
 
             <div className="mt-auto space-y-3">
               <div className="rounded-2xl border border-[var(--panel-border)] p-4 text-xs text-[var(--text-muted)]">
                 <p className="text-[var(--text-primary)]">Bias-Shield Mode</p>
                 <p>Encrypted anonymization starts Q2 2026.</p>
-              </div>
-              <div className="rounded-2xl border border-[var(--panel-border)] p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                  {navLabels.settings}
-                </p>
-                <div className="mt-3 flex flex-col gap-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setTheme(theme === "trust" ? "ai" : "trust")}
-                  >
-                    {theme === "ai" ? <SunMedium size={16} /> : <MoonStar size={16} />}
-                    <span className="ms-2">{theme === "ai" ? "Light" : "Dark"}</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setTheme(theme === "cloud" ? "trust" : "cloud")}
-                  >
-                    Premium
-                  </Button>
-                  <Button variant="outline" onClick={() => setLanguage(language === "en" ? "ar" : "en")}>
-                    {language === "en" ? "AR" : "EN"} · {dir.toUpperCase()}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="border-red-300 text-red-500"
-                    onClick={() => {
-                      clearToken();
-                      window.location.href = "/companies/login";
-                    }}
-                  >
-                    {navLabels.logout}
-                  </Button>
-                </div>
               </div>
             </div>
           </aside>
@@ -271,6 +248,16 @@ const App: React.FC = () => {
                     <ProtectedRoute>
                       <AppShell>
                         <CVRequests />
+                      </AppShell>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <ProtectedRoute>
+                      <AppShell>
+                        <Settings />
                       </AppShell>
                     </ProtectedRoute>
                   }
