@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { motion, animate } from "framer-motion";
 import { dashboardData, candidates } from "../data/mockData";
 import { useAI } from "../hooks/useAI/useAI";
@@ -11,12 +11,10 @@ import PipelineFunnel from "../components/dashboard/PipelineFunnel";
 import StrategicMatchCard from "../components/dashboard/StrategicMatchCard";
 import RetentionTeaser from "../components/dashboard/RetentionTeaser";
 import JobCreationStepper from "../components/dashboard/JobCreationStepper";
-import SplitViewPanel from "../components/dashboard/SplitViewPanel";
 import { useLanguage } from "../contexts/LanguageContext";
 
 const CompanyDashboard: React.FC = () => {
   const { query, setQuery, weights, setWeights, rankedCandidates } = useAI(candidates);
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const { language } = useLanguage();
   const isRtl = language === "ar";
 
@@ -60,9 +58,6 @@ const CompanyDashboard: React.FC = () => {
       unreviewedMatches: "تطابقات عالية غير مُراجعة",
     },
   }[language];
-
-  const selectedCandidate =
-    rankedCandidates.find((candidate) => candidate.id === selectedCandidateId) ?? null;
 
   return (
     <div className="space-y-8">
@@ -133,10 +128,7 @@ const CompanyDashboard: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
               >
-                <StrategicMatchCard
-                  candidate={candidate}
-                  onSelect={() => setSelectedCandidateId(candidate.id)}
-                />
+                <StrategicMatchCard candidate={candidate} />
               </motion.div>
             ))}
           </div>
@@ -155,7 +147,6 @@ const CompanyDashboard: React.FC = () => {
         </div>
       </div>
 
-      <SplitViewPanel candidate={selectedCandidate} onClose={() => setSelectedCandidateId(null)} />
     </div>
   );
 };

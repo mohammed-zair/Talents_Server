@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import Card from "../components/shared/Card";
 import SectionHeader from "../components/shared/SectionHeader";
-import SplitViewPanel from "../components/dashboard/SplitViewPanel";
 import RadialGauge from "../components/shared/RadialGauge";
 import Skeleton from "../components/shared/Skeleton";
 import { companyApi } from "../services/api/api";
@@ -14,13 +13,12 @@ const ApplicationList: React.FC = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ["company-applications"],
     queryFn: companyApi.getApplications,
   });
   const applications = Array.isArray(data) ? data : [];
-  const selectedCandidate =
-    applications.find((item) => item.id === selectedId)?.candidate ?? null;
+  const showLoading = isLoading || isFetching;
 
   return (
     <div className="space-y-6">
@@ -44,11 +42,19 @@ const ApplicationList: React.FC = () => {
           </span>
         </div>
         <div className="mt-4 space-y-3">
-          {isLoading ? (
+          {showLoading ? (
             <div className="space-y-3">
               <Skeleton className="h-20" />
               <Skeleton className="h-20" />
               <Skeleton className="h-20" />
+            </div>
+          ) : isError ? (
+            <div className="rounded-xl border border-[var(--panel-border)] p-4 text-sm text-[var(--text-muted)]">
+              {language === "ar" ? "تعذر تحميل المتقدمين." : "Failed to load applications."}
+            </div>
+          ) : applications.length === 0 ? (
+            <div className="rounded-xl border border-[var(--panel-border)] p-4 text-sm text-[var(--text-muted)]">
+              {language === "ar" ? "لا يوجد متقدمون حاليًا." : "No applications yet."}
             </div>
           ) : (
             applications.map((application: ApplicationItem) => (
@@ -94,7 +100,6 @@ const ApplicationList: React.FC = () => {
         </div>
       </Card>
 
-      <SplitViewPanel candidate={selectedCandidate} onClose={() => setSelectedId(null)} />
     </div>
   );
 };
