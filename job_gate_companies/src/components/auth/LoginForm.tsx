@@ -46,7 +46,14 @@ const LoginForm: React.FC = () => {
     try {
       setLoading(true);
       const response = await authApi.companyLogin(form);
-      setToken(response.token);
+      const token =
+        response?.token ||
+        response?.data?.token ||
+        response?.accessToken ||
+        response?.data?.accessToken;
+      if (token) {
+        setToken(token);
+      }
       toast.success(language === "ar" ? "تم تسجيل الدخول بنجاح" : "Login successful");
       navigate("/dashboard", { replace: true });
     } catch (error: any) {
