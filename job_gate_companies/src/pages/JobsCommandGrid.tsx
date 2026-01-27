@@ -16,6 +16,13 @@ const emptyJobForm: JobFormPayload = {
   questions: [],
 };
 
+const createQuestionId = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
 const JobsCommandGrid: React.FC = () => {
   const queryClient = useQueryClient();
   const { language } = useLanguage();
@@ -112,7 +119,12 @@ const JobsCommandGrid: React.FC = () => {
       ...prev,
       questions: [
         ...prev.questions,
-        { type, label: `${type.toUpperCase()} question`, options: type === "multi" ? [] : undefined },
+        {
+          id: createQuestionId(),
+          type,
+          label: `${type.toUpperCase()} question`,
+          options: type === "multi" ? [] : undefined,
+        },
       ],
     }));
   };
@@ -294,7 +306,7 @@ const JobsCommandGrid: React.FC = () => {
             <div className="grid gap-4 md:grid-cols-2">
               {jobForm.questions.map((question, index) => (
                 <div
-                  key={index}
+                  key={question.id ?? index}
                   className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-4"
                 >
                   <input
