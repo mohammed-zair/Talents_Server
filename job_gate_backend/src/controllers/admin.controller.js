@@ -14,6 +14,9 @@ const { successResponse } = require("../utils/responseHandler");
 const sendEmail = require("../utils/sendEmail");
 const fs = require("fs");
 const util = require("util");
+const buildCompanyLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
+const buildCompanyLicenseUrl = (companyId) =>
+  `/api/companies/admin/${companyId}/license`;
 const unlinkFile = util.promisify(fs.unlink); // دالة لمسح الملفات (افتراضياً)
 // ⚙️ دوال إدارة المستخدمين (Admin User Management)
 
@@ -419,6 +422,19 @@ exports.getAndDownloadUserCV = async (req, res) => {
 exports.listCompanyRequests = async (req, res) => {
   try {
     const companies = await Company.findAll({
+      attributes: [
+        "company_id",
+        "name",
+        "email",
+        "phone",
+        "description",
+        "logo_mimetype",
+        "license_mimetype",
+        "is_approved",
+        "rejected_at",
+        "rejection_reason",
+        "createdAt",
+      ],
       order: [["createdAt", "DESC"]],
     });
 
@@ -429,14 +445,21 @@ exports.listCompanyRequests = async (req, res) => {
         ? "rejected"
         : "pending";
 
+      const logoUrl = company.logo_mimetype
+        ? buildCompanyLogoUrl(company.company_id)
+        : null;
+      const licenseUrl = company.license_mimetype
+        ? buildCompanyLicenseUrl(company.company_id)
+        : null;
+
       return {
         request_id: company.company_id,
         name: company.name,
         email: company.email,
         phone: company.phone,
-        license_doc_url: company.license_doc_url,
+        license_doc_url: licenseUrl,
         description: company.description,
-        logo_url: company.logo_url,
+        logo_url: logoUrl,
         status,
         admin_review_notes: company.rejection_reason,
         approved_company_id: company.is_approved ? company.company_id : null,
@@ -460,7 +483,21 @@ exports.listCompanyRequests = async (req, res) => {
  */
 exports.getCompanyRequestById = async (req, res) => {
   try {
-    const company = await Company.findByPk(req.params.id);
+    const company = await Company.findByPk(req.params.id, {
+      attributes: [
+        "company_id",
+        "name",
+        "email",
+        "phone",
+        "description",
+        "logo_mimetype",
+        "license_mimetype",
+        "is_approved",
+        "rejected_at",
+        "rejection_reason",
+        "createdAt",
+      ],
+    });
     if (!company) {
       return res.status(404).json({ message: "Company not found." });
     }
@@ -471,14 +508,21 @@ exports.getCompanyRequestById = async (req, res) => {
       ? "rejected"
       : "pending";
 
+    const logoUrl = company.logo_mimetype
+      ? buildCompanyLogoUrl(company.company_id)
+      : null;
+    const licenseUrl = company.license_mimetype
+      ? buildCompanyLicenseUrl(company.company_id)
+      : null;
+
     return successResponse(res, {
       request_id: company.company_id,
       name: company.name,
       email: company.email,
       phone: company.phone,
-      license_doc_url: company.license_doc_url,
+      license_doc_url: licenseUrl,
       description: company.description,
-      logo_url: company.logo_url,
+      logo_url: logoUrl,
       status,
       admin_review_notes: company.rejection_reason,
       approved_company_id: company.is_approved ? company.company_id : null,
@@ -547,9 +591,14 @@ Talents Team`;
       emailError = err;
     }
 
+    const companyPayload = company.toJSON ? company.toJSON() : { ...company };
+    delete companyPayload.logo_data;
+    delete companyPayload.license_doc_data;
+    delete companyPayload.password;
+
     return successResponse(
       res,
-      { company, email_sent: !emailError },
+      { company: companyPayload, email_sent: !emailError },
       emailError
         ? "Company approved, but email failed to send."
         : "Company approved successfully."
@@ -629,9 +678,14 @@ Talents Team`;
       emailError = err;
     }
 
+    const companyPayload = company.toJSON ? company.toJSON() : { ...company };
+    delete companyPayload.logo_data;
+    delete companyPayload.license_doc_data;
+    delete companyPayload.password;
+
     return successResponse(
       res,
-      { rejectedCompany: company, email_sent: !emailError },
+      { rejectedCompany: companyPayload, email_sent: !emailError },
       emailError
         ? "Company rejected, but email failed to send."
         : "Company rejected and email sent."

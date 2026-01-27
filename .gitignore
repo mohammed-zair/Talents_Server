@@ -47,3 +47,5 @@ lerna-debug.log*
 
 # mobile app
 .apk
+# Local CV samples
+cvs/

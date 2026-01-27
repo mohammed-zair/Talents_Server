@@ -11,6 +11,7 @@ const verifyCompany = require("../middleware/verifyCompany");
 
 const uploadJobImage = require("../middleware/uploadJobImage");
 const uploadCompanyLogo = require("../middleware/uploadCompanyLogo");
+const uploadCompanyAssets = require("../middleware/uploadCompanyAssets");
 
 // ----------------------------------------------------------------------
 //                      المسارات العامة (Public)
@@ -23,19 +24,36 @@ router.post("/login", companyAuthController.loginCompany);
 router.post("/set-password", companyAuthController.setCompanyPassword);
 
 // Company registration (pending approval)
-router.post("/register", companiesController.registerCompany);
+router.post(
+  "/register",
+  uploadCompanyAssets.fields([
+    { name: "logo", maxCount: 1 },
+    { name: "license_doc", maxCount: 1 },
+  ]),
+  companiesController.registerCompany
+);
 
 // 📌 قائمة الشركات المعتمدة
 router.get("/", companiesController.listApprovedCompanies);
 
 // 📌 تفاصيل شركة معتمدة
+router.get("/:id/logo", companiesController.getCompanyLogo);
 router.get("/:id", companiesController.getApprovedCompanyDetails);
 
 // ----------------------------------------------------------------------
 //                  المسارات الخاصة بالأدمن (Admin Only)
 // ----------------------------------------------------------------------
 
-router.post("/", verifyToken, verifyAdmin, companiesController.createCompany);
+router.post(
+  "/",
+  verifyToken,
+  verifyAdmin,
+  uploadCompanyAssets.fields([
+    { name: "logo", maxCount: 1 },
+    { name: "license_doc", maxCount: 1 },
+  ]),
+  companiesController.createCompany
+);
 router.get(
   "/admin/all",
   verifyToken,
@@ -47,6 +65,12 @@ router.get(
   verifyToken,
   verifyAdmin,
   companiesController.getCompanyById
+);
+router.get(
+  "/admin/:id/license",
+  verifyToken,
+  verifyAdmin,
+  companiesController.getCompanyLicenseDoc
 );
 router.put(
   "/admin/:id",

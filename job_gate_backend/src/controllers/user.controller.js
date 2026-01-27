@@ -36,6 +36,21 @@ const getFrontendUrl = () => {
   const url = process.env.FRONTEND_URL || "http://localhost:3000";
   return String(url).replace(/\/+$/, ""); // remove trailing slashes
 };
+
+const buildCompanyLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
+
+const withCompanyLogoUrl = (company) => {
+  if (!company) return company;
+  const data = company.toJSON ? company.toJSON() : { ...company };
+  const logoUrl = data.logo_mimetype
+    ? buildCompanyLogoUrl(data.company_id)
+    : null;
+  return {
+    ...data,
+    logo_url: logoUrl,
+    logo_mimetype: undefined,
+  };
+};
 //   دوال المصادقة (Authentication Functions)
 
 /**
@@ -308,10 +323,11 @@ exports.resetPassword = async (req, res) => {
 exports.listCompanies = async (req, res) => {
   try {
     const companies = await Company.findAll({
-      attributes: ["company_id", "name", "logo_url", "description"],
+      attributes: ["company_id", "name", "logo_mimetype", "description"],
       where: { is_approved: true }, // عرض الموافق عليها فقط
     });
-    return successResponse(res, companies);
+    const payload = companies.map(withCompanyLogoUrl);
+    return successResponse(res, payload);
   } catch (error) {
     console.error("Error listing companies:", error);
     return res.status(500).json({ message: "فشل في جلب قائمة الشركات." });
@@ -341,13 +357,21 @@ exports.listJobPostings = async (req, res) => {
       include: [
         {
           model: Company,
-          attributes: ["company_id", "name", "logo_url"],
+          attributes: ["company_id", "name", "logo_mimetype"],
         },
       ],
       order: [["created_at", "DESC"]],
     });
 
-    return successResponse(res, jobPostings);
+    const payload = jobPostings.map((posting) => {
+      const data = posting.toJSON ? posting.toJSON() : { ...posting };
+      if (data.Company) {
+        data.Company = withCompanyLogoUrl(data.Company);
+      }
+      return data;
+    });
+
+    return successResponse(res, payload);
   } catch (error) {
     console.error("Error listing job postings:", error);
     return res
@@ -374,7 +398,7 @@ exports.getJobPostingDetails = async (req, res) => {
           attributes: [
             "company_id",
             "name",
-            "logo_url",
+            "logo_mimetype",
             "description",
             "email",
           ],
@@ -389,7 +413,11 @@ exports.getJobPostingDetails = async (req, res) => {
         .json({ message: "الوظيفة غير موجودة أو غير متاحة حالياً." });
     }
 
-    return successResponse(res, jobPosting);
+    const payload = jobPosting.toJSON ? jobPosting.toJSON() : { ...jobPosting };
+    if (payload.Company) {
+      payload.Company = withCompanyLogoUrl(payload.Company);
+    }
+    return successResponse(res, payload);
   } catch (error) {
     console.error("Error getting job posting details:", error);
     return res

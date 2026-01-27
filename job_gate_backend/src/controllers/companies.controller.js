@@ -15,11 +15,18 @@ exports.listApprovedCompanies = async (req, res) => {
   try {
     const companies = await Company.findAll({
       where: { is_approved: true },
-      attributes: ["company_id", "name", "logo_url", "description", "email"],
+      attributes: [
+        "company_id",
+        "name",
+        "logo_mimetype",
+        "description",
+        "email",
+      ],
       order: [["name", "ASC"]],
     });
 
-    return successResponse(res, companies);
+    const payload = companies.map(toPublicCompany);
+    return successResponse(res, payload);
   } catch (error) {
     console.error("Error listing approved companies:", error);
     return res.status(500).json({
@@ -38,6 +45,16 @@ exports.getApprovedCompanyDetails = async (req, res) => {
   try {
     const company = await Company.findOne({
       where: { company_id: req.params.id, is_approved: true },
+      attributes: [
+        "company_id",
+        "name",
+        "email",
+        "phone",
+        "description",
+        "logo_mimetype",
+        "createdAt",
+        "updatedAt",
+      ],
     });
 
     if (!company) {
@@ -46,8 +63,7 @@ exports.getApprovedCompanyDetails = async (req, res) => {
         .json({ message: "Company not found or not approved." });
     }
 
-    const { is_approved, license_doc_url, ...publicCompanyDetails } =
-      company.toJSON();
+    const publicCompanyDetails = toPublicCompany(company);
     return successResponse(res, publicCompanyDetails);
   } catch (error) {
     console.error("Error getting approved company details:", error);
@@ -64,6 +80,23 @@ const getCompanyApprovalStatus = (company) => {
   return "pending";
 };
 
+const buildLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
+
+const toPublicCompany = (company) => {
+  const data = company.toJSON ? company.toJSON() : { ...company };
+  const logoUrl = data.logo_mimetype ? buildLogoUrl(data.company_id) : null;
+
+  return {
+    ...data,
+    logo_url: logoUrl,
+    logo_data: undefined,
+    logo_mimetype: undefined,
+    license_doc_data: undefined,
+    license_mimetype: undefined,
+    password: undefined,
+  };
+};
+
 /**
  * @desc [Public] Company registration (pending approval)
  * @route POST /api/companies/register
@@ -78,14 +111,12 @@ exports.registerCompany = async (req, res) => {
     name,
     email,
     phone,
-    license_doc_url,
     description,
-    logo_url,
     password,
     confirm_password,
   } = req.body;
 
-  if (!name || !email || !license_doc_url || !password || !confirm_password) {
+  if (!name || !email || !password || !confirm_password) {
     return res.status(400).json({
       message:
         "Please provide company name, email, license document, and password.",
@@ -103,7 +134,13 @@ exports.registerCompany = async (req, res) => {
   }
 
   try {
-    const existingCompany = await Company.findOne({ where: { email } });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const logoFile = req.files?.logo?.[0] || null;
+    const licenseFile = req.files?.license_doc?.[0] || null;
+
+    const existingCompany = await Company.findOne({
+      where: { email: normalizedEmail },
+    });
     if (existingCompany) {
       if (existingCompany.is_approved) {
         return res.status(409).json({
@@ -112,20 +149,37 @@ exports.registerCompany = async (req, res) => {
       }
 
       if (existingCompany.rejected_at) {
+        const hasExistingLicense = Boolean(existingCompany.license_doc_data);
+        if (!licenseFile && !hasExistingLicense) {
+          return res.status(400).json({
+            message: "License document file is required.",
+          });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
-        await existingCompany.update({
+        const updatePayload = {
           name,
           phone,
-          license_doc_url,
           description,
-          logo_url,
           password: hashedPassword,
           password_set_at: new Date(),
           is_approved: false,
           rejected_at: null,
           rejection_reason: null,
           approved_at: null,
-        });
+        };
+
+        if (logoFile) {
+          updatePayload.logo_data = logoFile.buffer;
+          updatePayload.logo_mimetype = logoFile.mimetype;
+        }
+
+        if (licenseFile) {
+          updatePayload.license_doc_data = licenseFile.buffer;
+          updatePayload.license_mimetype = licenseFile.mimetype;
+        }
+
+        await existingCompany.update(updatePayload);
 
         return successResponse(
           res,
@@ -142,16 +196,24 @@ exports.registerCompany = async (req, res) => {
       });
     }
 
+    if (!licenseFile) {
+      return res.status(400).json({
+        message: "License document file is required.",
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const company = await Company.create({
       name,
-      email,
+      email: normalizedEmail,
       phone,
-      license_doc_url,
       description,
-      logo_url,
       password: hashedPassword,
       password_set_at: new Date(),
+      logo_data: logoFile ? logoFile.buffer : null,
+      logo_mimetype: logoFile ? logoFile.mimetype : null,
+      license_doc_data: licenseFile.buffer,
+      license_mimetype: licenseFile.mimetype,
       is_approved: false,
       rejected_at: null,
       rejection_reason: null,
@@ -193,29 +255,37 @@ exports.submitCompanyRequest = exports.registerCompany;
  * @access Private (يتطلب دور Admin)
  */
 exports.createCompany = async (req, res) => {
-  const {
-    name,
-    email,
-    phone,
-    logo_url,
-    description,
-    license_doc_url,
-    is_approved = true,
-  } = req.body;
+  const { name, email, phone, description, is_approved = true } = req.body;
   try {
+    const logoFile = req.files?.logo?.[0] || null;
+    const licenseFile = req.files?.license_doc?.[0] || null;
+
+    if (!licenseFile) {
+      return res.status(400).json({
+        message: "License document file is required.",
+      });
+    }
+
     const newCompany = await Company.create({
       name,
       email,
       phone,
-      logo_url,
+      logo_data: logoFile ? logoFile.buffer : null,
+      logo_mimetype: logoFile ? logoFile.mimetype : null,
       description,
-      license_doc_url,
+      license_doc_data: licenseFile.buffer,
+      license_mimetype: licenseFile.mimetype,
       is_approved,
       approved_at: is_approved ? new Date() : null,
       rejected_at: null,
       rejection_reason: null,
     });
-    return successResponse(res, newCompany, "تم إنشاء الشركة بنجاح", 201);
+    return successResponse(
+      res,
+      toPublicCompany(newCompany),
+      "تم إنشاء الشركة بنجاح",
+      201
+    );
   } catch (error) {
     console.error("Error creating company:", error);
     return res
@@ -231,8 +301,11 @@ exports.createCompany = async (req, res) => {
  */
 exports.getAllCompanies = async (req, res) => {
   try {
-    const companies = await Company.findAll();
-    return successResponse(res, companies);
+    const companies = await Company.findAll({
+      attributes: { exclude: ["logo_data", "license_doc_data", "password"] },
+    });
+    const payload = companies.map(toPublicCompany);
+    return successResponse(res, payload);
   } catch (error) {
     console.error("Error fetching all companies:", error);
     return res
@@ -248,9 +321,11 @@ exports.getAllCompanies = async (req, res) => {
  */
 exports.getCompanyById = async (req, res) => {
   try {
-    const company = await Company.findByPk(req.params.id);
+    const company = await Company.findByPk(req.params.id, {
+      attributes: { exclude: ["logo_data", "license_doc_data", "password"] },
+    });
     if (!company) return res.status(404).json({ message: "الشركة غير موجودة" });
-    return successResponse(res, company);
+    return successResponse(res, toPublicCompany(company));
   } catch (error) {
     console.error("Error getting company by ID:", error);
     return res
@@ -282,7 +357,11 @@ exports.updateCompany = async (req, res) => {
     }
 
     await company.update(updateData);
-    return successResponse(res, company, "تم تحديث بيانات الشركة بنجاح");
+    return successResponse(
+      res,
+      toPublicCompany(company),
+      "تم تحديث بيانات الشركة بنجاح"
+    );
   } catch (error) {
     console.error("Error updating company:", error);
     return res
@@ -362,7 +441,8 @@ exports.getCompanyProfile = async (req, res) => {
   try {
     const company = req.company;
 
-    const { is_approved, license_doc_url, ...profileData } = company.toJSON();
+    const { is_approved, ...rest } = company.toJSON();
+    const profileData = toPublicCompany(rest);
 
     return successResponse(res, profileData);
   } catch (error) {
@@ -392,16 +472,80 @@ exports.updateCompanyProfile = async (req, res) => {
 
     // 🆕 في حال تم رفع صورة جديدة
     if (req.file) {
-      updateData.logo_url = `/uploads/companies/${req.file.filename}`;
+      updateData.logo_data = req.file.buffer;
+      updateData.logo_mimetype = req.file.mimetype;
     }
 
     await company.update(updateData);
 
-    return successResponse(res, company, "تم تحديث بيانات الشركة بنجاح");
+    return successResponse(
+      res,
+      toPublicCompany(company),
+      "تم تحديث بيانات الشركة بنجاح"
+    );
   } catch (error) {
     console.error("Error updating company profile:", error);
     return res.status(500).json({
       message: "فشل في تحديث بيانات الشركة",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc [Public] Get company logo
+ * @route GET /api/companies/:id/logo
+ * @access Public
+ */
+exports.getCompanyLogo = async (req, res) => {
+  try {
+    const company = await Company.findOne({
+      where: { company_id: req.params.id, is_approved: true },
+      attributes: ["company_id", "logo_data", "logo_mimetype"],
+    });
+
+    if (!company || !company.logo_data) {
+      return res.status(404).json({ message: "Company logo not found." });
+    }
+
+    res.setHeader(
+      "Content-Type",
+      company.logo_mimetype || "application/octet-stream"
+    );
+    return res.send(company.logo_data);
+  } catch (error) {
+    console.error("Error fetching company logo:", error);
+    return res.status(500).json({
+      message: "Server error while fetching company logo.",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc [Admin] Get company license document
+ * @route GET /api/companies/admin/:id/license
+ * @access Admin
+ */
+exports.getCompanyLicenseDoc = async (req, res) => {
+  try {
+    const company = await Company.findByPk(req.params.id, {
+      attributes: ["company_id", "license_doc_data", "license_mimetype"],
+    });
+
+    if (!company || !company.license_doc_data) {
+      return res.status(404).json({ message: "License document not found." });
+    }
+
+    res.setHeader(
+      "Content-Type",
+      company.license_mimetype || "application/octet-stream"
+    );
+    return res.send(company.license_doc_data);
+  } catch (error) {
+    console.error("Error fetching company license doc:", error);
+    return res.status(500).json({
+      message: "Server error while fetching license document.",
       error: error.message,
     });
   }

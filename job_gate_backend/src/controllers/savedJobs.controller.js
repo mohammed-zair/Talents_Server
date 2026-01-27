@@ -3,6 +3,21 @@
 const { SavedJob, JobPosting, Company } = require("../models");
 const { successResponse, errorResponse } = require("../utils/responseHandler");
 
+const buildCompanyLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
+
+const withCompanyLogoUrl = (company) => {
+  if (!company) return company;
+  const data = company.toJSON ? company.toJSON() : { ...company };
+  const logoUrl = data.logo_mimetype
+    ? buildCompanyLogoUrl(data.company_id)
+    : null;
+  return {
+    ...data,
+    logo_url: logoUrl,
+    logo_mimetype: undefined,
+  };
+};
+
 /**
  * @desc [Seeker] حفظ وظيفة
  * @route POST /api/jop_seeker/saved-jobs/:job_id
@@ -66,7 +81,7 @@ exports.getSavedJobs = async (req, res) => {
           include: [
             {
               model: Company,
-              attributes: ["company_id", "name", "logo_url"],
+              attributes: ["company_id", "name", "logo_mimetype"],
             },
           ],
         },
@@ -74,7 +89,15 @@ exports.getSavedJobs = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
-    return successResponse(res, savedJobs);
+    const payload = savedJobs.map((entry) => {
+      const data = entry.toJSON ? entry.toJSON() : { ...entry };
+      if (data.JobPosting?.Company) {
+        data.JobPosting.Company = withCompanyLogoUrl(data.JobPosting.Company);
+      }
+      return data;
+    });
+
+    return successResponse(res, payload);
   } catch (error) {
     console.error("Error fetching saved jobs:", error);
     return errorResponse(res, "فشل في جلب الوظائف المحفوظة.", error, 500);
