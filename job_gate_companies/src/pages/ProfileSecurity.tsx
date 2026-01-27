@@ -186,8 +186,12 @@ const ProfileSecurity: React.FC = () => {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-xs text-[var(--text-muted)]">{copy.name}</label>
+                  <label htmlFor="profile-name" className="text-xs text-[var(--text-muted)]">
+                    {copy.name}
+                  </label>
                   <input
+                    id="profile-name"
+                    name="name"
                     defaultValue={data.name}
                     onChange={(event) =>
                       setProfileForm((prev) => ({ ...prev, name: event.target.value }))
@@ -196,8 +200,12 @@ const ProfileSecurity: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs text-[var(--text-muted)]">{copy.industry}</label>
+                  <label htmlFor="profile-industry" className="text-xs text-[var(--text-muted)]">
+                    {copy.industry}
+                  </label>
                   <input
+                    id="profile-industry"
+                    name="industry"
                     defaultValue={data.industry}
                     onChange={(event) =>
                       setProfileForm((prev) => ({ ...prev, industry: event.target.value }))
@@ -206,8 +214,12 @@ const ProfileSecurity: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs text-[var(--text-muted)]">{copy.phone}</label>
+                  <label htmlFor="profile-phone" className="text-xs text-[var(--text-muted)]">
+                    {copy.phone}
+                  </label>
                   <input
+                    id="profile-phone"
+                    name="phone"
                     defaultValue={data.phone}
                     onChange={(event) =>
                       setProfileForm((prev) => ({ ...prev, phone: event.target.value }))
@@ -242,8 +254,12 @@ const ProfileSecurity: React.FC = () => {
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-xs text-[var(--text-muted)]">{copy.currentPassword}</label>
+              <label htmlFor="profile-current-password" className="text-xs text-[var(--text-muted)]">
+                {copy.currentPassword}
+              </label>
               <input
+                id="profile-current-password"
+                name="currentPassword"
                 type="password"
                 value={passwords.currentPassword}
                 onChange={(event) =>
@@ -253,8 +269,12 @@ const ProfileSecurity: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs text-[var(--text-muted)]">{copy.newPassword}</label>
+              <label htmlFor="profile-new-password" className="text-xs text-[var(--text-muted)]">
+                {copy.newPassword}
+              </label>
               <input
+                id="profile-new-password"
+                name="newPassword"
                 type="password"
                 value={passwords.newPassword}
                 onChange={(event) =>

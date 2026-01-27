@@ -279,12 +279,16 @@ const JobsCommandGrid: React.FC = () => {
               value={jobForm.title}
               onChange={(event) => setJobForm((prev) => ({ ...prev, title: event.target.value }))}
               placeholder={copy.formTitlePlaceholder}
+              name="formTitle"
+              aria-label={copy.formTitlePlaceholder}
               className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             />
             <input
               value={jobForm.jobId ?? ""}
               onChange={(event) => setJobForm((prev) => ({ ...prev, jobId: event.target.value }))}
               placeholder={language === "ar" ? "معرّف الوظيفة" : "Job ID (for update/delete)"}
+              name="jobId"
+              aria-label={language === "ar" ? "معرّف الوظيفة" : "Job ID"}
               className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             />
             <div className="grid gap-4 md:grid-cols-2">
@@ -391,6 +395,8 @@ const JobsCommandGrid: React.FC = () => {
                 value={editForm.title ?? ""}
                 onChange={(event) => setEditForm((prev) => ({ ...prev, title: event.target.value }))}
                 placeholder={language === "ar" ? "عنوان الوظيفة" : "Job title"}
+                name="editJobTitle"
+                aria-label={language === "ar" ? "عنوان الوظيفة" : "Job title"}
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
               />
               <input
@@ -399,12 +405,16 @@ const JobsCommandGrid: React.FC = () => {
                   setEditForm((prev) => ({ ...prev, department: event.target.value }))
                 }
                 placeholder={language === "ar" ? "القسم" : "Department"}
+                name="editDepartment"
+                aria-label={language === "ar" ? "القسم" : "Department"}
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
               />
               <input
                 value={editForm.location ?? ""}
                 onChange={(event) => setEditForm((prev) => ({ ...prev, location: event.target.value }))}
                 placeholder={language === "ar" ? "الموقع" : "Location"}
+                name="editLocation"
+                aria-label={language === "ar" ? "الموقع" : "Location"}
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
               />
             </div>

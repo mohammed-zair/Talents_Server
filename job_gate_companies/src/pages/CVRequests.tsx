@@ -129,12 +129,16 @@ const CVRequests: React.FC = () => {
                 onChange={(event) => setQuery(event.target.value)}
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
                 rows={3}
+                name="cvRequestQuery"
+                aria-label={copy.modalTitle}
               />
               <input
                 type="number"
                 value={count}
                 onChange={(event) => setCount(Number(event.target.value))}
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                name="cvRequestCount"
+                aria-label={language === "ar" ? "عدد الطلبات" : "Request count"}
               />
             </div>
             <div className="mt-6 flex justify-end gap-3">

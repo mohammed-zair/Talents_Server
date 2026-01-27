@@ -82,8 +82,12 @@ const RegisterForm: React.FC = () => {
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
-        <label className="text-xs text-[var(--text-muted)]">{labels.companyName}</label>
+        <label htmlFor="reg-company-name" className="text-xs text-[var(--text-muted)]">
+          {labels.companyName}
+        </label>
         <input
+          id="reg-company-name"
+          name="companyName"
           value={form.companyName}
           onChange={(event) => setForm({ ...form, companyName: event.target.value })}
           className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
@@ -91,8 +95,12 @@ const RegisterForm: React.FC = () => {
         />
       </div>
       <div className="space-y-2">
-        <label className="text-xs text-[var(--text-muted)]">{labels.industry}</label>
+        <label htmlFor="reg-industry" className="text-xs text-[var(--text-muted)]">
+          {labels.industry}
+        </label>
         <input
+          id="reg-industry"
+          name="industry"
           value={form.industry}
           onChange={(event) => setForm({ ...form, industry: event.target.value })}
           className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
@@ -100,8 +108,12 @@ const RegisterForm: React.FC = () => {
         />
       </div>
       <div className="space-y-2">
-        <label className="text-xs text-[var(--text-muted)]">{labels.adminName}</label>
+        <label htmlFor="reg-admin-name" className="text-xs text-[var(--text-muted)]">
+          {labels.adminName}
+        </label>
         <input
+          id="reg-admin-name"
+          name="adminName"
           value={form.adminName}
           onChange={(event) => setForm({ ...form, adminName: event.target.value })}
           className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
@@ -109,8 +121,12 @@ const RegisterForm: React.FC = () => {
         />
       </div>
       <div className="space-y-2">
-        <label className="text-xs text-[var(--text-muted)]">{labels.email}</label>
+        <label htmlFor="reg-email" className="text-xs text-[var(--text-muted)]">
+          {labels.email}
+        </label>
         <input
+          id="reg-email"
+          name="email"
           type="email"
           value={form.email}
           onChange={(event) => setForm({ ...form, email: event.target.value })}
@@ -119,8 +135,12 @@ const RegisterForm: React.FC = () => {
         />
       </div>
       <div className="space-y-2">
-        <label className="text-xs text-[var(--text-muted)]">{labels.phone}</label>
+        <label htmlFor="reg-phone" className="text-xs text-[var(--text-muted)]">
+          {labels.phone}
+        </label>
         <input
+          id="reg-phone"
+          name="phone"
           value={form.phone}
           onChange={(event) => setForm({ ...form, phone: event.target.value })}
           className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"

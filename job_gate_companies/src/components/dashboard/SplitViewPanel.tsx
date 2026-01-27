@@ -14,13 +14,22 @@ interface SplitViewPanelProps {
 const SplitViewPanel: React.FC<SplitViewPanelProps> = ({ candidate, onClose }) => {
   const { language } = useLanguage();
   return (
-    <motion.aside
-      initial={{ x: "100%" }}
-      animate={{ x: candidate ? 0 : "100%" }}
-      transition={{ type: "spring", stiffness: 260, damping: 30 }}
-      className="fixed inset-y-0 z-40 w-full max-w-md border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-soft-ambient backdrop-blur-md"
-      style={{ insetInlineEnd: 0 }}
-    >
+    <>
+      {candidate && (
+        <div
+          className="fixed inset-0 z-30 bg-black/30"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <motion.aside
+        initial={{ x: "100%" }}
+        animate={{ x: candidate ? 0 : "100%" }}
+        transition={{ type: "spring", stiffness: 260, damping: 30 }}
+        className="fixed inset-y-0 z-40 w-full max-w-md border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-soft-ambient backdrop-blur-md"
+        style={{ insetInlineEnd: 0 }}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
@@ -71,7 +80,8 @@ const SplitViewPanel: React.FC<SplitViewPanelProps> = ({ candidate, onClose }) =
           </div>
         </div>
       )}
-    </motion.aside>
+      </motion.aside>
+    </>
   );
 };
 

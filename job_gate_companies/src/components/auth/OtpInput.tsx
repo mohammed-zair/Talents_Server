@@ -34,6 +34,9 @@ const OtpInput: React.FC<OtpInputProps> = ({ length = 6, value, onChange }) => {
           ref={(el) => {
             refs.current[index] = el;
           }}
+          id={`otp-${index}`}
+          name={`otp-${index}`}
+          aria-label={`OTP digit ${index + 1}`}
           inputMode="numeric"
           value={value[index] ?? ""}
           onChange={(event) => handleChange(index, event.target.value)}

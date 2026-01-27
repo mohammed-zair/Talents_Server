@@ -34,7 +34,9 @@ api.interceptors.response.use(
       clearToken();
       toast.error("Session expired. Please log in again.");
       if (typeof window !== "undefined") {
-        window.location.href = "/login";
+        const base = import.meta.env.BASE_URL || "/";
+        const normalized = base.endsWith("/") ? base : `${base}/`;
+        window.location.href = `${normalized}login`;
       }
     }
     return Promise.reject(error);
