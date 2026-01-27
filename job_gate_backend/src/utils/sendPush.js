@@ -3,6 +3,11 @@ const { User } = require("../models");
 
 const sendPush = async (user_id, title, message) => {
   try {
+    if (!admin?.apps?.length) {
+      console.warn("[FCM] Firebase not initialized. Skipping push send.");
+      return false;
+    }
+
     const user = await User.findByPk(user_id, {
       attributes: ["fcm_token"], 
     });
