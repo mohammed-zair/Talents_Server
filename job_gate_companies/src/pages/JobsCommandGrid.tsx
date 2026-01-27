@@ -294,7 +294,7 @@ const JobsCommandGrid: React.FC = () => {
             <div className="grid gap-4 md:grid-cols-2">
               {jobForm.questions.map((question, index) => (
                 <div
-                  key={`${question.label}-${index}`}
+                  key={index}
                   className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-4"
                 >
                   <input
