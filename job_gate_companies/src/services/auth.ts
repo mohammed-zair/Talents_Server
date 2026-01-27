@@ -2,7 +2,13 @@ export interface JwtPayload {
   role?: string;
   type?: string;
   isCompany?: boolean;
+  is_company?: boolean;
+  user_type?: string;
+  account_type?: string;
   company_id?: string;
+  companyId?: string;
+  companyID?: string;
+  company?: { id?: string; company_id?: string; companyId?: string };
   exp?: number;
 }
 
@@ -31,10 +37,18 @@ export const isCompanyToken = (token: string | null) => {
   if (!token) return false;
   const payload = decodeJwt(token);
   if (!payload) return false;
+  if (payload.exp && Date.now() / 1000 > payload.exp) return false;
+  const role = payload.role || payload.type || payload.user_type || payload.account_type;
   return (
-    payload.role === "company" ||
-    payload.type === "company" ||
+    role === "company" ||
+    role === "COMPANY" ||
     payload.isCompany === true ||
-    Boolean(payload.company_id)
+    payload.is_company === true ||
+    Boolean(payload.company_id) ||
+    Boolean(payload.companyId) ||
+    Boolean(payload.companyID) ||
+    Boolean(payload.company?.id) ||
+    Boolean(payload.company?.company_id) ||
+    Boolean(payload.company?.companyId)
   );
 };
