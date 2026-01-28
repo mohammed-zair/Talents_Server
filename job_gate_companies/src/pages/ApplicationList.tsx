@@ -145,7 +145,7 @@ const ApplicationList: React.FC = () => {
             {copy.listTitle}
           </p>
           <span className="text-xs text-[var(--text-muted)]">
-            {language === "ar" - "مرتبة حسب التطابق" : "Sorted by match"}
+            {language === "ar" ? "مرتبة حسب التطابق" : "Sorted by match"}
           </span>
         </div>
 
@@ -165,7 +165,7 @@ const ApplicationList: React.FC = () => {
         </div>
 
         <div className="mt-5 max-h-[520px] space-y-4 overflow-y-auto pe-2">
-          {filtered.length === 0 - (
+          {filtered.length === 0 ? (
             <div className="rounded-xl border border-[var(--panel-border)] p-4 text-sm text-[var(--text-muted)]">
               {copy.empty}
             </div>
@@ -180,9 +180,9 @@ const ApplicationList: React.FC = () => {
                   style={{
                     background:
                       candidate.atsScore.score >= 90
-                        ? "var(--accent)"
+                        - "var(--accent)"
                         : candidate.atsScore.score >= 85
-                        ? "var(--accent-strong)"
+                        - "var(--accent-strong)"
                         : "var(--text-muted)",
                   }}
                 />
@@ -234,13 +234,13 @@ const ApplicationList: React.FC = () => {
                 <div className="flex flex-col justify-between rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                      {language === "ar" - "ملف المرشح" : "Candidate File"}
+                      {language === "ar" ? "ملف المرشح" : "Candidate File"}
                     </p>
                     <p className="mt-2 text-sm text-[var(--text-primary)]">
                       {candidate.education}
                     </p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {language === "ar" - "تم الإرسال" : "Submitted"}:{" "}
+                      {language === "ar" ? "تم الإرسال" : "Submitted"}:{" "}
                       {candidate.submittedAt}
                     </p>
                     <p className="mt-3 text-xs text-[var(--text-muted)]">
