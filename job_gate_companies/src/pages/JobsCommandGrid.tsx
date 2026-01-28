@@ -23,11 +23,6 @@ const createQuestionId = () => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-type JobFormUpdatePayload = {
-  require_cv: boolean;
-  fields: { label: string; type: "text" | "multi" | "file"; options?: string[] }[];
-};
-
 const JobsCommandGrid: React.FC = () => {
   const queryClient = useQueryClient();
   const { language } = useLanguage();
@@ -42,8 +37,15 @@ const JobsCommandGrid: React.FC = () => {
   const [editJob, setEditJob] = useState<JobPosting | null>(null);
   const [editForm, setEditForm] = useState<Partial<JobPosting>>({});
   const [jobForm, setJobForm] = useState<JobFormPayload>(emptyJobForm);
-  const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [requireCv, setRequireCv] = useState(true);
+  const [jobDraft, setJobDraft] = useState({
+    title: "",
+    description: "",
+    requirements: "",
+    location: "",
+    salaryMin: "",
+    salaryMax: "",
+  });
 
   useEffect(() => {
     setJobForm((prev) => {
@@ -90,41 +92,26 @@ const JobsCommandGrid: React.FC = () => {
       toast.error(language === "ar" ? "تعذر تحديث الوظيفة" : "Failed to update job"),
   });
 
-  const createForm = useMutation({
-    mutationFn: companyApi.createJobForm,
+  const createJob = useMutation({
+    mutationFn: (payload: FormData) => companyApi.createJobPosting(payload),
     onSuccess: () => {
-      toast.success(language === "ar" ? "تم إنشاء النموذج" : "Form created");
+      toast.success(
+        language === "ar" ? "تم نشر الوظيفة والنموذج" : "Job + form published"
+      );
       setJobForm(emptyJobForm);
-      setSelectedJobId("");
       setRequireCv(true);
+      setJobDraft({
+        title: "",
+        description: "",
+        requirements: "",
+        location: "",
+        salaryMin: "",
+        salaryMax: "",
+      });
+      queryClient.invalidateQueries({ queryKey: ["company-jobs"] });
     },
     onError: () =>
-      toast.error(language === "ar" ? "تعذر إنشاء النموذج" : "Failed to create form"),
-  });
-
-  const updateForm = useMutation({
-    mutationFn: ({ jobId, payload }: { jobId: string; payload: JobFormUpdatePayload }) =>
-      companyApi.updateJobForm(jobId, payload),
-    onSuccess: () => {
-      toast.success(language === "ar" ? "تم تحديث النموذج" : "Form updated");
-      setJobForm(emptyJobForm);
-      setSelectedJobId("");
-      setRequireCv(true);
-    },
-    onError: () =>
-      toast.error(language === "ar" ? "تعذر تحديث النموذج" : "Failed to update form"),
-  });
-
-  const deleteForm = useMutation({
-    mutationFn: (jobId: string) => companyApi.deleteJobForm(jobId),
-    onSuccess: () => {
-      toast.success(language === "ar" ? "تم حذف النموذج" : "Form deleted");
-      setJobForm(emptyJobForm);
-      setSelectedJobId("");
-      setRequireCv(true);
-    },
-    onError: () =>
-      toast.error(language === "ar" ? "تعذر حذف النموذج" : "Failed to delete form"),
+      toast.error(language === "ar" ? "تعذر نشر الوظيفة" : "Failed to publish job"),
   });
 
   const bulkToggle = () => {
@@ -218,16 +205,19 @@ const JobsCommandGrid: React.FC = () => {
       formEyebrow: "Form Builder",
       formTitle: "Dynamic Application Forms",
       formSubtitle: "Create custom questions with a Bento layout.",
-      formTitlePlaceholder: "Form title",
-      formJobLabel: "Attach to job",
-      formJobPlaceholder: "Select a job",
+      jobTitleLabel: "Job title",
+      jobDescriptionLabel: "Job description",
+      jobRequirementsLabel: "Key requirements",
+      jobLocationLabel: "Location",
+      jobSalaryMinLabel: "Min salary (optional)",
+      jobSalaryMaxLabel: "Max salary (optional)",
       requireCv: "Require CV upload",
       addText: "Add Text Question",
       addMulti: "Add Multiple Choice",
       addFile: "Add File Upload",
-      publish: "Publish Form",
+      publish: "Publish Job + Form",
       deleting: "Deleting...",
-      creating: "Creating...",
+      creating: "Publishing...",
     },
     ar: {
       headerEyebrow: "دورة الوظيفة",
@@ -241,18 +231,25 @@ const JobsCommandGrid: React.FC = () => {
       formEyebrow: "منشئ النماذج",
       formTitle: "نماذج التقديم الديناميكية",
       formSubtitle: "أنشئ أسئلة مخصصة بتنسيق Bento.",
-      formTitlePlaceholder: "عنوان النموذج",
-      formJobLabel: "ربط الوظيفة",
-      formJobPlaceholder: "اختر وظيفة",
+      jobTitleLabel: "مسمى الوظيفة",
+      jobDescriptionLabel: "وصف الوظيفة",
+      jobRequirementsLabel: "المتطلبات",
+      jobLocationLabel: "الموقع",
+      jobSalaryMinLabel: "أدنى راتب (اختياري)",
+      jobSalaryMaxLabel: "أعلى راتب (اختياري)",
       requireCv: "يتطلب رفع السيرة",
       addText: "إضافة سؤال نصي",
       addMulti: "إضافة اختيار متعدد",
       addFile: "إضافة رفع ملف",
-      publish: "نشر النموذج",
+      publish: "نشر الوظيفة والنموذج",
       deleting: "جارٍ الحذف...",
-      creating: "جارٍ الإنشاء...",
+      creating: "جارٍ النشر...",
     },
   }[language];
+
+  const canPublish = Boolean(
+    jobDraft.title.trim() && jobDraft.description.trim() && jobForm.questions.length
+  );
 
   return (
     <div className="space-y-8">
@@ -358,34 +355,100 @@ const JobsCommandGrid: React.FC = () => {
         />
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="space-y-4">
-            <input
-              value={jobForm.title}
-              onChange={(event) => setJobForm((prev) => ({ ...prev, title: event.target.value }))}
-              placeholder={copy.formTitlePlaceholder}
-              name="formTitle"
-              aria-label={copy.formTitlePlaceholder}
-              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-            />
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-xs text-[var(--text-muted)]" htmlFor="form-job-select">
-                  {copy.formJobLabel}
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="job-title">
+                  {copy.jobTitleLabel}
                 </label>
-                <select
-                  id="form-job-select"
-                  value={selectedJobId}
-                  onChange={(event) => setSelectedJobId(event.target.value)}
-                  className="w-full rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                >
-                  <option value="">{copy.formJobPlaceholder}</option>
-                  {jobList.map((job) => (
-                    <option key={job.id} value={job.id}>
-                      {job.title}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  id="job-title"
+                  value={jobDraft.title}
+                  onChange={(event) =>
+                    setJobDraft((prev) => ({ ...prev, title: event.target.value }))
+                  }
+                  name="jobTitle"
+                  aria-label={copy.jobTitleLabel}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
               </div>
               <div className="space-y-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="job-location">
+                  {copy.jobLocationLabel}
+                </label>
+                <input
+                  id="job-location"
+                  value={jobDraft.location}
+                  onChange={(event) =>
+                    setJobDraft((prev) => ({ ...prev, location: event.target.value }))
+                  }
+                  name="jobLocation"
+                  aria-label={copy.jobLocationLabel}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="job-description">
+                  {copy.jobDescriptionLabel}
+                </label>
+                <textarea
+                  id="job-description"
+                  value={jobDraft.description}
+                  onChange={(event) =>
+                    setJobDraft((prev) => ({ ...prev, description: event.target.value }))
+                  }
+                  name="jobDescription"
+                  aria-label={copy.jobDescriptionLabel}
+                  rows={4}
+                  className="w-full resize-none rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="job-requirements">
+                  {copy.jobRequirementsLabel}
+                </label>
+                <textarea
+                  id="job-requirements"
+                  value={jobDraft.requirements}
+                  onChange={(event) =>
+                    setJobDraft((prev) => ({ ...prev, requirements: event.target.value }))
+                  }
+                  name="jobRequirements"
+                  aria-label={copy.jobRequirementsLabel}
+                  rows={3}
+                  className="w-full resize-none rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="job-salary-min">
+                  {copy.jobSalaryMinLabel}
+                </label>
+                <input
+                  id="job-salary-min"
+                  value={jobDraft.salaryMin}
+                  onChange={(event) =>
+                    setJobDraft((prev) => ({ ...prev, salaryMin: event.target.value }))
+                  }
+                  name="jobSalaryMin"
+                  aria-label={copy.jobSalaryMinLabel}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="job-salary-max">
+                  {copy.jobSalaryMaxLabel}
+                </label>
+                <input
+                  id="job-salary-max"
+                  value={jobDraft.salaryMax}
+                  onChange={(event) =>
+                    setJobDraft((prev) => ({ ...prev, salaryMax: event.target.value }))
+                  }
+                  name="jobSalaryMax"
+                  aria-label={copy.jobSalaryMaxLabel}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
                 <label className="text-xs text-[var(--text-muted)]" htmlFor="form-require-cv">
                   {copy.requireCv}
                 </label>
@@ -472,48 +535,39 @@ const JobsCommandGrid: React.FC = () => {
             </Button>
             <Button
               className="w-full justify-center"
-              onClick={() =>
-                createForm.mutate({
-                  job_id: selectedJobId,
-                  require_cv: requireCv,
-                  fields: jobForm.questions.map((q) => ({
-                    label: q.label,
-                    type: q.type,
-                    options: q.options ?? [],
-                  })),
-                })
-              }
-              disabled={createForm.isPending}
-            >
-              {createForm.isPending ? copy.creating : copy.publish}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                selectedJobId &&
-                updateForm.mutate({
-                  jobId: selectedJobId,
-                  payload: {
-                    require_cv: requireCv,
-                    fields: jobForm.questions.map((q) => ({
+              onClick={() => {
+                const payload = new FormData();
+                payload.append("title", jobDraft.title.trim());
+                payload.append("description", jobDraft.description.trim());
+                if (jobDraft.requirements.trim()) {
+                  payload.append("requirements", jobDraft.requirements.trim());
+                }
+                if (jobDraft.location.trim()) {
+                  payload.append("location", jobDraft.location.trim());
+                }
+                if (jobDraft.salaryMin.trim()) {
+                  payload.append("salary_min", jobDraft.salaryMin.trim());
+                }
+                if (jobDraft.salaryMax.trim()) {
+                  payload.append("salary_max", jobDraft.salaryMax.trim());
+                }
+                payload.append("form_type", "internal_form");
+                payload.append("require_cv", String(requireCv));
+                payload.append(
+                  "form_fields",
+                  JSON.stringify(
+                    jobForm.questions.map((q) => ({
                       label: q.label,
                       type: q.type,
                       options: q.options ?? [],
-                    })),
-                  } as any,
-                })
-              }
-              disabled={!selectedJobId || updateForm.isPending}
+                    }))
+                  )
+                );
+                createJob.mutate(payload);
+              }}
+              disabled={!canPublish || createJob.isPending}
             >
-              {language === "ar" ? "تحديث النموذج" : "Update Form"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => selectedJobId && deleteForm.mutate(selectedJobId)}
-              disabled={!selectedJobId || deleteForm.isPending}
-              className="border-red-300 text-red-500"
-            >
-              {language === "ar" ? "حذف النموذج" : "Delete Form"}
+              {createJob.isPending ? copy.creating : copy.publish}
             </Button>
           </div>
         </div>
