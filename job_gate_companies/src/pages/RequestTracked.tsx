@@ -70,6 +70,7 @@ const RequestTracked: React.FC = () => {
   }[language];
 
   const handleTrack = async () => {
+    if (!requestId && !email) return;
     try {
       setLoading(true);
       const response = await authApi.trackCompanyRequest({
