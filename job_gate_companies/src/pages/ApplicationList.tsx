@@ -180,9 +180,9 @@ const ApplicationList: React.FC = () => {
                   style={{
                     background:
                       candidate.atsScore.score >= 90
-                        - "var(--accent)"
+                        ? "var(--accent)"
                         : candidate.atsScore.score >= 85
-                        - "var(--accent-strong)"
+                        ? "var(--accent-strong)"
                         : "var(--text-muted)",
                   }}
                 />
@@ -245,7 +245,7 @@ const ApplicationList: React.FC = () => {
                     </p>
                     <p className="mt-3 text-xs text-[var(--text-muted)]">
                       {language === "ar"
-                        - "تمت مشاركة هذا المرشح من قبل فريق الموارد البشرية."
+                        ? "تمت مشاركة هذا المرشح من قبل فريق الموارد البشرية."
                         : "This candidate was shared by the HR team."}
                     </p>
                   </div>
