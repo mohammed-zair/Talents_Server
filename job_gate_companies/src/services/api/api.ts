@@ -51,7 +51,17 @@ export const companyApi = {
     const { data } = await api.get("/companies/company/job-postings");
     const normalized =
       Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
-    return normalized as JobPosting[];
+    return (normalized as any[]).map((job) => ({
+      id: String(job.job_id ?? job.id ?? ""),
+      title: job.title ?? "",
+      location: job.location ?? "",
+      department: job.department ?? "",
+      status: job.status ?? "open",
+      applicants: Array.isArray(job.Applications)
+        ? job.Applications.length
+        : job.applicants ?? 0,
+      createdAt: job.created_at ?? job.createdAt ?? "",
+    })) as JobPosting[];
   },
   createJobPosting: async (payload: FormData) => {
     const { data } = await api.post<JobPosting>("/companies/company/job-postings", payload);
