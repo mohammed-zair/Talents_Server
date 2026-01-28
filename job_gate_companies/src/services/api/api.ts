@@ -54,9 +54,7 @@ export const companyApi = {
     return normalized as JobPosting[];
   },
   createJobPosting: async (payload: FormData) => {
-    const { data } = await api.post<JobPosting>("/companies/company/job-postings", payload, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await api.post<JobPosting>("/companies/company/job-postings", payload);
     return data;
   },
   getApplications: async () => {
