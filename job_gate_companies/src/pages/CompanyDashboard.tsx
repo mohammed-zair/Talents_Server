@@ -1,152 +1,198 @@
 import React from "react";
 import { motion, animate } from "framer-motion";
-import { dashboardData, candidates } from "../data/mockData";
-import { useAI } from "../hooks/useAI/useAI";
+import {
+  Activity,
+  Sparkles,
+  Target,
+  BriefcaseBusiness,
+  FileBarChart2,
+  ShoppingCart,
+  Wand2,
+} from "lucide-react";
 import Card from "../components/shared/Card";
 import SectionHeader from "../components/shared/SectionHeader";
-import PulseHeader from "../components/dashboard/PulseHeader";
-import MagicSearchBar from "../components/dashboard/MagicSearchBar";
-import WeightAdjuster from "../components/dashboard/WeightAdjuster";
-import PipelineFunnel from "../components/dashboard/PipelineFunnel";
-import StrategicMatchCard from "../components/dashboard/StrategicMatchCard";
-import RetentionTeaser from "../components/dashboard/RetentionTeaser";
-import JobCreationStepper from "../components/dashboard/JobCreationStepper";
+import Button from "../components/shared/Button";
 import { useLanguage } from "../contexts/LanguageContext";
 
 const CompanyDashboard: React.FC = () => {
-  const { query, setQuery, weights, setWeights, rankedCandidates } = useAI(candidates);
   const { language } = useLanguage();
   const isRtl = language === "ar";
 
   const copy = {
     en: {
-      title: "Company Command Center",
-      subtitle: "AI-guided recruiting intelligence with live ATS resonance.",
-      pulse:
-        "AI Analysis complete: 5 strategic matches found for Project Manager role.",
-      pipelineEyebrow: "Active Talent Pipelines",
-      pipelineTitle: "Pipeline Velocity",
-      pipelineSubtitle: "Stage distribution across active requisitions.",
-      searchPlaceholder:
-        'Try: "Senior Devs in Riyadh with Python who worked at startups"',
-      strategicEyebrow: "Strategic Matches",
-      strategicTitle: "High-Confidence Candidate Signals",
-      strategicSubtitle: "AI re-ranked by ATS resonance and role fit.",
-      hiringVelocity: "Hiring Velocity",
-      hiringNote: "Based on current applicants, you are likely to fill this role in 12 days.",
-      focusTitle: "Focus Now",
-      focusSubtitle: "Expiring roles and high ATS matches that need review.",
-      expiringJobs: "Expiring Jobs",
-      unreviewedMatches: "Unreviewed Top Matches",
+      eyebrow: "Intelligence Hub",
+      title: "Market‑Grade Recruiting Intelligence",
+      subtitle:
+        "Macro signals only. Zero candidate names. Optimized for executive review.",
+      marketPulse: "Market Pulse",
+      availableTalent: "Available High‑Intent Talent",
+      topReact: "Top 5% of React Developers in-region are currently active",
+      strengthRadar: "Competency Radar",
+      successForecast: "Success Forecast",
+      hires30: "Estimated hires in next 30 days",
+      cvPurchased: "Total CVs purchased",
+      alignmentIndex: "Strategic Alignment Index",
+      qualityVsQuantity: "Quality vs Quantity",
+      copilot: "AI Co‑Pilot",
+      copilotText:
+        "Market trend shows a 15% increase in Python salaries; consider adjusting your Senior Dev posting to stay competitive.",
+      jobFunnel: "Job Performance Funnel",
+      activeJobs: "Active Jobs",
+      totalApplicants: "Total Applicants",
+      competencyCurve: "Competency Distribution",
+      impact: "Net Talent Acquisition",
+      fulfilled: "Total Positions Fulfilled via Talents We Trust",
+      actions: "Quick Actions",
+      createJob: "Create Strategic Job",
+      credits: "Purchase Talent Credits",
+      report: "Export Executive Report",
     },
     ar: {
-      title: "مركز قيادة الشركة",
-      subtitle: "ذكاء توظيف مدعوم بالذكاء الاصطناعي مع مؤشر ATS حي.",
-      pulse: "اكتمل التحليل: تم العثور على 5 تطابقات إستراتيجية.",
-      pipelineEyebrow: "مسارات المواهب النشطة",
-      pipelineTitle: "سرعة المسار",
-      pipelineSubtitle: "توزيع المراحل عبر الشواغر النشطة.",
-      searchPlaceholder: 'مثال: "مطورو بايثون في الرياض بخبرة شركات ناشئة"',
-      strategicEyebrow: "تطابقات إستراتيجية",
-      strategicTitle: "إشارات مرشحين عالية الثقة",
-      strategicSubtitle: "إعادة ترتيب بالذكاء الاصطناعي وفق الدور.",
-      hiringVelocity: "سرعة التوظيف",
-      hiringNote: "بناءً على الطلبات الحالية، من المرجح إغلاق الدور خلال ١٢ يومًا.",
-      focusTitle: "التركيز الآن",
-      focusSubtitle: "وظائف منتهية قريبًا وتطابقات ATS تحتاج مراجعة.",
-      expiringJobs: "وظائف قاربت الانتهاء",
-      unreviewedMatches: "تطابقات عالية غير مُراجعة",
+      eyebrow: "مركز الذكاء",
+      title: "ذكاء توظيف بمستوى السوق",
+      subtitle: "إشارات كلية فقط. بدون أسماء مرشحين. مصمم للإدارة.",
+      marketPulse: "نبض السوق",
+      availableTalent: "مواهب عالية النية متاحة",
+      topReact: "أفضل 5% من مطوري React في المنطقة متاحون الآن",
+      strengthRadar: "رادار الكفاءات",
+      successForecast: "توقع النجاح",
+      hires30: "التعيينات المتوقعة خلال 30 يوماً",
+      cvPurchased: "إجمالي السير المشتراة",
+      alignmentIndex: "مؤشر المواءمة الاستراتيجية",
+      qualityVsQuantity: "الجودة مقابل الكمية",
+      copilot: "المساعد الذكي",
+      copilotText:
+        "يرصد السوق ارتفاعاً بنسبة 15% في رواتب Python؛ ننصح بمراجعة إعلان المطور الكبير.",
+      jobFunnel: "قمع أداء الوظائف",
+      activeJobs: "الوظائف النشطة",
+      totalApplicants: "إجمالي المتقدمين",
+      competencyCurve: "توزيع الكفاءة",
+      impact: "صافي اكتساب المواهب",
+      fulfilled: "إجمالي الوظائف التي تم شغلها عبر Talents We Trust",
+      actions: "إجراءات سريعة",
+      createJob: "إنشاء وظيفة استراتيجية",
+      credits: "شراء رصيد المواهب",
+      report: "تصدير تقرير تنفيذي",
     },
   }[language];
 
+  const stats = [
+    { label: copy.availableTalent, value: "2,340", icon: Activity },
+    { label: copy.hires30, value: "18", icon: Sparkles },
+    { label: copy.cvPurchased, value: "164", icon: FileBarChart2 },
+    { label: copy.alignmentIndex, value: "87%", icon: Target, glow: true },
+  ];
+
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">
-            Talents We Trust
-          </p>
-          <h1 className="heading-serif text-3xl font-semibold text-[var(--text-primary)]">
-            {copy.title}
-          </h1>
-          <p className="text-sm text-[var(--text-muted)]">
-            {copy.subtitle}
-          </p>
-        </div>
-        <PulseHeader
-          message={copy.pulse}
-          candidates={rankedCandidates}
-          hiringVelocityDays={12}
-        />
-      </div>
+      <SectionHeader
+        eyebrow={copy.eyebrow}
+        title={copy.title}
+        subtitle={copy.subtitle}
+      />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {dashboardData.metrics.map((metric) => (
-          <Card key={metric.label} className="flex flex-col gap-3">
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-              {metric.label}
-            </p>
-            <CountUpValue value={metric.value} />
-            <p className="text-xs text-[var(--accent)]">{metric.delta}</p>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <Card
+            key={stat.label}
+            className={`flex flex-col gap-3 ${
+              stat.glow ? "shadow-[0_0_15px_rgba(0,168,232,0.3)]" : ""
+            }`}
+          >
+            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+              <span>{stat.label}</span>
+              <stat.icon size={16} className="text-[var(--accent)]" />
+            </div>
+            <CountUpValue value={stat.value} />
           </Card>
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <Card className="mesh-bg">
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card className="relative overflow-hidden">
+          <div className="absolute inset-0 opacity-50">
+            <div className="absolute -top-10 right-6 h-32 w-32 rounded-full bg-cyan-400/20 blur-3xl" />
+            <div className="absolute bottom-4 left-8 h-24 w-24 rounded-full bg-teal-400/20 blur-3xl" />
+          </div>
+          <div className="relative">
+            <SectionHeader
+              eyebrow={copy.marketPulse}
+              title={copy.availableTalent}
+              subtitle={copy.topReact}
+            />
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <RadarCard title={copy.strengthRadar} />
+              <ForecastCard label={copy.successForecast} note={copy.qualityVsQuantity} />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="border border-teal-400/40 shadow-[0_0_15px_rgba(0,168,232,0.3)]">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--chip-bg)]">
+              <Wand2 size={18} className="text-teal-300" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                {copy.copilot}
+              </p>
+              <p className="text-sm text-[var(--text-primary)]">{copy.copilotText}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <Card>
           <SectionHeader
-            eyebrow={copy.pipelineEyebrow}
-            title={copy.pipelineTitle}
-            subtitle={copy.pipelineSubtitle}
+            eyebrow={copy.jobFunnel}
+            title={`${copy.activeJobs} vs ${copy.totalApplicants}`}
+            subtitle={copy.competencyCurve}
           />
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <FunnelMetric label={copy.activeJobs} value={24} />
+            <FunnelMetric label={copy.totalApplicants} value={612} />
+          </div>
           <div className="mt-6">
-            <PipelineFunnel stages={dashboardData.pipeline} />
+            <BellCurve isRtl={isRtl} />
           </div>
         </Card>
-        <div className="space-y-4">
-          <MagicSearchBar
-            value={query}
-            onChange={setQuery}
-            placeholder={copy.searchPlaceholder}
-          />
-          <WeightAdjuster weights={weights} onChange={setWeights} />
+
+        <div className="grid gap-6">
+          <Card className="relative overflow-hidden">
+            <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(0,168,232,0.18),transparent_55%)]" />
+            <div className="relative">
+              <SectionHeader
+                eyebrow={copy.impact}
+                title="1,482"
+                subtitle={copy.fulfilled}
+              />
+            </div>
+          </Card>
+
+          <Card>
+            <SectionHeader
+              eyebrow={copy.actions}
+              title={copy.actions}
+              subtitle={language === "ar" ? "إجراءات فورية للقيادة" : "Executive‑ready controls"}
+            />
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <Button className="justify-center">
+                <BriefcaseBusiness size={16} className="me-2" />
+                {copy.createJob}
+              </Button>
+              <Button variant="outline" className="justify-center">
+                <ShoppingCart size={16} className="me-2" />
+                {copy.credits}
+              </Button>
+              <Button variant="outline" className="justify-center">
+                <FileBarChart2 size={16} className="me-2" />
+                {copy.report}
+              </Button>
+            </div>
+          </Card>
         </div>
       </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        <Card className="h-full">
-          <SectionHeader
-            eyebrow={copy.strategicEyebrow}
-            title={copy.strategicTitle}
-            subtitle={copy.strategicSubtitle}
-          />
-          <div className="mt-6 space-y-4">
-            {rankedCandidates.map((candidate, index) => (
-              <motion.div
-                key={candidate.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <StrategicMatchCard candidate={candidate} />
-              </motion.div>
-            ))}
-          </div>
-        </Card>
-        <div className="space-y-6">
-          <HiringVelocityWidget isRtl={isRtl} title={copy.hiringVelocity} note={copy.hiringNote} />
-          <FocusList
-            isRtl={isRtl}
-            title={copy.focusTitle}
-            subtitle={copy.focusSubtitle}
-            expiringTitle={copy.expiringJobs}
-            matchesTitle={copy.unreviewedMatches}
-          />
-          <RetentionTeaser />
-          <JobCreationStepper />
-        </div>
-      </div>
-
     </div>
   );
 };
@@ -171,38 +217,84 @@ const CountUpValue: React.FC<{ value: string | number }> = ({ value }) => {
   }, [numeric]);
 
   return (
-    <p className="text-3xl font-semibold text-[var(--text-primary)]">
-      {display}
-    </p>
+    <p className="text-3xl font-semibold text-[var(--text-primary)]">{display}</p>
   );
 };
 
-const HiringVelocityWidget: React.FC<{ isRtl: boolean; title: string; note: string }> = ({
-  isRtl,
-  title,
-  note,
-}) => {
-  const data = [12, 18, 14, 22, 20, 26, 18];
-  const max = Math.max(...data, 1);
-  const points = data
-    .map((value, index) => {
-      const x = (index / (data.length - 1)) * 180;
-      const y = 60 - (value / max) * 50;
-      return `${x},${y}`;
-    })
-    .join(" ");
+const RadarCard: React.FC<{ title: string }> = ({ title }) => {
+  const metrics = [
+    { label: "System Design", value: 86 },
+    { label: "DevOps", value: 62 },
+    { label: "Security", value: 74 },
+    { label: "Leadership", value: 68 },
+  ];
 
   return (
-    <Card>
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
-        <span className="rounded-full bg-[var(--chip-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-          12d
-        </span>
+    <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-4">
+      <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{title}</p>
+      <div className="mt-4 space-y-2">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="space-y-1">
+            <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+              <span>{metric.label}</span>
+              <span className="text-[var(--text-primary)]">{metric.value}%</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-[var(--panel-border)]">
+              <div
+                className="h-2 rounded-full bg-[var(--accent)]"
+                style={{ width: `${metric.value}%` }}
+              />
+            </div>
+          </div>
+        ))}
       </div>
+    </div>
+  );
+};
+
+const ForecastCard: React.FC<{ label: string; note: string }> = ({ label, note }) => {
+  return (
+    <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-4">
+      <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{label}</p>
+      <div className="mt-4 flex items-center justify-between">
+        <div>
+          <p className="text-3xl font-semibold text-[var(--text-primary)]">18</p>
+          <p className="text-xs text-[var(--text-muted)]">Next 30 days</p>
+        </div>
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--panel-bg)]/40">
+          <span className="text-xs text-[var(--text-primary)]">+22%</span>
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-[var(--text-muted)]">{note}</p>
+    </div>
+  );
+};
+
+const FunnelMetric: React.FC<{ label: string; value: number }> = ({ label, value }) => (
+  <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-4">
+    <p className="text-xs text-[var(--text-muted)]">{label}</p>
+    <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{value}</p>
+  </div>
+);
+
+const BellCurve: React.FC<{ isRtl: boolean }> = ({ isRtl }) => {
+  const points = [
+    "0,70",
+    "20,55",
+    "40,40",
+    "60,28",
+    "80,22",
+    "100,28",
+    "120,40",
+    "140,55",
+    "160,70",
+  ];
+
+  return (
+    <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-4">
       <svg
-        viewBox="0 0 180 70"
-        className="mt-4 h-20 w-full"
+        viewBox="0 0 160 80"
+        className="h-24 w-full"
         style={{ transform: isRtl ? "scaleX(-1)" : "scaleX(1)" }}
       >
         <polyline
@@ -211,53 +303,15 @@ const HiringVelocityWidget: React.FC<{ isRtl: boolean; title: string; note: stri
           strokeWidth="3"
           strokeLinecap="round"
           strokeLinejoin="round"
-          points={points}
+          points={points.join(" ")}
         />
-        {data.map((value, index) => {
-          const x = (index / (data.length - 1)) * 180;
-          const y = 60 - (value / max) * 50;
-          return <circle key={x} cx={x} cy={y} r={3} fill="var(--accent)" />;
-        })}
+        <circle cx="80" cy="22" r="4" fill="var(--accent)" />
       </svg>
-      <p className="text-xs text-[var(--text-muted)]">{note}</p>
-    </Card>
-  );
-};
-
-const FocusList: React.FC<{
-  isRtl: boolean;
-  title: string;
-  subtitle: string;
-  expiringTitle: string;
-  matchesTitle: string;
-}> = ({ isRtl, title, subtitle, expiringTitle, matchesTitle }) => {
-  const focusItems = [
-    { label: expiringTitle, value: "3", meta: "48h" },
-    { label: matchesTitle, value: "7", meta: "ATS > 80" },
-  ];
-
-  return (
-    <Card>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
-          <p className="text-xs text-[var(--text-muted)]">{subtitle}</p>
-        </div>
-        <span className="text-xs text-[var(--accent)]">{isRtl ? "عاجل" : "Urgent"}</span>
+      <div className="mt-2 flex items-center justify-between text-xs text-[var(--text-muted)]">
+        <span>Low</span>
+        <span>Strategic Match Threshold 60%</span>
+        <span>High</span>
       </div>
-      <div className="mt-4 space-y-3">
-        {focusItems.map((item) => (
-          <div
-            key={item.label}
-            className="flex items-center justify-between rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)]"
-          >
-            <span>{item.label}</span>
-            <span className="text-xs text-[var(--text-muted)]">
-              {item.value} · {item.meta}
-            </span>
-          </div>
-        ))}
-      </div>
-    </Card>
+    </div>
   );
 };

@@ -37,6 +37,8 @@ const JobsCommandGrid: React.FC = () => {
   const [editJob, setEditJob] = useState<JobPosting | null>(null);
   const [editForm, setEditForm] = useState<Partial<JobPosting>>({});
   const [jobForm, setJobForm] = useState<JobFormPayload>(emptyJobForm);
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const [requireCv, setRequireCv] = useState(true);
 
   useEffect(() => {
     setJobForm((prev) => {
@@ -88,6 +90,8 @@ const JobsCommandGrid: React.FC = () => {
     onSuccess: () => {
       toast.success(language === "ar" ? "تم إنشاء النموذج" : "Form created");
       setJobForm(emptyJobForm);
+      setSelectedJobId("");
+      setRequireCv(true);
     },
     onError: () =>
       toast.error(language === "ar" ? "تعذر إنشاء النموذج" : "Failed to create form"),
@@ -99,6 +103,8 @@ const JobsCommandGrid: React.FC = () => {
     onSuccess: () => {
       toast.success(language === "ar" ? "تم تحديث النموذج" : "Form updated");
       setJobForm(emptyJobForm);
+      setSelectedJobId("");
+      setRequireCv(true);
     },
     onError: () =>
       toast.error(language === "ar" ? "تعذر تحديث النموذج" : "Failed to update form"),
@@ -109,6 +115,8 @@ const JobsCommandGrid: React.FC = () => {
     onSuccess: () => {
       toast.success(language === "ar" ? "تم حذف النموذج" : "Form deleted");
       setJobForm(emptyJobForm);
+      setSelectedJobId("");
+      setRequireCv(true);
     },
     onError: () =>
       toast.error(language === "ar" ? "تعذر حذف النموذج" : "Failed to delete form"),
@@ -206,6 +214,9 @@ const JobsCommandGrid: React.FC = () => {
       formTitle: "Dynamic Application Forms",
       formSubtitle: "Create custom questions with a Bento layout.",
       formTitlePlaceholder: "Form title",
+      formJobLabel: "Attach to job",
+      formJobPlaceholder: "Select a job",
+      requireCv: "Require CV upload",
       addText: "Add Text Question",
       addMulti: "Add Multiple Choice",
       addFile: "Add File Upload",
@@ -226,6 +237,9 @@ const JobsCommandGrid: React.FC = () => {
       formTitle: "نماذج التقديم الديناميكية",
       formSubtitle: "أنشئ أسئلة مخصصة بتنسيق Bento.",
       formTitlePlaceholder: "عنوان النموذج",
+      formJobLabel: "ربط الوظيفة",
+      formJobPlaceholder: "اختر وظيفة",
+      requireCv: "يتطلب رفع السيرة",
       addText: "إضافة سؤال نصي",
       addMulti: "إضافة اختيار متعدد",
       addFile: "إضافة رفع ملف",
@@ -347,14 +361,42 @@ const JobsCommandGrid: React.FC = () => {
               aria-label={copy.formTitlePlaceholder}
               className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             />
-            <input
-              value={jobForm.jobId ?? ""}
-              onChange={(event) => setJobForm((prev) => ({ ...prev, jobId: event.target.value }))}
-              placeholder={language === "ar" ? "معرّف الوظيفة" : "Job ID (for update/delete)"}
-              name="jobId"
-              aria-label={language === "ar" ? "معرّف الوظيفة" : "Job ID"}
-              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-            />
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="form-job-select">
+                  {copy.formJobLabel}
+                </label>
+                <select
+                  id="form-job-select"
+                  value={selectedJobId}
+                  onChange={(event) => setSelectedJobId(event.target.value)}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                >
+                  <option value="">{copy.formJobPlaceholder}</option>
+                  {jobList.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="form-require-cv">
+                  {copy.requireCv}
+                </label>
+                <div className="flex items-center gap-3 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3">
+                  <input
+                    id="form-require-cv"
+                    type="checkbox"
+                    checked={requireCv}
+                    onChange={(event) => setRequireCv(event.target.checked)}
+                  />
+                  <span className="text-sm text-[var(--text-primary)]">
+                    {requireCv ? "On" : "Off"}
+                  </span>
+                </div>
+              </div>
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               {jobForm.questions.map((question, index) => (
                 <div
@@ -425,22 +467,45 @@ const JobsCommandGrid: React.FC = () => {
             </Button>
             <Button
               className="w-full justify-center"
-              onClick={() => createForm.mutate(jobForm)}
+              onClick={() =>
+                createForm.mutate({
+                  job_id: selectedJobId,
+                  require_cv: requireCv,
+                  fields: jobForm.questions.map((q) => ({
+                    label: q.label,
+                    type: q.type,
+                    options: q.options ?? [],
+                  })),
+                })
+              }
               disabled={createForm.isPending}
             >
               {createForm.isPending ? copy.creating : copy.publish}
             </Button>
             <Button
               variant="outline"
-              onClick={() => jobForm.jobId && updateForm.mutate({ jobId: jobForm.jobId, payload: jobForm })}
-              disabled={!jobForm.jobId || updateForm.isPending}
+              onClick={() =>
+                selectedJobId &&
+                updateForm.mutate({
+                  jobId: selectedJobId,
+                  payload: {
+                    require_cv: requireCv,
+                    fields: jobForm.questions.map((q) => ({
+                      label: q.label,
+                      type: q.type,
+                      options: q.options ?? [],
+                    })),
+                  } as any,
+                })
+              }
+              disabled={!selectedJobId || updateForm.isPending}
             >
               {language === "ar" ? "تحديث النموذج" : "Update Form"}
             </Button>
             <Button
               variant="outline"
-              onClick={() => jobForm.jobId && deleteForm.mutate(jobForm.jobId)}
-              disabled={!jobForm.jobId || deleteForm.isPending}
+              onClick={() => selectedJobId && deleteForm.mutate(selectedJobId)}
+              disabled={!selectedJobId || deleteForm.isPending}
               className="border-red-300 text-red-500"
             >
               {language === "ar" ? "حذف النموذج" : "Delete Form"}

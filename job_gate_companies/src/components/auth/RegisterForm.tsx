@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
@@ -37,6 +37,7 @@ const RegisterForm: React.FC = () => {
     confirm_password: "",
   });
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1);
 
   const labels = {
     en: {
@@ -49,19 +50,43 @@ const RegisterForm: React.FC = () => {
       password: "Password",
       confirmPassword: "Confirm Password",
       submit: "Request Access",
+      back: "Back",
+      next: "Next",
+      step1: "Company Details",
+      step2: "Legal & Identity",
+      step3: "Account Setup",
     },
     ar: {
-      name: "Ø§Ø³Ù… Ø§Ù„Ø´Ø±ÙƒØ©",
-      email: "Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ù…Ø¤Ø³Ø³ÙŠ",
-      phone: "Ø§Ù„Ù‡Ø§ØªÙ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)",
-      license: "Ø±Ø§Ø¨Ø· ÙˆØ«ÙŠÙ‚Ø© Ø§Ù„ØªØ±Ø®ÙŠØµ",
-      description: "ÙˆØµÙ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)",
-      logo: "Ø±Ø§Ø¨Ø· Ø§Ù„Ø´Ø¹Ø§Ø± (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)",
-      password: "ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±",
-      confirmPassword: "ØªØ£ÙƒÙŠØ¯ ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±",
-      submit: "Ø·Ù„Ø¨ Ø§Ù„ÙˆØµÙˆÙ„",
+      name: "اسم الشركة",
+      email: "البريد المؤسسي",
+      phone: "الهاتف (اختياري)",
+      license: "رابط وثيقة الترخيص",
+      description: "وصف (اختياري)",
+      logo: "رابط الشعار (اختياري)",
+      password: "كلمة المرور",
+      confirmPassword: "تأكيد كلمة المرور",
+      submit: "طلب الوصول",
+      back: "السابق",
+      next: "التالي",
+      step1: "بيانات الشركة",
+      step2: "الهوية القانونية",
+      step3: "إعداد الحساب",
     },
   }[language];
+
+  const steps = useMemo(
+    () => [
+      { key: 1, title: labels.step1 },
+      { key: 2, title: labels.step2 },
+      { key: 3, title: labels.step3 },
+    ],
+    [labels]
+  );
+
+  const canContinueStep1 = form.name.trim().length > 1 && form.email.trim().length > 3;
+  const canContinueStep2 = form.license_doc_url.trim().length > 5;
+  const canContinueStep3 =
+    form.password.trim().length >= 6 && form.confirm_password.trim().length >= 6;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -72,13 +97,15 @@ const RegisterForm: React.FC = () => {
     }
     try {
       setLoading(true);
-      await authApi.companyRegister(form);
+      const response = await authApi.companyRegister(form);
+      const requestId =
+        response?.company_id ?? response?.data?.company_id ?? response?.data?.request_id;
       toast.success(
         language === "ar"
-          ? "ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø·Ù„Ø¨. Ø¨Ø§Ù†ØªØ¸Ø§Ø± Ø§Ù„Ù…ÙˆØ§ÙÙ‚Ø©."
+          ? "تم إرسال الطلب. بانتظار الموافقة."
           : "Request submitted. Pending approval."
       );
-      navigate("/request-tracked", { state: { email: form.email } });
+      navigate("/request-tracked", { state: { email: form.email, requestId } });
     } catch (error: any) {
       const status = error?.response?.status;
       toast.error(mapAuthError(status, language));
@@ -88,117 +115,169 @@ const RegisterForm: React.FC = () => {
   };
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label htmlFor="reg-company-name" className="text-xs text-[var(--text-muted)]">
-            {labels.name}
-          </label>
-          <input
-            id="reg-company-name"
-            name="name"
-            value={form.name}
-            onChange={(event) => setForm({ ...form, name: event.target.value })}
-            className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="reg-email" className="text-xs text-[var(--text-muted)]">
-            {labels.email}
-          </label>
-          <input
-            id="reg-email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={(event) => setForm({ ...form, email: event.target.value })}
-            className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="reg-phone" className="text-xs text-[var(--text-muted)]">
-            {labels.phone}
-          </label>
-          <input
-            id="reg-phone"
-            name="phone"
-            value={form.phone}
-            onChange={(event) => setForm({ ...form, phone: event.target.value })}
-            className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-          />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="reg-license" className="text-xs text-[var(--text-muted)]">
-            {labels.license}
-          </label>
-          <input
-            id="reg-license"
-            name="license_doc_url"
-            value={form.license_doc_url}
-            onChange={(event) => setForm({ ...form, license_doc_url: event.target.value })}
-            className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-            required
-          />
-        </div>
-        <div className="space-y-2 md:col-span-2">
-          <label htmlFor="reg-description" className="text-xs text-[var(--text-muted)]">
-            {labels.description}
-          </label>
-          <textarea
-            id="reg-description"
-            name="description"
-            value={form.description}
-            onChange={(event) => setForm({ ...form, description: event.target.value })}
-            className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-            rows={3}
-          />
-        </div>
-        <div className="space-y-2 md:col-span-2">
-          <label htmlFor="reg-logo" className="text-xs text-[var(--text-muted)]">
-            {labels.logo}
-          </label>
-          <input
-            id="reg-logo"
-            name="logo_url"
-            value={form.logo_url}
-            onChange={(event) => setForm({ ...form, logo_url: event.target.value })}
-            className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-          />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="reg-password" className="text-xs text-[var(--text-muted)]">
-            {labels.password}
-          </label>
-          <input
-            id="reg-password"
-            name="password"
-            type="password"
-            value={form.password}
-            onChange={(event) => setForm({ ...form, password: event.target.value })}
-            className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="reg-confirm-password" className="text-xs text-[var(--text-muted)]">
-            {labels.confirmPassword}
-          </label>
-          <input
-            id="reg-confirm-password"
-            name="confirm_password"
-            type="password"
-            value={form.confirm_password}
-            onChange={(event) => setForm({ ...form, confirm_password: event.target.value })}
-            className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-            required
-          />
-        </div>
+    <form className="space-y-6" onSubmit={handleSubmit}>
+      <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)]">
+        {steps.map((item) => (
+          <div
+            key={item.key}
+            className={`rounded-full border px-4 py-2 ${
+              step === item.key
+                ? "border-[var(--accent)] text-[var(--text-primary)]"
+                : "border-[var(--panel-border)]"
+            }`}
+          >
+            {item.key}. {item.title}
+          </div>
+        ))}
       </div>
-      <Button type="submit" className="w-full justify-center" disabled={loading}>
-        {loading ? "..." : labels.submit}
-      </Button>
+
+      {step === 1 && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label htmlFor="reg-company-name" className="text-xs text-[var(--text-muted)]">
+              {labels.name}
+            </label>
+            <input
+              id="reg-company-name"
+              name="name"
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="reg-email" className="text-xs text-[var(--text-muted)]">
+              {labels.email}
+            </label>
+            <input
+              id="reg-email"
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
+              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="reg-phone" className="text-xs text-[var(--text-muted)]">
+              {labels.phone}
+            </label>
+            <input
+              id="reg-phone"
+              name="phone"
+              value={form.phone}
+              onChange={(event) => setForm({ ...form, phone: event.target.value })}
+              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+            />
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="reg-license" className="text-xs text-[var(--text-muted)]">
+              {labels.license}
+            </label>
+            <input
+              id="reg-license"
+              name="license_doc_url"
+              value={form.license_doc_url}
+              onChange={(event) => setForm({ ...form, license_doc_url: event.target.value })}
+              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="reg-description" className="text-xs text-[var(--text-muted)]">
+              {labels.description}
+            </label>
+            <textarea
+              id="reg-description"
+              name="description"
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              rows={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="reg-logo" className="text-xs text-[var(--text-muted)]">
+              {labels.logo}
+            </label>
+            <input
+              id="reg-logo"
+              name="logo_url"
+              value={form.logo_url}
+              onChange={(event) => setForm({ ...form, logo_url: event.target.value })}
+              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+            />
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label htmlFor="reg-password" className="text-xs text-[var(--text-muted)]">
+              {labels.password}
+            </label>
+            <input
+              id="reg-password"
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={(event) => setForm({ ...form, password: event.target.value })}
+              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="reg-confirm-password" className="text-xs text-[var(--text-muted)]">
+              {labels.confirmPassword}
+            </label>
+            <input
+              id="reg-confirm-password"
+              name="confirm_password"
+              type="password"
+              value={form.confirm_password}
+              onChange={(event) => setForm({ ...form, confirm_password: event.target.value })}
+              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+              required
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setStep((prev) => Math.max(1, prev - 1))}
+          disabled={step === 1}
+        >
+          {labels.back}
+        </Button>
+        {step < 3 ? (
+          <Button
+            type="button"
+            onClick={() => {
+              if ((step === 1 && canContinueStep1) || (step === 2 && canContinueStep2)) {
+                setStep((prev) => Math.min(3, prev + 1));
+              }
+            }}
+            disabled={(step === 1 && !canContinueStep1) || (step === 2 && !canContinueStep2)}
+          >
+            {labels.next}
+          </Button>
+        ) : (
+          <Button type="submit" disabled={loading || !canContinueStep3}>
+            {loading ? "..." : labels.submit}
+          </Button>
+        )}
+      </div>
     </form>
   );
 };

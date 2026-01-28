@@ -103,11 +103,21 @@ export const companyApi = {
     const { data } = await api.delete(`/companies/company/job-postings/${id}`);
     return data;
   },
-  createJobForm: async (payload: JobFormPayload) => {
+  createJobForm: async (payload: {
+    job_id: string;
+    require_cv: boolean;
+    fields: { label: string; type: "text" | "multi" | "file"; options?: string[] }[];
+  }) => {
     const { data } = await api.post("/companies/company/job-forms", payload);
     return data;
   },
-  updateJobForm: async (jobId: string, payload: JobFormPayload) => {
+  updateJobForm: async (
+    jobId: string,
+    payload: {
+      require_cv: boolean;
+      fields: { label: string; type: "text" | "multi" | "file"; options?: string[] }[];
+    }
+  ) => {
     const { data } = await api.put(`/companies/company/job-postings/${jobId}/form`, payload);
     return data;
   },

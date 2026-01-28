@@ -46,6 +46,20 @@ const LoginForm: React.FC = () => {
     try {
       setLoading(true);
       const response = await authApi.companyLogin(form);
+      const company = response?.company ?? response?.data?.company;
+      const status = company?.status ?? (company?.is_approved ? "approved" : "pending");
+      if (status && status !== "approved") {
+        toast.success(
+          language === "ar"
+            ? "تم تسجيل الدخول. طلبك قيد المراجعة."
+            : "Login successful. Your request is pending approval."
+        );
+        navigate("/request-tracked", {
+          state: { email: form.email, requestId: company?.company_id },
+          replace: true,
+        });
+        return;
+      }
       const token =
         response?.token ||
         response?.data?.token ||
