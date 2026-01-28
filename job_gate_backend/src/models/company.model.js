@@ -48,6 +48,11 @@ const Company = sequelize.define(
       allowNull: false, // حسب متطلباتك السابقة
     },
 
+    license_doc_url: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+
     // حقل ضروري لمعرفة نوع الملف (مثلاً: application/pdf) عند استرجاعه
     license_mimetype: {
       type: DataTypes.STRING,

@@ -185,6 +185,7 @@ exports.registerCompany = async (req, res) => {
         if (licenseFile) {
           updatePayload.license_doc_data = licenseFile.buffer;
           updatePayload.license_mimetype = licenseFile.mimetype;
+          updatePayload.license_doc_url = licenseFile.originalname || "uploaded";
         }
 
         await existingCompany.update(updatePayload);
@@ -241,6 +242,7 @@ exports.registerCompany = async (req, res) => {
       logo_mimetype: logoFile ? logoFile.mimetype : null,
       license_doc_data: licenseFile.buffer,
       license_mimetype: licenseFile.mimetype,
+      license_doc_url: licenseFile.originalname || "uploaded",
       is_approved: false,
       rejected_at: null,
       rejection_reason: null,
@@ -310,6 +312,7 @@ exports.createCompany = async (req, res) => {
       description,
       license_doc_data: licenseFile.buffer,
       license_mimetype: licenseFile.mimetype,
+      license_doc_url: licenseFile.originalname || "uploaded",
       is_approved,
       approved_at: is_approved ? new Date() : null,
       rejected_at: null,
