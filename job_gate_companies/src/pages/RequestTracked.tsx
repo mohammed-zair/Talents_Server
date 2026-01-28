@@ -116,7 +116,7 @@ const RequestTracked: React.FC = () => {
         // Ignore if confetti can't load.
       }
       if (!cancelled) {
-        setTimeout(() => navigate("/login"), 1800);
+        setTimeout(() => navigate("/dashboard"), 1800);
       }
     })();
     return () => {

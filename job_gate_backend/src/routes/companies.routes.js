@@ -34,6 +34,9 @@ router.post(
   companiesController.registerCompany
 );
 
+// Track company approval status
+router.post("/track", companiesController.trackCompanyApproval);
+
 // 📌 قائمة الشركات المعتمدة
 router.get("/", companiesController.listApprovedCompanies);
 

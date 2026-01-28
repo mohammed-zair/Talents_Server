@@ -210,8 +210,8 @@ export const authApi = {
     const { data } = await api.post("/auth/reset-password", payload);
     return data;
   },
-  trackCompanyRequest: async (payload: { request_id: string; email?: string }) => {
-    const { data } = await api.post("/company-requests/track", payload);
+  trackCompanyRequest: async (payload: { request_id?: string; email?: string }) => {
+    const { data } = await api.post("/companies/track", payload);
     return data;
   },
 };

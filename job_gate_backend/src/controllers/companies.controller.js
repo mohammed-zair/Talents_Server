@@ -626,6 +626,43 @@ exports.getCompanyLogo = async (req, res) => {
 };
 
 /**
+ * @desc [Public] Track company approval status
+ * @route POST /api/companies/track
+ * @access Public
+ */
+exports.trackCompanyApproval = async (req, res) => {
+  try {
+    const { email, request_id } = req.body || {};
+    if (!email && !request_id) {
+      return res.status(400).json({ message: "email or request_id is required." });
+    }
+
+    const where = {};
+    if (email) {
+      where.email = String(email).trim().toLowerCase();
+    } else if (request_id) {
+      where.company_id = request_id;
+    }
+
+    const company = await Company.findOne({ where });
+    if (!company) {
+      return res.status(404).json({ message: "Company request not found." });
+    }
+
+    return successResponse(res, {
+      company_id: company.company_id,
+      status: getCompanyApprovalStatus(company),
+    });
+  } catch (error) {
+    console.error("Error tracking company approval:", error);
+    return res.status(500).json({
+      message: "Server error while tracking approval.",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * @desc [Admin] Get company license document
  * @route GET /api/companies/admin/:id/license
  * @access Admin
