@@ -23,6 +23,11 @@ const createQuestionId = () => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
+type JobFormUpdatePayload = {
+  require_cv: boolean;
+  fields: { label: string; type: "text" | "multi" | "file"; options?: string[] }[];
+};
+
 const JobsCommandGrid: React.FC = () => {
   const queryClient = useQueryClient();
   const { language } = useLanguage();
@@ -98,7 +103,7 @@ const JobsCommandGrid: React.FC = () => {
   });
 
   const updateForm = useMutation({
-    mutationFn: ({ jobId, payload }: { jobId: string; payload: JobFormPayload }) =>
+    mutationFn: ({ jobId, payload }: { jobId: string; payload: JobFormUpdatePayload }) =>
       companyApi.updateJobForm(jobId, payload),
     onSuccess: () => {
       toast.success(language === "ar" ? "تم تحديث النموذج" : "Form updated");

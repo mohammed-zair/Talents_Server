@@ -10,7 +10,6 @@ import {
 import Button from "../components/shared/Button";
 import { useLanguage } from "../contexts/LanguageContext";
 import { authApi } from "../services/api/api";
-import { mapAuthError } from "../utils/authMessages";
 import { clearToken } from "../services/auth";
 import { useLocation, useNavigate } from "react-router-dom";
 

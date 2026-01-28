@@ -1,5 +1,5 @@
 import React from "react";
-import { motion, animate } from "framer-motion";
+import { animate } from "framer-motion";
 import {
   Activity,
   Sparkles,

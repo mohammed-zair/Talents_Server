@@ -6,7 +6,6 @@ import type {
   CompanyDashboardData,
   CompanyProfile,
   CVRequest,
-  JobFormPayload,
   JobPosting,
 } from "../../types";
 import { clearToken, getToken } from "../auth";
@@ -166,7 +165,24 @@ export const authApi = {
     const { data } = await api.post<{
       token?: string;
       accessToken?: string;
-      data?: { token?: string; accessToken?: string };
+      company?: {
+        company_id?: string | number;
+        name?: string;
+        email?: string;
+        status?: string;
+        is_approved?: boolean;
+      };
+      data?: {
+        token?: string;
+        accessToken?: string;
+        company?: {
+          company_id?: string | number;
+          name?: string;
+          email?: string;
+          status?: string;
+          is_approved?: boolean;
+        };
+      };
     }>("/companies/login", payload);
     return data;
   },
