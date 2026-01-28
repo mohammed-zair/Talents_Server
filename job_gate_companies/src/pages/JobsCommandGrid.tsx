@@ -46,6 +46,7 @@ const JobsCommandGrid: React.FC = () => {
     salaryMin: "",
     salaryMax: "",
   });
+  const draftStorageKey = "twt-job-form-draft";
 
   useEffect(() => {
     setJobForm((prev) => {
@@ -57,6 +58,24 @@ const JobsCommandGrid: React.FC = () => {
       };
     });
   }, [jobForm.questions.length]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(draftStorageKey);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as {
+        jobDraft?: typeof jobDraft;
+        jobForm?: JobFormPayload;
+        requireCv?: boolean;
+      };
+      if (parsed.jobDraft) setJobDraft(parsed.jobDraft);
+      if (parsed.jobForm) setJobForm(parsed.jobForm);
+      if (typeof parsed.requireCv === "boolean") setRequireCv(parsed.requireCv);
+    } catch {
+      window.localStorage.removeItem(draftStorageKey);
+    }
+  }, []);
 
   const toggleJob = useMutation({
     mutationFn: companyApi.toggleJobPosting,
@@ -108,6 +127,9 @@ const JobsCommandGrid: React.FC = () => {
         salaryMin: "",
         salaryMax: "",
       });
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(draftStorageKey);
+      }
       queryClient.invalidateQueries({ queryKey: ["company-jobs"] });
     },
     onError: () =>
@@ -215,6 +237,8 @@ const JobsCommandGrid: React.FC = () => {
       addText: "Add Text Question",
       addMulti: "Add Multiple Choice",
       addFile: "Add File Upload",
+      saveDraft: "Save Draft",
+      draftSaved: "Draft saved",
       publish: "Publish Job + Form",
       deleting: "Deleting...",
       creating: "Publishing...",
@@ -241,15 +265,15 @@ const JobsCommandGrid: React.FC = () => {
       addText: "إضافة سؤال نصي",
       addMulti: "إضافة اختيار متعدد",
       addFile: "إضافة رفع ملف",
+      saveDraft: "حفظ المسودة",
+      draftSaved: "تم حفظ المسودة",
       publish: "نشر الوظيفة والنموذج",
       deleting: "جارٍ الحذف...",
       creating: "جارٍ النشر...",
     },
   }[language];
 
-  const canPublish = Boolean(
-    jobDraft.title.trim() && jobDraft.description.trim() && jobForm.questions.length
-  );
+  const canPublish = Boolean(jobDraft.title.trim() && jobDraft.description.trim());
 
   return (
     <div className="space-y-8">
@@ -532,6 +556,19 @@ const JobsCommandGrid: React.FC = () => {
             <Button variant="outline" onClick={() => handleQuestionAdd("file")}>
               <FilePlus2 size={14} className="me-2" />
               {copy.addFile}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (typeof window === "undefined") return;
+                window.localStorage.setItem(
+                  draftStorageKey,
+                  JSON.stringify({ jobDraft, jobForm, requireCv })
+                );
+                toast.success(copy.draftSaved);
+              }}
+            >
+              {copy.saveDraft}
             </Button>
             <Button
               className="w-full justify-center"
