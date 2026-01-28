@@ -194,16 +194,7 @@ export const authApi = {
     }>("/companies/login", payload);
     return data;
   },
-  companyRegister: async (payload: {
-    name: string;
-    email: string;
-    license_doc_url: string;
-    password: string;
-    confirm_password: string;
-    phone?: string;
-    description?: string;
-    logo_url?: string;
-  }) => {
+  companyRegister: async (payload: FormData) => {
     const { data } = await api.post("/companies/register", payload);
     return data;
   },

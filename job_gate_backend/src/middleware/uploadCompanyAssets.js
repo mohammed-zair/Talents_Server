@@ -19,7 +19,7 @@ const fileFilter = (req, file, cb) => {
   if (file.fieldname === "license_doc") {
     return isLicenseDoc(file.mimetype)
       ? cb(null, true)
-      : cb(new Error("Only PDF or DOCX files are allowed for license"), false);
+      : cb(new Error("Only PDF, DOCX, or image files are allowed for license"), false);
   }
 
   return cb(new Error(`Unexpected file field: ${file.fieldname}`), false);

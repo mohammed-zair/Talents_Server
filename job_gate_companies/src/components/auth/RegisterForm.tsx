@@ -11,12 +11,12 @@ const registerSchema = z
   .object({
     name: z.string().min(2),
     email: z.string().email(),
-    license_doc_url: z.string().min(6),
+    licenseFile: z.instanceof(File),
+    logoFile: z.instanceof(File).optional(),
     password: z.string().min(6),
     confirm_password: z.string().min(6),
     phone: z.string().optional(),
     description: z.string().optional(),
-    logo_url: z.string().optional(),
   })
   .refine((data) => data.password === data.confirm_password, {
     message: "Passwords do not match.",
@@ -30,12 +30,12 @@ const RegisterForm: React.FC = () => {
     name: "",
     email: "",
     phone: "",
-    license_doc_url: "",
     description: "",
-    logo_url: "",
     password: "",
     confirm_password: "",
   });
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
 
@@ -44,9 +44,9 @@ const RegisterForm: React.FC = () => {
       name: "Company Name",
       email: "Corporate Email",
       phone: "Phone (optional)",
-      license: "License Document URL",
+      license: "License Document (PDF, DOCX, or Image)",
       description: "Description (optional)",
-      logo: "Logo URL (optional)",
+      logo: "Logo (optional)",
       password: "Password",
       confirmPassword: "Confirm Password",
       submit: "Request Access",
@@ -60,9 +60,9 @@ const RegisterForm: React.FC = () => {
       name: "اسم الشركة",
       email: "البريد المؤسسي",
       phone: "الهاتف (اختياري)",
-      license: "رابط وثيقة الترخيص",
+      license: "وثيقة الترخيص (PDF أو DOCX أو صورة)",
       description: "وصف (اختياري)",
-      logo: "رابط الشعار (اختياري)",
+      logo: "الشعار (اختياري)",
       password: "كلمة المرور",
       confirmPassword: "تأكيد كلمة المرور",
       submit: "طلب الوصول",
@@ -84,20 +84,33 @@ const RegisterForm: React.FC = () => {
   );
 
   const canContinueStep1 = form.name.trim().length > 1 && form.email.trim().length > 3;
-  const canContinueStep2 = form.license_doc_url.trim().length > 5;
+  const canContinueStep2 = Boolean(licenseFile);
   const canContinueStep3 =
     form.password.trim().length >= 6 && form.confirm_password.trim().length >= 6;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const parse = registerSchema.safeParse(form);
+    const parse = registerSchema.safeParse({
+      ...form,
+      licenseFile,
+      logoFile: logoFile ?? undefined,
+    });
     if (!parse.success) {
       toast.error(mapAuthError(422, language));
       return;
     }
     try {
       setLoading(true);
-      const response = await authApi.companyRegister(form);
+      const payload = new FormData();
+      payload.append("name", form.name);
+      payload.append("email", form.email);
+      if (form.phone) payload.append("phone", form.phone);
+      if (form.description) payload.append("description", form.description);
+      payload.append("password", form.password);
+      payload.append("confirm_password", form.confirm_password);
+      if (logoFile) payload.append("logo", logoFile);
+      if (licenseFile) payload.append("license_doc", licenseFile);
+      const response = await authApi.companyRegister(payload);
       const requestId =
         response?.company_id ?? response?.data?.company_id ?? response?.data?.request_id;
       toast.success(
@@ -183,9 +196,10 @@ const RegisterForm: React.FC = () => {
             </label>
             <input
               id="reg-license"
-              name="license_doc_url"
-              value={form.license_doc_url}
-              onChange={(event) => setForm({ ...form, license_doc_url: event.target.value })}
+              name="license_doc"
+              type="file"
+              accept=".pdf,.docx,image/*"
+              onChange={(event) => setLicenseFile(event.target.files?.[0] ?? null)}
               className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
               required
             />
@@ -209,9 +223,10 @@ const RegisterForm: React.FC = () => {
             </label>
             <input
               id="reg-logo"
-              name="logo_url"
-              value={form.logo_url}
-              onChange={(event) => setForm({ ...form, logo_url: event.target.value })}
+              name="logo"
+              type="file"
+              accept="image/*"
+              onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)}
               className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             />
           </div>
