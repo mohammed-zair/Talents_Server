@@ -38,6 +38,8 @@ const RegisterForm: React.FC = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
+  const maxFileSizeMb = 10;
+  const maxFileSizeBytes = maxFileSizeMb * 1024 * 1024;
 
   const labels = {
     en: {
@@ -55,6 +57,8 @@ const RegisterForm: React.FC = () => {
       step1: "Company Details",
       step2: "Legal & Identity",
       step3: "Account Setup",
+      fileTooLarge: `File too large (max ${maxFileSizeMb}MB).`,
+      selectedFile: "Selected",
     },
     ar: {
       name: "اسم الشركة",
@@ -71,6 +75,8 @@ const RegisterForm: React.FC = () => {
       step1: "بيانات الشركة",
       step2: "الهوية القانونية",
       step3: "إعداد الحساب",
+      fileTooLarge: `حجم الملف كبير (الحد ${maxFileSizeMb}MB).`,
+      selectedFile: "الملف المختار",
     },
   }[language];
 
@@ -199,10 +205,24 @@ const RegisterForm: React.FC = () => {
               name="license_doc"
               type="file"
               accept=".pdf,.docx,image/*"
-              onChange={(event) => setLicenseFile(event.target.files?.[0] ?? null)}
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                if (file && file.size > maxFileSizeBytes) {
+                  toast.error(labels.fileTooLarge);
+                  event.target.value = "";
+                  setLicenseFile(null);
+                  return;
+                }
+                setLicenseFile(file);
+              }}
               className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
               required
             />
+            {licenseFile && (
+              <p className="text-xs text-[var(--text-muted)]">
+                {labels.selectedFile}: {licenseFile.name}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <label htmlFor="reg-description" className="text-xs text-[var(--text-muted)]">
@@ -226,9 +246,23 @@ const RegisterForm: React.FC = () => {
               name="logo"
               type="file"
               accept="image/*"
-              onChange={(event) => setLogoFile(event.target.files?.[0] ?? null)}
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                if (file && file.size > maxFileSizeBytes) {
+                  toast.error(labels.fileTooLarge);
+                  event.target.value = "";
+                  setLogoFile(null);
+                  return;
+                }
+                setLogoFile(file);
+              }}
               className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             />
+            {logoFile && (
+              <p className="text-xs text-[var(--text-muted)]">
+                {labels.selectedFile}: {logoFile.name}
+              </p>
+            )}
           </div>
         </div>
       )}

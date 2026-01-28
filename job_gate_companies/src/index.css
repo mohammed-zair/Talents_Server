@@ -89,6 +89,49 @@ body {
     radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.08), transparent 50%);
 }
 
+.landing-mesh {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(0,168,232,0.18), transparent 45%),
+    radial-gradient(circle at 80% 15%, rgba(18,181,166,0.14), transparent 40%),
+    radial-gradient(circle at 60% 80%, rgba(255,255,255,0.06), transparent 55%);
+}
+
+.landing-orbs::before,
+.landing-orbs::after {
+  content: "";
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  filter: blur(30px);
+  opacity: 0.35;
+  animation: floatOrbs 16s ease-in-out infinite;
+  z-index: 0;
+}
+
+.landing-orbs::before {
+  background: radial-gradient(circle, rgba(0,168,232,0.35), transparent 65%);
+  top: 8%;
+  left: -6%;
+}
+
+.landing-orbs::after {
+  background: radial-gradient(circle, rgba(18,181,166,0.30), transparent 65%);
+  bottom: 6%;
+  right: -10%;
+  animation-delay: 4s;
+}
+
+@keyframes floatOrbs {
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  50% {
+    transform: translateY(-20px) translateX(18px);
+  }
+}
+
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
