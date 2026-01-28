@@ -25,7 +25,7 @@ interface MockCandidate {
 const MOCK_CANDIDATES: MockCandidate[] = [
   {
     id: "c-101",
-    name: "Sara Al‑Harbi",
+    name: "Sara Al-Harbi",
     role: "Senior Backend Engineer",
     location: "Riyadh",
     experienceYears: 7,
@@ -84,9 +84,9 @@ const ApplicationList: React.FC = () => {
   const copy = {
     en: {
       eyebrow: "Applications",
-      title: "HR‑Curated Candidate Feed",
+      title: "HR-Curated Candidate Feed",
       subtitle:
-        "Only HR‑approved CVs appear here with AI insights and recommendations.",
+        "Only HR-approved CVs appear here with AI insights and recommendations.",
       search: "Search candidate, role, or location",
       listTitle: "Incoming Profiles",
       insights: "AI Insights",
@@ -145,27 +145,27 @@ const ApplicationList: React.FC = () => {
             {copy.listTitle}
           </p>
           <span className="text-xs text-[var(--text-muted)]">
-            {language === "ar" ? "مرتبة حسب التطابق" : "Sorted by match"}
+            {language === "ar" - "مرتبة حسب التطابق" : "Sorted by match"}
           </span>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/50 p-4">
+          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
             <p className="text-xs text-[var(--text-muted)]">{copy.total}</p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.total}</p>
           </div>
-          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/50 p-4">
+          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
             <p className="text-xs text-[var(--text-muted)]">{copy.highMatch}</p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.highMatch}</p>
           </div>
-          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/50 p-4">
+          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
             <p className="text-xs text-[var(--text-muted)]">{copy.shortlist}</p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.shortlist}</p>
           </div>
         </div>
 
         <div className="mt-5 max-h-[520px] space-y-4 overflow-y-auto pe-2">
-          {filtered.length === 0 ? (
+          {filtered.length === 0 - (
             <div className="rounded-xl border border-[var(--panel-border)] p-4 text-sm text-[var(--text-muted)]">
               {copy.empty}
             </div>
@@ -173,17 +173,17 @@ const ApplicationList: React.FC = () => {
             filtered.map((candidate) => (
               <div
                 key={candidate.id}
-                className="relative grid gap-4 rounded-2xl border border-[var(--panel-border)] bg-[linear-gradient(120deg,rgba(0,168,232,0.12),transparent_55%)] p-5 shadow-soft-ambient lg:grid-cols-[1.2fr_1fr]"
+                className="relative grid gap-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/80 p-5 shadow-[0_0_25px_var(--glow)] lg:grid-cols-[1.2fr_1fr]"
               >
                 <div
                   className="absolute inset-y-4 start-0 w-1 rounded-full"
                   style={{
                     background:
                       candidate.atsScore.score >= 90
-                        ? "#00A8E8"
+                        ? "var(--accent)"
                         : candidate.atsScore.score >= 85
-                        ? "#12B5A6"
-                        : "#94A3B8",
+                        ? "var(--accent-strong)"
+                        : "var(--text-muted)",
                   }}
                 />
                 <div>
@@ -193,7 +193,7 @@ const ApplicationList: React.FC = () => {
                         {candidate.name}
                       </p>
                       <p className="text-xs text-[var(--text-muted)]">
-                        {candidate.role} · {candidate.location} ·{" "}
+                        {candidate.role} - {candidate.location} -{" "}
                         {candidate.experienceYears} {copy.experience}
                       </p>
                     </div>
@@ -210,7 +210,7 @@ const ApplicationList: React.FC = () => {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-3">
+                    <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-3">
                       <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
                         {copy.insights}
                       </p>
@@ -220,7 +220,7 @@ const ApplicationList: React.FC = () => {
                         ))}
                       </ul>
                     </div>
-                    <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-3">
+                    <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-3">
                       <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
                         {copy.recommendation}
                       </p>
@@ -231,21 +231,21 @@ const ApplicationList: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-col justify-between rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-4">
+                <div className="flex flex-col justify-between rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                      {language === "ar" ? "ملف المرشح" : "Candidate File"}
+                      {language === "ar" - "ملف المرشح" : "Candidate File"}
                     </p>
                     <p className="mt-2 text-sm text-[var(--text-primary)]">
                       {candidate.education}
                     </p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {language === "ar" ? "تم الإرسال" : "Submitted"}:{" "}
+                      {language === "ar" - "تم الإرسال" : "Submitted"}:{" "}
                       {candidate.submittedAt}
                     </p>
                     <p className="mt-3 text-xs text-[var(--text-muted)]">
                       {language === "ar"
-                        ? "تمت مشاركة هذا المرشح من قبل فريق الموارد البشرية."
+                        - "تمت مشاركة هذا المرشح من قبل فريق الموارد البشرية."
                         : "This candidate was shared by the HR team."}
                     </p>
                   </div>
