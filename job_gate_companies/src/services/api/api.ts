@@ -28,6 +28,21 @@ api.interceptors.response.use(
   async (error) => {
     const status = error?.response?.status;
     const originalRequest = error?.config;
+    const url = String(originalRequest?.url || "");
+    const isAuthRequest =
+      url.includes("/companies/login") ||
+      url.includes("/companies/register") ||
+      url.includes("/companies/set-password") ||
+      url.includes("/companies/track") ||
+      url.includes("/companies/refresh") ||
+      url.includes("/companies/logout") ||
+      url.includes("/auth/forgot-password") ||
+      url.includes("/auth/reset-password");
+
+    if (isAuthRequest) {
+      return Promise.reject(error);
+    }
+
     if (status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
       try {

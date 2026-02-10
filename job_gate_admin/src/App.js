@@ -76,7 +76,9 @@ const AppContent = () => {
             type="button"
             onClick={() => {
               localStorage.clear();
-              window.location.href = '/login';
+              const base = process.env.PUBLIC_URL || '/admin';
+              const normalized = base.endsWith('/') ? base : `${base}/`;
+              window.location.href = normalized;
             }}
             className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition"
           >

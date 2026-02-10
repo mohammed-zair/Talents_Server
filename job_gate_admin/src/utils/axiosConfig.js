@@ -41,10 +41,13 @@ axiosInstance.interceptors.response.use(
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
       localStorage.removeItem('admin_session');
-      
-      // Only redirect if not already on login page
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+
+      const base = process.env.PUBLIC_URL || '/admin';
+      const normalized = base.endsWith('/') ? base : `${base}/`;
+      if (!window.location.pathname.startsWith(normalized)) {
+        window.location.href = normalized;
+      } else {
+        window.location.href = normalized;
       }
     }
     return Promise.reject(error);

@@ -21,7 +21,9 @@ const Login = () => {
         setError('Admin access required for this dashboard.');
         return;
       }
-      window.location.href = '/';
+      const base = process.env.PUBLIC_URL || '/admin';
+      const normalized = base.endsWith('/') ? base : `${base}/`;
+      window.location.href = normalized;
     } catch (err) {
       const message = err?.response?.data?.message || err?.response?.data?.error || 'Login failed. Please check your credentials.';
       setError(message);

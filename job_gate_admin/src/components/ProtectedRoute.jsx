@@ -17,8 +17,8 @@ const ProtectedRoute = ({ children, requireAdmin = true }) => {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login if not authenticated
-    return <Navigate to="/login" replace />;
+    // Redirect to root so App can render Login screen
+    return <Navigate to="/" replace />;
   }
 
   if (requireAdmin && user?.role !== 'admin') {
@@ -35,7 +35,11 @@ const ProtectedRoute = ({ children, requireAdmin = true }) => {
           <p className="text-gray-600 dark:text-gray-300 mb-4">Admin privileges required to access this page.</p>
           <button
             type="button"
-            onClick={() => window.location.href = '/'}
+            onClick={() => {
+              const base = process.env.PUBLIC_URL || '/admin';
+              const normalized = base.endsWith('/') ? base : `${base}/`;
+              window.location.href = normalized;
+            }}
             className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition"
           >
             Go to Dashboard

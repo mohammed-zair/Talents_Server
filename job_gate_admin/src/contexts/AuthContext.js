@@ -61,7 +61,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('jwt_token');
     localStorage.removeItem('user');
     setUser(null);
-    window.location.href = '/login';
+    const base = process.env.PUBLIC_URL || '/admin';
+    const normalized = base.endsWith('/') ? base : `${base}/`;
+    window.location.href = normalized;
   };
 
   const value = useMemo(
