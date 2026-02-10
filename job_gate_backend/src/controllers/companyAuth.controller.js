@@ -1,8 +1,79 @@
-const { Company, CompanyUser } = require("../models");
+const { Company, CompanyUser, CompanyRefreshToken } = require("../models");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const { Op } = require("sequelize"); // أضف هذا الاستيراد
 const { successResponse, errorResponse } = require("../utils/responseHandler");
+
+const ACCESS_TOKEN_TTL_MINUTES = parseInt(
+  process.env.COMPANY_ACCESS_TOKEN_TTL_MINUTES || "15",
+  10
+);
+const REFRESH_TOKEN_TTL_DAYS = parseInt(
+  process.env.COMPANY_REFRESH_TOKEN_TTL_DAYS || "14",
+  10
+);
+const ACCESS_TOKEN_TTL = `${ACCESS_TOKEN_TTL_MINUTES}m`;
+const REFRESH_TOKEN_TTL_MS = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+const ACCESS_TOKEN_TTL_MS = ACCESS_TOKEN_TTL_MINUTES * 60 * 1000;
+const IS_PROD = process.env.NODE_ENV === "production";
+
+const accessCookieOptions = {
+  httpOnly: true,
+  secure: IS_PROD,
+  sameSite: "lax",
+  maxAge: ACCESS_TOKEN_TTL_MS,
+  path: "/",
+};
+
+const refreshCookieOptions = {
+  httpOnly: true,
+  secure: IS_PROD,
+  sameSite: "lax",
+  maxAge: REFRESH_TOKEN_TTL_MS,
+  path: "/api/companies",
+};
+
+const hashToken = (token) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+const issueAccessToken = (companyId, email) =>
+  jwt.sign(
+    {
+      company_id: companyId,
+      role: "company",
+      email,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: ACCESS_TOKEN_TTL }
+  );
+
+const createRefreshToken = async (companyId, loginEmail, req) => {
+  const refreshToken = crypto.randomBytes(64).toString("hex");
+  const tokenHash = hashToken(refreshToken);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+
+  await CompanyRefreshToken.create({
+    company_id: companyId,
+    token_hash: tokenHash,
+    expires_at: expiresAt,
+    created_by_ip: req.ip,
+    user_agent: req.get("user-agent") || null,
+    login_email: loginEmail || null,
+  });
+
+  return { refreshToken, tokenHash, expiresAt };
+};
+
+const setAuthCookies = (res, accessToken, refreshToken) => {
+  res.cookie("company_access", accessToken, accessCookieOptions);
+  res.cookie("company_refresh", refreshToken, refreshCookieOptions);
+};
+
+const clearAuthCookies = (res) => {
+  res.clearCookie("company_access", accessCookieOptions);
+  res.clearCookie("company_refresh", refreshCookieOptions);
+};
 
 /**
  * @desc [Public] تسجيل دخول الشركة
@@ -70,20 +141,13 @@ exports.loginCompany = async (req, res) => {
       ? "rejected"
       : "pending";
 
-    const token = jwt.sign(
-      {
-        company_id: company.company_id,
-        role: "company",
-        email: normalizedEmail,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const accessToken = issueAccessToken(company.company_id, normalizedEmail);
+    const { refreshToken } = await createRefreshToken(company.company_id, normalizedEmail, req);
+    setAuthCookies(res, accessToken, refreshToken);
 
     return successResponse(
       res,
       {
-        token,
         company: {
           company_id: company.company_id,
           name: company.name,
@@ -214,5 +278,118 @@ exports.changeCompanyPassword = async (req, res) => {
   } catch (error) {
     console.error("Error changing password:", error);
     return errorResponse(res, "حدث خطأ أثناء تغيير كلمة المرور", error, 500);
+  }
+};
+
+
+/**
+ * @desc [Private/Company] Refresh access token using refresh cookie
+ * @route POST /api/companies/refresh
+ * @access Private (cookie)
+ */
+exports.refreshCompanySession = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.company_refresh;
+    if (!refreshToken) {
+      clearAuthCookies(res);
+      return errorResponse(res, "Session expired. Please login.", null, 401);
+    }
+
+    const tokenHash = hashToken(refreshToken);
+    const stored = await CompanyRefreshToken.findOne({
+      where: {
+        token_hash: tokenHash,
+        revoked_at: null,
+      },
+    });
+
+    if (!stored || stored.expires_at < new Date()) {
+      if (stored && !stored.revoked_at) {
+        stored.revoked_at = new Date();
+        await stored.save();
+      }
+      clearAuthCookies(res);
+      return errorResponse(res, "Session expired. Please login.", null, 401);
+    }
+
+    const company = await Company.findByPk(stored.company_id);
+    if (!company) {
+      clearAuthCookies(res);
+      return errorResponse(res, "Company not found.", null, 404);
+    }
+
+    const accessToken = issueAccessToken(company.company_id, stored.login_email || company.email);
+    const { refreshToken: nextRefreshToken, tokenHash: nextTokenHash } =
+      await createRefreshToken(company.company_id, stored.login_email || company.email, req);
+
+    stored.revoked_at = new Date();
+    stored.replaced_by_token_hash = nextTokenHash;
+    await stored.save();
+
+    setAuthCookies(res, accessToken, nextRefreshToken);
+
+    return successResponse(res, { company_id: company.company_id }, "Session refreshed.");
+  } catch (error) {
+    console.error("Refresh session error:", error);
+    clearAuthCookies(res);
+    return errorResponse(res, "Session refresh failed.", error, 500);
+  }
+};
+
+/**
+ * @desc [Private/Company] Logout and revoke refresh token
+ * @route POST /api/companies/logout
+ * @access Private (cookie)
+ */
+exports.logoutCompany = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.company_refresh;
+    if (refreshToken) {
+      const tokenHash = hashToken(refreshToken);
+      const stored = await CompanyRefreshToken.findOne({
+        where: { token_hash: tokenHash, revoked_at: null },
+      });
+      if (stored) {
+        stored.revoked_at = new Date();
+        await stored.save();
+      }
+    }
+  } catch (error) {
+    console.error("Logout error:", error);
+  } finally {
+    clearAuthCookies(res);
+  }
+
+  return successResponse(res, null, "Logged out.");
+};
+
+/**
+ * @desc [Private/Company] Get current session company
+ * @route GET /api/companies/session
+ * @access Private (cookie)
+ */
+exports.getCompanySession = async (req, res) => {
+  try {
+    const company = req.company;
+    if (!company) {
+      return errorResponse(res, "Unauthorized.", null, 401);
+    }
+
+    const status = company.is_approved
+      ? "approved"
+      : company.rejected_at
+      ? "rejected"
+      : "pending";
+
+    return successResponse(res, {
+      company_id: company.company_id,
+      name: company.name,
+      email: company.email,
+      status,
+      is_approved: company.is_approved,
+    });
+  } catch (error) {
+    console.error("Get session error:", error);
+    return errorResponse(res, "Failed to fetch session.", error, 500);
   }
 };

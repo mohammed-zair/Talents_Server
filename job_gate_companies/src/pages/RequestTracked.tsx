@@ -10,7 +10,6 @@ import {
 import Button from "../components/shared/Button";
 import { useLanguage } from "../contexts/LanguageContext";
 import { authApi } from "../services/api/api";
-import { clearToken } from "../services/auth";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const RequestTracked: React.FC = () => {
@@ -256,8 +255,12 @@ const RequestTracked: React.FC = () => {
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-white/60">
               <button
                 className="flex items-center gap-2 hover:text-white"
-                onClick={() => {
-                  clearToken();
+                onClick={async () => {
+                  try {
+                    await authApi.companyLogout();
+                  } catch (_) {
+                    // Ignore logout errors
+                  }
                   window.location.href = "/companies/login";
                 }}
               >

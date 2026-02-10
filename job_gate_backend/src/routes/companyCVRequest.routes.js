@@ -1,20 +1,20 @@
 const express = require("express");
 const router = express.Router();
 const controller = require("../controllers/company/companyCVRequest.controller");
-const authMiddleware = require("../middleware/authJwt");
+const verifyCompanyAccess = require("../middleware/verifyCompanyAccess");
 const verifyCompany = require("../middleware/verifyCompany");
 const verifyCompanyApproved = require("../middleware/verifyCompanyApproved");
 
 router.post(
   "/",
-  authMiddleware.verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   controller.createCVRequest
 );
 router.get(
   "/",
-  authMiddleware.verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   controller.getMyCVRequests

@@ -5,6 +5,7 @@ require("dotenv").config({
 });
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const fs = require("fs");
 const sequelize = require("./src/config/db.config");
 
@@ -34,8 +35,23 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 if (!fs.existsSync(cvsDir)) fs.mkdirSync(cvsDir, { recursive: true });
 
 // Middleware
-app.use(cors({ origin: process.env.CORS_ORIGIN || "*" }));
+const corsOrigins = String(process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (corsOrigins.length === 0) return callback(null, true);
+      return callback(null, corsOrigins.includes(origin));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
+app.use(cookieParser());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // API Routes

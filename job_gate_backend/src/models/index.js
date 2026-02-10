@@ -21,6 +21,7 @@ const { constants } = require("fs/promises");
 const SavedJob = require("./savedJob.model");
 const ConsultationRequest = require("./consultationRequest.model");
 const ConsultationBooking = require("./consultationBooking.model");
+const CompanyRefreshToken = require("./companyRefreshToken.model");
 
 // التقديم ينتمي لموظف (مستخدم)
 Application.belongsTo(User, { foreignKey: "user_id" });
@@ -39,6 +40,12 @@ Company.hasMany(CompanyUser, {
   onDelete: "CASCADE",
 });
 CompanyUser.belongsTo(Company, { foreignKey: "company_id" });
+
+Company.hasMany(CompanyRefreshToken, {
+  foreignKey: "company_id",
+  onDelete: "CASCADE",
+});
+CompanyRefreshToken.belongsTo(Company, { foreignKey: "company_id" });
 
 // --- 2. علاقات المستخدم (User - Job Seeker) ---
 // المستخدم لديه سير ذاتية متعددة
@@ -168,6 +175,7 @@ module.exports = {
   SavedJob,
   ConsultationRequest,
   ConsultationBooking,
+  CompanyRefreshToken,
 
 };
  

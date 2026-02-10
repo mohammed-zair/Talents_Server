@@ -71,6 +71,29 @@ body {
   backdrop-filter: blur(14px);
 }
 
+.auth-card {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.25)),
+    rgba(8, 12, 18, 0.55);
+  box-shadow:
+    0 0 60px rgba(0, 168, 232, 0.25),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --text-primary: #ffffff;
+  --text-muted: #ffffff;
+}
+
+.auth-card input,
+.auth-card textarea,
+.auth-card select {
+  color: #f2f5ff;
+  caret-color: #f2f5ff;
+}
+
+.auth-card input::placeholder,
+.auth-card textarea::placeholder {
+  color: rgba(242, 245, 255, 0.6);
+}
+
 .smooth-hover {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }

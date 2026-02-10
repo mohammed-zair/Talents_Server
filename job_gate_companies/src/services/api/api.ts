@@ -8,29 +8,36 @@ import type {
   CVRequest,
   JobPosting,
 } from "../../types";
-import { clearToken, getToken } from "../auth";
+import { clearToken } from "../auth";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000/api";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
 });
 
-api.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+const authClient = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
 });
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const status = error?.response?.status;
+    const originalRequest = error?.config;
+    if (status === 401 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        await authClient.post("/companies/refresh");
+        return api(originalRequest);
+      } catch (refreshError) {
+        clearToken();
+      }
+    }
     if (status === 401) {
-      clearToken();
       toast.error("Session expired. Please log in again.");
       if (typeof window !== "undefined") {
         const base = import.meta.env.BASE_URL || "/";
@@ -43,6 +50,10 @@ api.interceptors.response.use(
 );
 
 export const companyApi = {
+  getSession: async () => {
+    const { data } = await api.get("/companies/session");
+    return data;
+  },
   getDashboard: async () => {
     const { data } = await api.get<CompanyDashboardData>("/companies/company/dashboard");
     return data;
@@ -192,6 +203,14 @@ export const authApi = {
         };
       };
     }>("/companies/login", payload);
+    return data;
+  },
+  refreshSession: async () => {
+    const { data } = await authClient.post("/companies/refresh");
+    return data;
+  },
+  companyLogout: async () => {
+    const { data } = await authClient.post("/companies/logout");
     return data;
   },
   companyRegister: async (payload: FormData) => {

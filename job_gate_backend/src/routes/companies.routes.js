@@ -7,6 +7,7 @@ const jobPostingController = require("../controllers/jobPosting.controller");
 
 const verifyAdmin = require("../middleware/verifyAdmin");
 const { verifyToken } = require("../middleware/authJwt");
+const verifyCompanyAccess = require("../middleware/verifyCompanyAccess");
 const verifyCompany = require("../middleware/verifyCompany");
 const verifyCompanyApproved = require("../middleware/verifyCompanyApproved");
 
@@ -20,6 +21,10 @@ const uploadCompanyAssets = require("../middleware/uploadCompanyAssets");
 
 // 📌 تسجيل دخول الشركة
 router.post("/login", companyAuthController.loginCompany);
+
+router.post("/refresh", companyAuthController.refreshCompanySession);
+router.post("/logout", companyAuthController.logoutCompany);
+router.get("/session", verifyCompanyAccess, verifyCompany, companyAuthController.getCompanySession);
 
 // 📌 تعيين كلمة المرور (أول مرة)
 router.post("/set-password", companyAuthController.setCompanyPassword);
@@ -95,7 +100,7 @@ router.delete(
 //    change password
 router.put(
   "/company/change-password",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   companyAuthController.changeCompanyPassword
 );
@@ -103,7 +108,7 @@ router.put(
 //  Dashboard
 router.get(
   "/company/dashboard",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   companiesController.getCompanyDashboard
@@ -112,14 +117,14 @@ router.get(
 //  Profile
 router.get(
   "/company/profile",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   companiesController.getCompanyProfile
 );
 
 router.put(
   "/company/profile",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   uploadCompanyLogo.single("logo"),
   companiesController.updateCompanyProfile
@@ -127,7 +132,7 @@ router.put(
 
 router.post(
   "/company/users",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   companiesController.addCompanyUser
@@ -136,14 +141,14 @@ router.post(
 //  Applications
 router.get(
   "/company/applications",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   companiesController.getCompanyApplications
 );
 router.get(
   "/company/applications/:id",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   companiesController.getCompanyApplicationsByID
@@ -151,7 +156,7 @@ router.get(
 
 router.put(
   "/company/applications/:id",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   companiesController.updateApplicationStatus
@@ -163,7 +168,7 @@ router.put(
 //  Create job (with image)
 router.post(
   "/company/job-postings",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   uploadJobImage.single("job_image"),
@@ -173,7 +178,7 @@ router.post(
 //  Get company jobs
 router.get(
   "/company/job-postings",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   jobPostingController.getCompanyJobPostings
@@ -182,7 +187,7 @@ router.get(
 //  Update job
 router.put(
   "/company/job-postings/:id",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   jobPostingController.updateJobPosting
@@ -191,7 +196,7 @@ router.put(
 //  Toggle job status
 router.put(
   "/company/job-postings/:id/toggle",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   jobPostingController.toggleJobPostingStatus
@@ -200,7 +205,7 @@ router.put(
 //  Delete job
 router.delete(
   "/company/job-postings/:id",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   jobPostingController.deleteJobPosting
@@ -209,7 +214,7 @@ router.delete(
 //  Internal job form
 router.post(
   "/company/job-forms",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   jobPostingController.createJobForm
@@ -218,7 +223,7 @@ router.post(
 //  Update internal job form (replace)
 router.put(
   "/company/job-postings/:id/form",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   jobPostingController.updateJobForm
@@ -227,7 +232,7 @@ router.put(
 //  Delete internal job form
 router.delete(
   "/company/job-postings/:id/form",
-  verifyToken,
+  verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
   jobPostingController.deleteJobForm

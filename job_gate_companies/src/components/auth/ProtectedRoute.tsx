@@ -1,13 +1,34 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getToken, isCompanyToken } from "../../services/auth";
+import { companyApi } from "../../services/api/api";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
-  const token = getToken();
-  const isCompany = isCompanyToken(token);
+  const [loading, setLoading] = useState(true);
+  const [isCompany, setIsCompany] = useState(false);
 
-  if (!token || !isCompany) {
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        await companyApi.getSession();
+        if (active) setIsCompany(true);
+      } catch {
+        if (active) setIsCompany(false);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) {
+    return null;
+  }
+
+  if (!isCompany) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 

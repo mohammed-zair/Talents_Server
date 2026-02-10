@@ -5,7 +5,7 @@ import Card from "../components/shared/Card";
 import Button from "../components/shared/Button";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useTheme } from "../contexts/ThemeContext";
-import { clearToken } from "../services/auth";
+import { authApi } from "../services/api/api";
 
 const Settings: React.FC = () => {
   const { language, setLanguage, dir } = useLanguage();
@@ -118,8 +118,12 @@ const Settings: React.FC = () => {
             <Button
               variant="outline"
               className="border-red-300 text-red-500"
-              onClick={() => {
-                clearToken();
+              onClick={async () => {
+                try {
+                  await authApi.companyLogout();
+                } catch (_) {
+                  // Ignore logout errors
+                }
                 window.location.href = "/companies/login";
               }}
             >
