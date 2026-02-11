@@ -330,6 +330,18 @@ const ApplicationDetail: React.FC = () => {
                     </ul>
                   </div>
                 )}
+                {Array.isArray(intelligence?.interview_questions) && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {language === "ar" ? "أسئلة المقابلة" : "Interview Questions"}
+                    </p>
+                    <ul className="mt-1 list-disc space-y-1 ps-5">
+                      {intelligence.interview_questions.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {insights.cleaned_job_description && (
                   <div>
                     <p className="text-xs text-[var(--text-muted)]">{copy.aiJobContext}</p>

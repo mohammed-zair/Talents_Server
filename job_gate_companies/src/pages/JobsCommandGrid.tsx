@@ -111,6 +111,23 @@ const JobsCommandGrid: React.FC = () => {
       toast.error(language === "ar" ? "تعذر تحديث الوظيفة" : "Failed to update job"),
   });
 
+  const recalculateInsights = useMutation({
+    mutationFn: (id: string) => companyApi.recalculateJobInsights(id),
+    onSuccess: () => {
+      toast.success(
+        language === "ar"
+          ? "تم بدء تحديث النتائج"
+          : "AI insights refresh started"
+      );
+    },
+    onError: () =>
+      toast.error(
+        language === "ar"
+          ? "تعذر تحديث النتائج"
+          : "Failed to refresh AI insights"
+      ),
+  });
+
   const createJob = useMutation({
     mutationFn: (payload: FormData) => companyApi.createJobPosting(payload),
     onSuccess: () => {
@@ -685,6 +702,19 @@ const JobsCommandGrid: React.FC = () => {
             <div className="mt-6 flex justify-end gap-3">
               <Button variant="ghost" onClick={() => setEditJob(null)}>
                 {language === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => recalculateInsights.mutate(editJob.id)}
+                disabled={recalculateInsights.isPending}
+              >
+                {recalculateInsights.isPending
+                  ? language === "ar"
+                    ? "جاري التحديث..."
+                    : "Refreshing..."
+                  : language === "ar"
+                    ? "إعادة حساب النتائج"
+                    : "Recalculate AI Insights"}
               </Button>
               <Button
                 onClick={() =>

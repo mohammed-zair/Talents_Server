@@ -220,6 +220,7 @@ class LLMService :
         prompt =f"""
         You are an Expert Technical Recruiter and Career Analyst.
         Analyze the CV against the job description (if provided) and return ONLY JSON.
+        When ranking the candidate, compare them to a Silicon Valley standard for this role.
 
         CV Text:
         {cv_text }
@@ -239,7 +240,8 @@ class LLMService :
           }},
           "ats_optimization_tips": ["Actionable ATS tips"],
           "industry_ranking_score": 0,
-          "industry_ranking_label": "Top 10% for Senior Frontend roles based on tech stack depth."
+          "industry_ranking_label": "Top 10% for Senior Frontend roles based on Silicon Valley benchmarks.",
+          "interview_questions": ["Deep-dive question 1", "Deep-dive question 2", "Deep-dive question 3"]
         }}
         """
 

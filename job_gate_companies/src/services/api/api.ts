@@ -224,6 +224,12 @@ export const companyApi = {
     const { data } = await api.put(`/companies/company/job-postings/${id}`, payload);
     return data;
   },
+  recalculateJobInsights: async (id: string) => {
+    const { data } = await api.post(
+      `/companies/company/job-postings/${id}/recalculate-insights`
+    );
+    return data;
+  },
   toggleJobPosting: async (id: string) => {
     const { data } = await api.put(`/companies/company/job-postings/${id}/toggle`);
     return data;

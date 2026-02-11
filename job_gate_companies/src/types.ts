@@ -197,6 +197,7 @@ export interface AIInsightsRecord {
     ats_optimization_tips?: string[];
     industry_ranking_score?: number;
     industry_ranking_label?: string;
+    interview_questions?: string[];
   };
   ats_score?: number;
   industry_ranking_score?: number;

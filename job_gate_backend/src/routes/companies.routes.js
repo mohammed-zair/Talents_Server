@@ -206,6 +206,13 @@ router.put(
   verifyCompanyApproved,
   jobPostingController.updateJobPosting
 );
+router.post(
+  "/company/job-postings/:id/recalculate-insights",
+  verifyCompanyAccess,
+  verifyCompany,
+  verifyCompanyApproved,
+  jobPostingController.recalculateJobInsights
+);
 
 //  Toggle job status
 router.put(

@@ -1,7 +1,10 @@
 // file: src/controllers/jobPosting.controller.js
 const sequelize = require("../config/db.config");
-const { JobPosting, JobForm, JobFormField, Application } = require("../models");
+const { JobPosting, JobForm, JobFormField, Application, CV, CVAIInsights } = require("../models");
 const { successResponse } = require("../utils/responseHandler");
+const aiService = require("../services/aiService");
+const fs = require("fs");
+const path = require("path");
 
 /**
  * @desc [Company] إنشاء إعلان توظيف جديد (مع صورة)
@@ -207,6 +210,117 @@ exports.updateJobPosting = async (req, res) => {
     return res.status(500).json({ 
       message: "فشل في تحديث إعلان التوظيف", 
       error: error.message 
+    });
+  }
+};
+
+/**
+ * @desc [Company] Recalculate AI insights for all applications in a job
+ * @route POST /api/companies/company/job-postings/:id/recalculate-insights
+ * @access Private (Company)
+ */
+exports.recalculateJobInsights = async (req, res) => {
+  try {
+    const company = req.company;
+    const jobId = req.params.id;
+
+    const jobPosting = await JobPosting.findOne({
+      where: { job_id: jobId, company_id: company.company_id },
+    });
+
+    if (!jobPosting) {
+      return res.status(404).json({ message: "Job posting not found." });
+    }
+
+    const applications = await Application.findAll({
+      where: { job_id: jobId },
+      include: [
+        {
+          model: CV,
+          attributes: ["cv_id", "file_url", "title", "file_type"],
+        },
+      ],
+      order: [["submitted_at", "DESC"]],
+    });
+
+    const jobDescription = [jobPosting.description, jobPosting.requirements]
+      .filter(Boolean)
+      .join("\n\n")
+      .trim();
+
+    setImmediate(async () => {
+      for (const application of applications) {
+        const data = application.toJSON ? application.toJSON() : application;
+        const cv = data.CV;
+        if (!cv?.file_url) continue;
+
+        const rawPath = String(cv.file_url);
+        const backendRoot = path.join(__dirname, "..", "..");
+        const normalized = rawPath.replace(/^\/+/, "");
+        const filePath = path.isAbsolute(rawPath)
+          ? rawPath
+          : path.join(backendRoot, normalized);
+
+        if (!fs.existsSync(filePath)) {
+          continue;
+        }
+
+        const fileObj = {
+          path: filePath,
+          originalname: cv.title || `cv_${cv.cv_id}`,
+          mimetype: cv.file_type || "application/pdf",
+        };
+
+        try {
+          const aiResult = await aiService.analyzeCVFile(
+            data.user_id,
+            fileObj,
+            true,
+            { job_description: jobDescription }
+          );
+
+          if (aiResult?.ai_intelligence) {
+            const existing = await CVAIInsights.findOne({
+              where: { cv_id: cv.cv_id, job_id: jobPosting.job_id },
+            });
+
+            const payload = {
+              ai_intelligence: aiResult.ai_intelligence,
+              ats_score: aiResult.ats_score ?? null,
+              industry_ranking_score: aiResult.industry_ranking_score ?? null,
+              industry_ranking_label: aiResult.industry_ranking_label ?? null,
+              cleaned_job_description: aiResult.cleaned_job_description ?? null,
+              analysis_method: aiResult.analysis_method ?? null,
+              updated_at: new Date(),
+            };
+
+            if (existing) {
+              await existing.update(payload);
+            } else {
+              await CVAIInsights.create({
+                cv_id: cv.cv_id,
+                job_id: jobPosting.job_id,
+                ...payload,
+                created_at: new Date(),
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Bulk AI refresh failed:", error);
+        }
+      }
+    });
+
+    return successResponse(
+      res,
+      { job_id: jobId, queued: applications.length },
+      "AI insights refresh started."
+    );
+  } catch (error) {
+    console.error("Error recalculating job insights:", error);
+    return res.status(500).json({
+      message: "Failed to recalculate insights.",
+      error: error.message,
     });
   }
 };
