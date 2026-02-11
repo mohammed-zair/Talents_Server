@@ -13,8 +13,8 @@ class User (Base ):
     __tablename__ ="users"
 
     id =Column (Integer ,primary_key =True ,index =True )
-    user_id =Column (String ,unique =True ,index =True ,nullable =False )
-    email =Column (String ,unique =True ,index =True )
+    user_id =Column (String (255 ),unique =True ,index =True ,nullable =False )
+    email =Column (String (255 ),unique =True ,index =True )
     created_at =Column (DateTime ,default =datetime .utcnow )
     updated_at =Column (DateTime ,default =datetime .utcnow ,onupdate =datetime .utcnow )
 
@@ -27,8 +27,8 @@ class CVAnalysis (Base ):
 
     id =Column (Integer ,primary_key =True ,index =True )
     user_id =Column (Integer ,ForeignKey ('users.id',ondelete ="CASCADE"),index =True )
-    file_name =Column (String ,nullable =False )
-    file_hash =Column (String ,index =True )
+    file_name =Column (String (255 ),nullable =False )
+    file_hash =Column (String (255 ),index =True )
 
 
     structured_data =Column (JSON ,nullable =False )
@@ -38,12 +38,12 @@ class CVAnalysis (Base ):
     features =Column (JSON ,nullable =False ,default =dict )
 
 
-    analysis_method =Column (String ,default ="fallback")
+    analysis_method =Column (String (100 ),default ="fallback")
     processing_time =Column (Float ,default =0.0 )
     created_at =Column (DateTime ,default =datetime .utcnow )
 
 
-    file_path =Column (String )
+    file_path =Column (String (512 ))
 
 
     user =relationship ("User",back_populates ="cv_analyses")
@@ -70,7 +70,7 @@ class BuilderSession (Base ):
     __tablename__ ="builder_sessions"
 
     id =Column (Integer ,primary_key =True ,index =True )
-    session_id =Column (String ,unique =True ,index =True ,nullable =False )
+    session_id =Column (String (255 ),unique =True ,index =True ,nullable =False )
     user_id =Column (Integer ,ForeignKey ('users.id',ondelete ="CASCADE"),index =True )
 
 
@@ -78,7 +78,7 @@ class BuilderSession (Base ):
     conversation_history =Column (JSON ,nullable =False ,default =list )
 
 
-    current_state =Column (String ,default ="start")
+    current_state =Column (String (100 ),default ="start")
     is_active =Column (Integer ,default =1 )
     is_complete =Column (Integer ,default =0 )
 
@@ -128,12 +128,12 @@ class ChatbotSession (Base ):
     __tablename__ ="ai_cv_chat_sessions"
 
     id =Column (Integer ,primary_key =True ,index =True )
-    session_id =Column (String ,unique =True ,index =True ,nullable =False )
-    user_id =Column (String ,index =True ,nullable =False )
+    session_id =Column (String (255 ),unique =True ,index =True ,nullable =False )
+    user_id =Column (String (255 ),index =True ,nullable =False )
 
-    language =Column (String ,default ="english")
-    output_language =Column (String ,default ="english")
-    current_step =Column (String ,default ="personal_info")
+    language =Column (String (50 ),default ="english")
+    output_language =Column (String (50 ),default ="english")
+    current_step =Column (String (100 ),default ="personal_info")
 
     cv_data =Column (JSON ,nullable =False ,default =dict )
     conversation =Column (JSON ,nullable =False ,default =list )
