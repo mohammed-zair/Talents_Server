@@ -41,6 +41,8 @@ lerna-debug.log*
 **/generated_cvs/
 **/backups/
 **/data/
+!job_gate_companies/src/data/
+!job_gate_companies/src/data/mockData.ts
 
 # Local tooling
 **/.qodo/job_gate_backend/src/config/firebase-admin.json
