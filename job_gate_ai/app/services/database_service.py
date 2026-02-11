@@ -16,7 +16,12 @@ class DatabaseService :
         pool_pre_ping =True ,
         echo =os .getenv ("SQL_ECHO","False").lower ()=="true"
         )
-        self .SessionLocal =sessionmaker (autocommit =False ,autoflush =False ,bind =self .engine )
+        self .SessionLocal =sessionmaker (
+        autocommit =False ,
+        autoflush =False ,
+        expire_on_commit =False ,
+        bind =self .engine 
+        )
 
 
         Base .metadata .create_all (bind =self .engine )
