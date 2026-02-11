@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '../../components';
 import axiosInstance from '../../utils/axiosConfig';
@@ -12,6 +12,25 @@ const TryAI = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+
+  const loadSessions = async () => {
+    try {
+      setSessionsLoading(true);
+      const response = await axiosInstance.get('/ai/chatbot/sessions');
+      const payload = extractData(response);
+      setSessions(payload?.sessions || []);
+    } catch (err) {
+      setSessions([]);
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSessions();
+  }, []);
 
   const handleFileChange = (event) => {
     setFile(event.target.files?.[0] || null);
@@ -125,6 +144,51 @@ const TryAI = () => {
             >
               Open AI Chatbot
             </Link>
+          </div>
+
+          <div className="mt-8 border-t pt-6">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-800">Resume Sessions</h4>
+              <button
+                type="button"
+                onClick={loadSessions}
+                className="text-xs text-indigo-600 hover:text-indigo-700"
+              >
+                Refresh
+              </button>
+            </div>
+            {sessionsLoading && (
+              <p className="text-xs text-gray-500">Loading sessions...</p>
+            )}
+            {!sessionsLoading && sessions.length === 0 && (
+              <p className="text-xs text-gray-500">No saved sessions yet.</p>
+            )}
+            {!sessionsLoading && sessions.length > 0 && (
+              <div className="space-y-3">
+                {sessions.slice(0, 6).map((session) => (
+                  <div key={session.session_id} className="border rounded-lg bg-white p-3">
+                    <p className="text-xs text-gray-500">Session ID</p>
+                    <p className="text-sm font-medium text-gray-800 break-words">
+                      {session.session_id}
+                    </p>
+                    <div className="mt-2 flex items-center justify-between text-xs text-gray-600">
+                      <span>{session.language || 'english'}</span>
+                      <span>
+                        {session.updated_at
+                          ? new Date(session.updated_at).toLocaleString()
+                          : '—'}
+                      </span>
+                    </div>
+                    <Link
+                      to={`/ai-chatbot?sessionId=${session.session_id}`}
+                      className="mt-3 inline-flex w-full items-center justify-center rounded-md border border-indigo-600 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"
+                    >
+                      Resume
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

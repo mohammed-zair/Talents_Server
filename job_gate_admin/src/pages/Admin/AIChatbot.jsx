@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from '../../components';
 import axiosInstance from '../../utils/axiosConfig';
 import { extractData } from '../../utils/api';
+import { useSearchParams } from 'react-router-dom';
 
 const AIChatbot = () => {
   const [sessionId, setSessionId] = useState('');
@@ -13,6 +14,39 @@ const AIChatbot = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [score, setScore] = useState(null);
   const [finalSummary, setFinalSummary] = useState(null);
+  const [searchParams] = useSearchParams();
+
+  const loadSession = async (sessionIdValue) => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.get(`/ai/chatbot/session/${sessionIdValue}`);
+      const payload = extractData(response);
+      const session = payload?.session || payload;
+      const restoredConversation = (session?.conversation || []).map((entry) => ({
+        role: entry.role,
+        content: entry.content,
+      }));
+      setSessionId(session?.session_id || sessionIdValue);
+      setConversation(restoredConversation);
+      setIsComplete(Boolean(session?.is_complete));
+      setScore(session?.score || session?.score_data || null);
+      setFinalSummary(session?.final_summary || null);
+      if (session?.language) {
+        setLanguage(session.language);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Failed to load chatbot session.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const sessionIdValue = searchParams.get('sessionId');
+    if (sessionIdValue) {
+      loadSession(sessionIdValue);
+    }
+  }, [searchParams]);
 
   const startSession = async () => {
     setError(null);
