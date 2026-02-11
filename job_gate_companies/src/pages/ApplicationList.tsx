@@ -13,12 +13,12 @@ const getApiBaseUrl = () =>
 
 const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") => {
   const map = {
-    pending: { en: "Pending", ar: "??? ????????" },
-    reviewed: { en: "Reviewed", ar: "??? ????????" },
-    shortlisted: { en: "Shortlisted", ar: "??? ????????" },
-    accepted: { en: "Accepted", ar: "?????" },
-    hired: { en: "Hired", ar: "?????" },
-    rejected: { en: "Rejected", ar: "?????" },
+    pending: { en: "Pending", ar: "قيد المراجعة" },
+    reviewed: { en: "Reviewed", ar: "تمت المراجعة" },
+    shortlisted: { en: "Shortlisted", ar: "قائمة مختصرة" },
+    accepted: { en: "Accepted", ar: "مقبول" },
+    hired: { en: "Hired", ar: "تم التوظيف" },
+    rejected: { en: "Rejected", ar: "مرفوض" },
   };
   return map[status]?.[language] ?? status;
 };
@@ -166,18 +166,18 @@ const ApplicationList: React.FC = () => {
       job: "Job",
     },
     ar: {
-      eyebrow: "???????",
-      title: "?????? ??????? ?? ??????? ???????",
-      subtitle: "???? ???? ????? ??????? ??????? ??????.",
-      search: "???? ?????? ?? ??????? ?? ??????",
-      listTitle: "??????? ???????",
-      viewCv: "??? ??????",
-      total: "????????",
-      pending: "??? ????????",
-      reviewed: "??? ????????",
-      empty: "?? ???? ????? ??????.",
-      appliedAt: "????? ???????",
-      job: "???????",
+      eyebrow: "المتقدمون",
+      title: "قائمة المتقدمين حسب أفضل تطابق",
+      subtitle: "نظرة سريعة على المؤشرات والتحليلات الذكية للمرشحين.",
+      search: "ابحث عن متقدم أو مهارة أو موقع",
+      listTitle: "قائمة المتقدمين",
+      viewCv: "عرض السيرة",
+      total: "الإجمالي",
+      pending: "قيد المراجعة",
+      reviewed: "تمت المراجعة",
+      empty: "لا توجد طلبات بعد.",
+      appliedAt: "تاريخ التقديم",
+      job: "الوظيفة",
     },
   }[language];
 
@@ -225,7 +225,7 @@ const ApplicationList: React.FC = () => {
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-[var(--text-primary)]">{copy.listTitle}</p>
           <span className="text-xs text-[var(--text-muted)]">
-            {language === "ar" ? "????? ??? ??????" : "Sorted by latest"}
+            {language === "ar" ? "مرتّب حسب الأحدث" : "Sorted by latest"}
           </span>
         </div>
 
@@ -454,7 +454,7 @@ const ApplicationList: React.FC = () => {
                 <div className="flex flex-col justify-between rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                      {language === "ar" ? "??? ??????" : "Candidate File"}
+                      {language === "ar" ? "ملف المرشح" : "Candidate File"}
                     </p>
                     <p className="mt-2 text-sm text-[var(--text-primary)]">
                       {application.candidate.email || application.candidate.phone || "-"}

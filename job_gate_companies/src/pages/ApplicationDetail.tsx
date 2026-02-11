@@ -25,12 +25,12 @@ const stages: Array<ApplicationItem["status"]> = [
 
 const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") => {
   const map = {
-    pending: { en: "Pending", ar: "??? ????????" },
-    reviewed: { en: "Reviewed", ar: "??? ????????" },
-    shortlisted: { en: "Shortlisted", ar: "??? ????????" },
-    accepted: { en: "Accepted", ar: "?????" },
-    hired: { en: "Hired", ar: "?????" },
-    rejected: { en: "Rejected", ar: "?????" },
+    pending: { en: "Pending", ar: "قيد المراجعة" },
+    reviewed: { en: "Reviewed", ar: "تمت المراجعة" },
+    shortlisted: { en: "Shortlisted", ar: "قائمة مختصرة" },
+    accepted: { en: "Accepted", ar: "مقبول" },
+    hired: { en: "Hired", ar: "تم التوظيف" },
+    rejected: { en: "Rejected", ar: "مرفوض" },
   };
   return map[status]?.[language] ?? status;
 };
@@ -69,28 +69,28 @@ const ApplicationDetail: React.FC = () => {
       aiJobContext: "Job Context (Cleaned)",
     },
     ar: {
-      headerEyebrow: "??? ???????",
-      headerTitle: "???? ??????",
-      timeline: "?? ??????",
-      advance: "??? ????????",
-      shortlist: "???????",
-      accept: "????",
-      hire: "????? ???",
-      archive: "???",
-      notFound: "?? ??? ?????? ??? ?????.",
-      candidate: "??????",
-      job: "???????",
-      appliedAt: "????? ???????",
-      cv: "??? ??????",
-      aiTitle: "???? ?????? ??????",
-      aiScore: "????? CV",
-      aiSummary: "????? ???????",
-      aiStrengths: "????? ????",
-      aiWeaknesses: "????? ????",
-      aiCulture: "????? ????????",
-      aiTips: "?????? ATS",
-      aiRanking: "????? ??????",
-      aiJobContext: "????? ?????? (?????)",
+      headerEyebrow: "سير العمل",
+      headerTitle: "لوحة اتخاذ القرار",
+      timeline: "تسلسل الحالة",
+      advance: "تمت المراجعة",
+      shortlist: "قائمة مختصرة",
+      accept: "قبول",
+      hire: "توظيف",
+      archive: "رفض",
+      notFound: "لا يوجد طلب بهذا الرقم.",
+      candidate: "المرشح",
+      job: "الوظيفة",
+      appliedAt: "تاريخ التقديم",
+      cv: "عرض السيرة",
+      aiTitle: "ذكاء السيرة الذاتية",
+      aiScore: "درجة السيرة",
+      aiSummary: "ملخص سياقي",
+      aiStrengths: "نقاط القوة",
+      aiWeaknesses: "نقاط الضعف",
+      aiCulture: "الملاءمة الثقافية والنمو",
+      aiTips: "نصائح تحسين ATS",
+      aiRanking: "تصنيف الصناعة",
+      aiJobContext: "سياق الوظيفة (منقح)",
     },
   }[language];
 
@@ -104,13 +104,13 @@ const ApplicationDetail: React.FC = () => {
     mutationFn: ({ applicationId, status }: { applicationId: string; status: ApplicationItem["status"] }) =>
       companyApi.updateApplicationStatus(applicationId, status),
     onSuccess: () => {
-      toast.success(language === "ar" ? "?? ????? ??????" : "Status updated");
+      toast.success(language === "ar" ? "تم تحديث الحالة" : "Status updated");
       queryClient.invalidateQueries({ queryKey: ["application", id] });
       queryClient.invalidateQueries({ queryKey: ["company-applications"] });
       setFading(false);
     },
     onError: () => {
-      toast.error(language === "ar" ? "???? ????? ??????" : "Failed to update status");
+      toast.error(language === "ar" ? "فشل تحديث الحالة" : "Failed to update status");
       setFading(false);
     },
   });
@@ -280,7 +280,7 @@ const ApplicationDetail: React.FC = () => {
           {structured && (
             <div className="mt-6 border-t border-[var(--panel-border)] pt-4">
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                {language === "ar" ? "?????? ???????????? ????????????" : "CV Analysis Snapshot"}
+                {language === "ar" ? "ملخص تحليل السيرة" : "CV Analysis Snapshot"}
               </p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 {structuredSections.map((section) => {

@@ -40,7 +40,7 @@ const StrategicMatchCard: React.FC<StrategicMatchCardProps> = ({ candidate, onSe
         <span>{candidate.education ?? "—"}</span>
         <span className="inline-flex items-center gap-1">
           <Info size={12} />
-          {language === "ar" ? "Ù„Ù…Ø§Ø°Ø§ Ù‡Ø°Ø§ Ø§Ù„ØªØ·Ø§Ø¨Ù‚ØŸ" : "Why this match?"}
+          {language === "ar" ? "لماذا هذا التطابق؟" : "Why this match?"}
         </span>
       </div>
     </button>
