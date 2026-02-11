@@ -56,9 +56,11 @@ const JobPostings = () => {
                 <th className="px-4 py-3 text-left">ID</th>
                 <th className="px-4 py-3 text-left">Title</th>
                 <th className="px-4 py-3 text-left">Company</th>
+                <th className="px-4 py-3 text-left">Industry</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-left">Form Type</th>
                 <th className="px-4 py-3 text-left">Created</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -67,16 +69,25 @@ const JobPostings = () => {
                   <td className="px-4 py-3">{job.job_id}</td>
                   <td className="px-4 py-3">{job.title}</td>
                   <td className="px-4 py-3">{job.Company?.name || '-'}</td>
+                  <td className="px-4 py-3">{job.industry || '-'}</td>
                   <td className="px-4 py-3 capitalize">{job.status}</td>
                   <td className="px-4 py-3">{job.form_type || '-'}</td>
                   <td className="px-4 py-3">
                     {job.created_at ? new Date(job.created_at).toLocaleDateString() : '-'}
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <a
+                      href={`/admin/job-postings/${job.job_id}`}
+                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      View
+                    </a>
+                  </td>
                 </tr>
               ))}
               {jobs.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="px-4 py-6 text-center text-gray-500">
+                  <td colSpan="8" className="px-4 py-6 text-center text-gray-500">
                     No job postings found.
                   </td>
                 </tr>

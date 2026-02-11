@@ -43,6 +43,7 @@ exports.createJobPosting = async (req, res) => {
       title,
       description,
       requirements,
+      industry,
       salary_min,
       salary_max,
       location,
@@ -91,6 +92,7 @@ exports.createJobPosting = async (req, res) => {
         title,
         description,
         requirements: requirementsText,
+        industry,
         salary_min,
         salary_max,
         location,
@@ -191,8 +193,14 @@ exports.updateJobPosting = async (req, res) => {
 
     // الحقول المسموح بتعديلها
     const allowedUpdates = [
-      'title', 'description', 'requirements', 'salary_min', 
-      'salary_max', 'location', 'external_form_url'
+      'title',
+      'description',
+      'requirements',
+      'industry',
+      'salary_min',
+      'salary_max',
+      'location',
+      'external_form_url'
     ];
     
     const filteredUpdates = {};

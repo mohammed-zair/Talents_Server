@@ -348,6 +348,7 @@ exports.listJobPostings = async (req, res) => {
         "job_id",
         "title",
         "location",
+        "industry",
 
         "salary_min", // من النموذج الثاني
         "salary_max", // من النموذج الثاني
@@ -392,6 +393,18 @@ exports.getJobPostingDetails = async (req, res) => {
       where: {
         status: "open",
       },
+      attributes: [
+        "job_id",
+        "title",
+        "description",
+        "requirements",
+        "location",
+        "industry",
+        "salary_min",
+        "salary_max",
+        "form_type",
+        "created_at",
+      ],
       include: [
         {
           model: Company,

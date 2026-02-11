@@ -12,6 +12,7 @@ import CompanyRequests from './pages/Admin/CompanyRequests';
 import CVRequests from './pages/Admin/CVRequests';
 import Applications from './pages/Admin/Applications';
 import JobPostings from './pages/Admin/JobPostings';
+import JobPostingDetail from './pages/Admin/JobPostingDetail';
 import CVs from './pages/Admin/CVs';
 import Email from './pages/Admin/Email';
 import Push from './pages/Admin/Push';
@@ -139,6 +140,7 @@ const AppContent = () => {
               <Route path="/cv-requests" element={<ProtectedRoute><CVRequests /></ProtectedRoute>} />
               <Route path="/applications" element={<ProtectedRoute><Applications /></ProtectedRoute>} />
               <Route path="/job-postings" element={<ProtectedRoute><JobPostings /></ProtectedRoute>} />
+              <Route path="/job-postings/:id" element={<ProtectedRoute><JobPostingDetail /></ProtectedRoute>} />
               <Route path="/cvs" element={<ProtectedRoute><CVs /></ProtectedRoute>} />
               <Route path="/email" element={<ProtectedRoute><Email /></ProtectedRoute>} />
               <Route path="/push" element={<ProtectedRoute><Push /></ProtectedRoute>} />

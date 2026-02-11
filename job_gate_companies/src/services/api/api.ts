@@ -82,6 +82,9 @@ export const companyApi = {
       title: job.title ?? "",
       location: job.location ?? "",
       department: job.department ?? "",
+      industry: job.industry ?? "",
+      description: job.description ?? "",
+      requirements: job.requirements ?? "",
       status: job.status ?? "open",
       applicants: Array.isArray(job.Applications)
         ? job.Applications.length
@@ -186,6 +189,8 @@ export const companyApi = {
       ai_insights: item.ai_insights ?? null,
       ai_score: item.ai_score ?? null,
       is_starred: item.is_starred ?? false,
+      cv_structured_data: item.CV?.CVStructuredData?.data_json ?? null,
+      cv_features: item.CV?.CVFeaturesAnalytics ?? null,
       reviewNotes: item.review_notes ?? null,
     } as ApplicationItem;
   },

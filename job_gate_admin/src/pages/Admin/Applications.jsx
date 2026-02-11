@@ -3,7 +3,7 @@ import { Header } from '../../components';
 import axiosInstance from '../../utils/axiosConfig';
 import { extractData } from '../../utils/api';
 
-const statusOptions = ['pending', 'reviewed', 'accepted', 'rejected'];
+const statusOptions = ['pending', 'reviewed', 'shortlisted', 'accepted', 'hired', 'rejected'];
 
 const Applications = () => {
   const [applications, setApplications] = useState([]);

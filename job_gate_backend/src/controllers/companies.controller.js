@@ -453,12 +453,19 @@ exports.getCompanyDashboard = async (req, res) => {
     const applicationsCount = applications.length;
     const pendingCount = applications.filter((a) => a.status === "pending").length;
     const reviewedCount = applications.filter((a) => a.status === "reviewed").length;
+    const shortlistedCount = applications.filter((a) => a.status === "shortlisted").length;
     const acceptedCount = applications.filter((a) => a.status === "accepted").length;
+    const hiredCount = applications.filter((a) => a.status === "hired").length;
     const rejectedCount = applications.filter((a) => a.status === "rejected").length;
     const starredCount = applications.filter((a) => a.is_starred).length;
 
     let topApplicant = null;
     let topScore = -1;
+    let aiScoreSum = 0;
+    let aiScoreCount = 0;
+    let atsScoreSum = 0;
+    let atsScoreCount = 0;
+    const jobStatsMap = new Map();
 
     applications.forEach((application) => {
       const data = application.toJSON ? application.toJSON() : application;
@@ -471,6 +478,87 @@ exports.getCompanyDashboard = async (req, res) => {
         aiInsights?.ats_score ??
         cv?.CVFeaturesAnalytics?.ats_score ??
         null;
+      const atsScore = cv?.CVFeaturesAnalytics?.ats_score ?? null;
+
+      if (typeof score === "number") {
+        aiScoreSum += score;
+        aiScoreCount += 1;
+      }
+      if (typeof atsScore === "number") {
+        atsScoreSum += atsScore;
+        atsScoreCount += 1;
+      }
+
+      if (job?.job_id) {
+        if (!jobStatsMap.has(job.job_id)) {
+          jobStatsMap.set(job.job_id, {
+            job_id: job.job_id,
+            title: job.title ?? "Job",
+            location: job.location ?? null,
+            total_applications: 0,
+            avg_ai_score: null,
+            avg_ats_score: null,
+            first_application_at: null,
+            first_high_quality_at: null,
+            pending_count: 0,
+            reviewed_count: 0,
+            shortlisted_count: 0,
+            accepted_count: 0,
+            hired_count: 0,
+            rejected_count: 0,
+            _ai_sum: 0,
+            _ai_count: 0,
+            _ats_sum: 0,
+            _ats_count: 0,
+          });
+        }
+        const jobStat = jobStatsMap.get(job.job_id);
+        jobStat.total_applications += 1;
+        if (typeof score === "number") {
+          jobStat._ai_sum += score;
+          jobStat._ai_count += 1;
+        }
+        if (typeof atsScore === "number") {
+          jobStat._ats_sum += atsScore;
+          jobStat._ats_count += 1;
+        }
+
+        const submittedAt = data.submitted_at || data.submittedAt || null;
+        if (submittedAt) {
+          const submittedDate = new Date(submittedAt);
+          if (!jobStat.first_application_at || submittedDate < new Date(jobStat.first_application_at)) {
+            jobStat.first_application_at = submittedDate.toISOString();
+          }
+          if (typeof score === "number" && score >= 85) {
+            if (!jobStat.first_high_quality_at || submittedDate < new Date(jobStat.first_high_quality_at)) {
+              jobStat.first_high_quality_at = submittedDate.toISOString();
+            }
+          }
+        }
+
+        switch (data.status) {
+          case "pending":
+            jobStat.pending_count += 1;
+            break;
+          case "reviewed":
+            jobStat.reviewed_count += 1;
+            break;
+          case "shortlisted":
+            jobStat.shortlisted_count += 1;
+            break;
+          case "accepted":
+            jobStat.accepted_count += 1;
+            break;
+          case "hired":
+            jobStat.hired_count += 1;
+            break;
+          case "rejected":
+            jobStat.rejected_count += 1;
+            break;
+          default:
+            break;
+        }
+      }
 
       if (typeof score === "number" && score > topScore) {
         topScore = score;
@@ -497,10 +585,34 @@ exports.getCompanyDashboard = async (req, res) => {
       applications_count: applicationsCount,
       pending_count: pendingCount,
       reviewed_count: reviewedCount,
+      shortlisted_count: shortlistedCount,
       accepted_count: acceptedCount,
+      hired_count: hiredCount,
       rejected_count: rejectedCount,
       starred_count: starredCount,
       top_applicant: topApplicant,
+      avg_ai_score: aiScoreCount ? Number((aiScoreSum / aiScoreCount).toFixed(2)) : null,
+      avg_ats_score: atsScoreCount ? Number((atsScoreSum / atsScoreCount).toFixed(2)) : null,
+      job_stats: Array.from(jobStatsMap.values()).map((jobStat) => ({
+        job_id: jobStat.job_id,
+        title: jobStat.title,
+        location: jobStat.location,
+        total_applications: jobStat.total_applications,
+        avg_ai_score: jobStat._ai_count
+          ? Number((jobStat._ai_sum / jobStat._ai_count).toFixed(2))
+          : null,
+        avg_ats_score: jobStat._ats_count
+          ? Number((jobStat._ats_sum / jobStat._ats_count).toFixed(2))
+          : null,
+        first_application_at: jobStat.first_application_at,
+        first_high_quality_at: jobStat.first_high_quality_at,
+        pending_count: jobStat.pending_count,
+        reviewed_count: jobStat.reviewed_count,
+        shortlisted_count: jobStat.shortlisted_count,
+        accepted_count: jobStat.accepted_count,
+        hired_count: jobStat.hired_count,
+        rejected_count: jobStat.rejected_count,
+      })),
     });
   } catch (error) {
     console.error("Error getting company dashboard:", error);
@@ -764,6 +876,20 @@ exports.updateApplicationStatus = async (req, res) => {
     const { status, review_notes } = req.body;
     const applicationId = req.params.id;
     const company = req.company;
+    const validStatuses = [
+      "pending",
+      "reviewed",
+      "shortlisted",
+      "accepted",
+      "hired",
+      "rejected",
+    ];
+
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+      });
+    }
 
     const application = await Application.findOne({
       include: [
@@ -1088,6 +1214,10 @@ exports.getCompanyApplicationsByID = async (req, res) => {
         {
           model: CV,
           attributes: ["cv_id", "file_url", "title", "file_type"],
+          include: [
+            { model: CVStructuredData, attributes: ["data_json"] },
+            { model: CVFeaturesAnalytics, attributes: ["ats_score", "total_years_experience", "key_skills"] },
+          ],
         },
       ],
       where: { application_id: application_id },

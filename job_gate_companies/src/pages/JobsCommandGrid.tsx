@@ -42,6 +42,7 @@ const JobsCommandGrid: React.FC = () => {
     title: "",
     description: "",
     requirements: "",
+    industry: "",
     location: "",
     salaryMin: "",
     salaryMax: "",
@@ -140,6 +141,7 @@ const JobsCommandGrid: React.FC = () => {
         title: "",
         description: "",
         requirements: "",
+        industry: "",
         location: "",
         salaryMin: "",
         salaryMax: "",
@@ -370,6 +372,7 @@ const JobsCommandGrid: React.FC = () => {
                       setEditForm({
                         title: job.title,
                         department: job.department,
+                        industry: job.industry,
                         location: job.location,
                       });
                     }}
@@ -424,6 +427,21 @@ const JobsCommandGrid: React.FC = () => {
                   }
                   name="jobLocation"
                   aria-label={copy.jobLocationLabel}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="job-industry">
+                  {language === "ar" ? "الصناعة" : "Industry"}
+                </label>
+                <input
+                  id="job-industry"
+                  value={jobDraft.industry}
+                  onChange={(event) =>
+                    setJobDraft((prev) => ({ ...prev, industry: event.target.value }))
+                  }
+                  name="jobIndustry"
+                  aria-label={language === "ar" ? "الصناعة" : "Industry"}
                   className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 />
               </div>
@@ -596,6 +614,9 @@ const JobsCommandGrid: React.FC = () => {
                 if (jobDraft.requirements.trim()) {
                   payload.append("requirements", jobDraft.requirements.trim());
                 }
+                if (jobDraft.industry.trim()) {
+                  payload.append("industry", jobDraft.industry.trim());
+                }
                 if (jobDraft.location.trim()) {
                   payload.append("location", jobDraft.location.trim());
                 }
@@ -688,6 +709,16 @@ const JobsCommandGrid: React.FC = () => {
                 placeholder={language === "ar" ? "القسم" : "Department"}
                 name="editDepartment"
                 aria-label={language === "ar" ? "القسم" : "Department"}
+                className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+              />
+              <input
+                value={editForm.industry ?? ""}
+                onChange={(event) =>
+                  setEditForm((prev) => ({ ...prev, industry: event.target.value }))
+                }
+                placeholder={language === "ar" ? "الصناعة" : "Industry"}
+                name="editIndustry"
+                aria-label={language === "ar" ? "الصناعة" : "Industry"}
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
               />
               <input

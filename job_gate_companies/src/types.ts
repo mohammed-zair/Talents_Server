@@ -43,6 +43,9 @@ export interface JobPosting {
   title: string;
   location: string;
   department: string;
+  industry?: string;
+  description?: string;
+  requirements?: string;
   status: "open" | "closed" | "paused";
   applicants: number;
   createdAt: string;
@@ -77,7 +80,7 @@ export interface CandidateProfile {
 
 export interface ApplicationItem {
   id: string;
-  status: "pending" | "reviewed" | "accepted" | "rejected";
+  status: "pending" | "reviewed" | "shortlisted" | "accepted" | "hired" | "rejected";
   submittedAt: string;
   is_starred?: boolean;
   candidate: CandidateProfile;
@@ -97,6 +100,10 @@ export interface ApplicationItem {
   candidate_education?: string | null;
   candidate_experience_years?: number | null;
   candidate_skills?: string[];
+  cv_structured_data?: StructuredCV | null;
+  cv_features?: CVFeatures | null;
+  _skillMatchCount?: number;
+  _tags?: string[];
   reviewNotes?: string | null;
 }
 

@@ -17,6 +17,7 @@ router.post("/users", adminController.createUser);
 router.put("/users/:id", adminController.updateUser);
 router.delete("/users/:id", adminController.deleteUser);
 router.get("/job-postings", adminController.listAllJobPostings);
+router.get("/job-postings/:id", adminController.getJobPostingDetails);
 router.get("/applications", adminController.listAllApplications);
 router.put("/applications/:id", adminController.updateApplicationStatus);
 

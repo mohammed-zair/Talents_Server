@@ -12,7 +12,14 @@ const Application = sequelize.define("Application", {
     allowNull: true,
   },
   status: {
-    type: DataTypes.ENUM("pending", "reviewed", "accepted", "rejected"),
+    type: DataTypes.ENUM(
+      "pending",
+      "reviewed",
+      "shortlisted",
+      "accepted",
+      "hired",
+      "rejected"
+    ),
     defaultValue: "pending",
     allowNull: false,
   },

@@ -28,6 +28,11 @@ const JobPosting = sequelize.define("JobPosting", {
     allowNull: true,
   },
 
+  industry: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+
   salary_min: {
     type: DataTypes.FLOAT,
     allowNull: true,

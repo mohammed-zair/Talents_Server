@@ -15,7 +15,9 @@ const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") =
   const map = {
     pending: { en: "Pending", ar: "??? ????????" },
     reviewed: { en: "Reviewed", ar: "??? ????????" },
+    shortlisted: { en: "Shortlisted", ar: "??? ????????" },
     accepted: { en: "Accepted", ar: "?????" },
+    hired: { en: "Hired", ar: "?????" },
     rejected: { en: "Rejected", ar: "?????" },
   };
   return map[status]?.[language] ?? status;
@@ -36,6 +38,7 @@ const ApplicationList: React.FC = () => {
   const [strengths, setStrengths] = useState("");
   const [weaknesses, setWeaknesses] = useState("");
   const [starredOnly, setStarredOnly] = useState(false);
+  const [sortMode, setSortMode] = useState<"recent" | "ai">("ai");
 
   const filters = useMemo(() => {
     const parseNumber = (value: string) => {
@@ -83,6 +86,62 @@ const ApplicationList: React.FC = () => {
     queryFn: () => companyApi.getApplications(filters),
   });
 
+  const enriched = useMemo(() => {
+    const skillFilter = filters.skills ?? [];
+    return applications.map((item) => {
+      const skills = item.candidate_skills ?? [];
+      const matchCount = skillFilter.length
+        ? skillFilter.filter((q) =>
+            skills.some((skill) => String(skill).toLowerCase().includes(q.toLowerCase()))
+          ).length
+        : 0;
+      const tags: string[] = [];
+      const ranking = item.ai_insights?.industry_ranking_label;
+      if (ranking) tags.push(ranking);
+      const strengths =
+        item.ai_insights?.ai_intelligence?.strategic_analysis?.strengths || [];
+      strengths.slice(0, 2).forEach((s) => tags.push(s));
+      return {
+        ...item,
+        _skillMatchCount: matchCount,
+        _tags: tags,
+      };
+    });
+  }, [applications, filters.skills]);
+
+  const sorted = useMemo(() => {
+    const skillFilter = (filters.skills ?? []).length > 0;
+    const hasExperienceFilter =
+      typeof filters.experience_min === "number" || typeof filters.experience_max === "number";
+    const hasAtsFilter = typeof filters.ats_min === "number" || typeof filters.ats_max === "number";
+    const effectiveSort = skillFilter
+      ? "skills"
+      : hasExperienceFilter
+      ? "experience"
+      : hasAtsFilter
+      ? "ai"
+      : sortMode;
+
+    return [...enriched].sort((a, b) => {
+      if (effectiveSort === "skills") {
+        if (b._skillMatchCount !== a._skillMatchCount) {
+          return b._skillMatchCount - a._skillMatchCount;
+        }
+        return (b.ai_score ?? 0) - (a.ai_score ?? 0);
+      }
+      if (effectiveSort === "experience") {
+        if ((b.candidate_experience_years ?? 0) !== (a.candidate_experience_years ?? 0)) {
+          return (b.candidate_experience_years ?? 0) - (a.candidate_experience_years ?? 0);
+        }
+        return (b.ai_score ?? 0) - (a.ai_score ?? 0);
+      }
+      if (effectiveSort === "ai") {
+        return (b.ai_score ?? 0) - (a.ai_score ?? 0);
+      }
+      return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+    });
+  }, [enriched, filters, sortMode]);
+
   const toggleStar = useMutation({
     mutationFn: ({ id, starred }: { id: string; starred?: boolean }) =>
       companyApi.toggleApplicationStar(id, starred),
@@ -126,7 +185,24 @@ const ApplicationList: React.FC = () => {
     const total = applications.length;
     const pending = applications.filter((c) => c.status === "pending").length;
     const reviewed = applications.filter((c) => c.status === "reviewed").length;
-    return { total, pending, reviewed };
+    const shortlisted = applications.filter((c) => c.status === "shortlisted").length;
+    const hired = applications.filter((c) => c.status === "hired").length;
+    return { total, pending, reviewed, shortlisted, hired };
+  }, [applications]);
+
+  const histogram = useMemo(() => {
+    const bins = Array.from({ length: 10 }, (_, idx) => ({
+      label: `${idx * 10}-${idx * 10 + 9}`,
+      count: 0,
+    }));
+    applications.forEach((item) => {
+      const score = item.ai_score;
+      if (typeof score !== "number") return;
+      const bucket = Math.min(9, Math.max(0, Math.floor(score / 10)));
+      bins[bucket].count += 1;
+    });
+    const maxCount = Math.max(1, ...bins.map((b) => b.count));
+    return { bins, maxCount };
   }, [applications]);
 
   return (
@@ -218,6 +294,25 @@ const ApplicationList: React.FC = () => {
           </label>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
+          <div className="flex items-center gap-2">
+            <span>{language === "ar" ? "ترتيب النتائج" : "Sort results"}</span>
+            <select
+              value={sortMode}
+              onChange={(event) => setSortMode(event.target.value as "recent" | "ai")}
+              className="rounded-lg border border-[var(--panel-border)] bg-transparent px-2 py-1 text-xs text-[var(--text-primary)]"
+            >
+              <option value="ai">{language === "ar" ? "أولوية الذكاء" : "AI Priority"}</option>
+              <option value="recent">{language === "ar" ? "الأحدث" : "Most recent"}</option>
+            </select>
+          </div>
+          <span>
+            {language === "ar"
+              ? "الفرز يتكيف مع الفلاتر تلقائياً"
+              : "Sorting adapts automatically to active filters"}
+          </span>
+        </div>
+
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
             <p className="text-xs text-[var(--text-muted)]">{copy.total}</p>
@@ -231,6 +326,35 @@ const ApplicationList: React.FC = () => {
             <p className="text-xs text-[var(--text-muted)]">{copy.reviewed}</p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.reviewed}</p>
           </div>
+          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
+            <p className="text-xs text-[var(--text-muted)]">
+              {language === "ar" ? "قائمة مختصرة" : "Shortlisted"}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.shortlisted}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
+            <p className="text-xs text-[var(--text-muted)]">
+              {language === "ar" ? "تم التوظيف" : "Hired"}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.hired}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4">
+          <p className="text-xs text-[var(--text-muted)]">
+            {language === "ar" ? "توزيع درجات الذكاء" : "AI Score Distribution"}
+          </p>
+          <div className="mt-3 flex items-end gap-2">
+            {histogram.bins.map((bin) => (
+              <div key={bin.label} className="flex flex-1 flex-col items-center gap-1">
+                <div
+                  className="w-full rounded-full bg-[var(--accent)]/70"
+                  style={{ height: `${(bin.count / histogram.maxCount) * 60 + 8}px` }}
+                />
+                <span className="text-[10px] text-[var(--text-muted)]">{bin.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="mt-5 max-h-[520px] space-y-4 overflow-y-auto pe-2">
@@ -240,15 +364,17 @@ const ApplicationList: React.FC = () => {
               <Skeleton className="h-24" />
               <Skeleton className="h-24" />
             </>
-          ) : applications.length === 0 ? (
+          ) : sorted.length === 0 ? (
             <div className="rounded-xl border border-[var(--panel-border)] p-4 text-sm text-[var(--text-muted)]">
               {copy.empty}
             </div>
           ) : (
-            applications.map((application) => (
+            sorted.map((application, index) => (
               <div
                 key={application.id}
-                className="relative grid gap-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/80 p-5 shadow-[0_0_25px_var(--glow)] lg:grid-cols-[1.2fr_1fr]"
+                className={`relative grid gap-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/80 p-5 lg:grid-cols-[1.2fr_1fr] ${
+                  index < 3 ? "shadow-[0_0_25px_var(--glow)]" : "shadow-soft-ambient"
+                }`}
               >
                 <div
                   className="absolute inset-y-4 start-0 w-1 rounded-full"
@@ -272,16 +398,16 @@ const ApplicationList: React.FC = () => {
                         {application.job.location ? ` - ${application.job.location}` : ""}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="rounded-full bg-[var(--chip-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-                        {statusLabel(application.status, language)}
-                      </span>
-                      <span className="rounded-full bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-                        {language === "ar" ? "درجة" : "Score"}{" "}
-                        {application.ai_score ?? "-"}
-                      </span>
-                      <button
-                        type="button"
+                  <div className="flex items-center gap-3">
+                    <span className="rounded-full bg-[var(--chip-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                      {statusLabel(application.status, language)}
+                    </span>
+                    <span className="rounded-full bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                      {language === "ar" ? "درجة" : "Score"}{" "}
+                      {application.ai_score ?? "-"}
+                    </span>
+                    <button
+                      type="button"
                         onClick={() =>
                           toggleStar.mutate({
                             id: application.id,
@@ -302,8 +428,21 @@ const ApplicationList: React.FC = () => {
                           ? "تمييز"
                           : "Star"}
                       </button>
-                    </div>
                   </div>
+                </div>
+
+                {application._tags?.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {application._tags.slice(0, 3).map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-1 text-[11px] text-[var(--text-muted)]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
 
                   <div className="mt-4 text-xs text-[var(--text-muted)]">
                     {copy.appliedAt}: {application.submittedAt

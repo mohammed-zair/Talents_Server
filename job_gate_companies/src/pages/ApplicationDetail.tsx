@@ -17,7 +17,9 @@ const getApiBaseUrl = () =>
 const stages: Array<ApplicationItem["status"]> = [
   "pending",
   "reviewed",
+  "shortlisted",
   "accepted",
+  "hired",
   "rejected",
 ];
 
@@ -25,7 +27,9 @@ const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") =
   const map = {
     pending: { en: "Pending", ar: "??? ????????" },
     reviewed: { en: "Reviewed", ar: "??? ????????" },
+    shortlisted: { en: "Shortlisted", ar: "??? ????????" },
     accepted: { en: "Accepted", ar: "?????" },
+    hired: { en: "Hired", ar: "?????" },
     rejected: { en: "Rejected", ar: "?????" },
   };
   return map[status]?.[language] ?? status;
@@ -45,7 +49,9 @@ const ApplicationDetail: React.FC = () => {
       headerTitle: "Decision Side-Panel",
       timeline: "Status Timeline",
       advance: "Mark Reviewed",
-      shortlist: "Accept",
+      shortlist: "Shortlist",
+      accept: "Accept",
+      hire: "Hire",
       archive: "Reject",
       notFound: "No application found.",
       candidate: "Candidate",
@@ -67,7 +73,9 @@ const ApplicationDetail: React.FC = () => {
       headerTitle: "???? ??????",
       timeline: "?? ??????",
       advance: "??? ????????",
-      shortlist: "????",
+      shortlist: "???????",
+      accept: "????",
+      hire: "????? ???",
       archive: "???",
       notFound: "?? ??? ?????? ??? ?????.",
       candidate: "??????",
@@ -142,6 +150,15 @@ const ApplicationDetail: React.FC = () => {
 
   const insights = data.ai_insights;
   const intelligence = insights?.ai_intelligence;
+  const structured = data.cv_structured_data ?? null;
+  const structuredSections = [
+    { key: "experience", label: language === "ar" ? "الخبرات" : "Experience" },
+    { key: "skills", label: language === "ar" ? "المهارات" : "Skills" },
+    { key: "projects", label: language === "ar" ? "المشاريع" : "Projects" },
+    { key: "education", label: language === "ar" ? "التعليم" : "Education" },
+    { key: "certifications", label: language === "ar" ? "الشهادات" : "Certifications" },
+    { key: "languages", label: language === "ar" ? "اللغات" : "Languages" },
+  ];
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -200,8 +217,14 @@ const ApplicationDetail: React.FC = () => {
             animate={{ opacity: fading ? 0.4 : 1 }}
           >
             <Button onClick={() => handleAction("reviewed")}>{copy.advance}</Button>
-            <Button variant="outline" onClick={() => handleAction("accepted")}>
+            <Button variant="outline" onClick={() => handleAction("shortlisted")}>
               {copy.shortlist}
+            </Button>
+            <Button variant="outline" onClick={() => handleAction("accepted")}>
+              {copy.accept}
+            </Button>
+            <Button variant="outline" onClick={() => handleAction("hired")}>
+              {copy.hire}
             </Button>
             <Button
               variant="outline"
@@ -251,6 +274,53 @@ const ApplicationDetail: React.FC = () => {
           >
             {language === "ar" ? "عرض الملف" : "View profile"}
           </Button>
+
+
+
+          {structured && (
+            <div className="mt-6 border-t border-[var(--panel-border)] pt-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                {language === "ar" ? "?????? ???????????? ????????????" : "CV Analysis Snapshot"}
+              </p>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {structuredSections.map((section) => {
+                  const value = (structured as any)[section.key];
+                  if (!value || (Array.isArray(value) && value.length === 0)) {
+                    return null;
+                  }
+                  return (
+                    <div
+                      key={section.key}
+                      className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-3"
+                    >
+                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                        {section.label}
+                      </p>
+                      {Array.isArray(value) ? (
+                        <ul className="mt-2 list-disc space-y-1 ps-5 text-xs text-[var(--text-primary)]">
+                          {value.slice(0, 4).map((item: any, idx: number) => (
+                            <li key={`${section.key}-${idx}`}>
+                              {typeof item === "string"
+                                ? item
+                                : item?.title ||
+                                  item?.degree ||
+                                  item?.position ||
+                                  item?.name ||
+                                  JSON.stringify(item)}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-[var(--text-primary)]">
+                          {typeof value === "string" ? value : JSON.stringify(value)}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {insights && (
             <div className="mt-6 border-t border-[var(--panel-border)] pt-4">

@@ -8,6 +8,8 @@ const {
   Application,
   Company,
   CV,
+  CVAIInsights,
+  CVFeaturesAnalytics,
 } = require("../models");
 const bcrypt = require("bcryptjs");
 const { successResponse } = require("../utils/responseHandler");
@@ -240,7 +242,7 @@ exports.listAllJobPostings = async (req, res) => {
       include: [
         { model: Company, attributes: ["company_id", "name", "email"] },
       ],
-      attributes: ["job_id", "title", "status", "form_type", "created_at"],
+      attributes: ["job_id", "title", "status", "form_type", "industry", "created_at"],
       order: [["created_at", "DESC"]],
     });
 
@@ -249,6 +251,139 @@ exports.listAllJobPostings = async (req, res) => {
     console.error("Admin error listing all job postings:", error);
     return res.status(500).json({
       message: "فشل في جلب جميع إعلانات الوظائف.",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc [Admin Only] Get job posting details with applicants + analytics
+ * @route GET /api/admin/job-postings/:id
+ * @access Admin
+ */
+exports.getJobPostingDetails = async (req, res) => {
+  try {
+    const jobId = req.params.id;
+    const job = await JobPosting.findByPk(jobId, {
+      include: [
+        { model: Company, attributes: ["company_id", "name", "email"] },
+        {
+          model: Application,
+          attributes: ["application_id", "status", "submitted_at", "review_notes", "is_starred"],
+          include: [
+            { model: User, attributes: ["user_id", "full_name", "email"] },
+            { model: CV, attributes: ["cv_id", "file_url", "title", "file_type"] },
+          ],
+        },
+      ],
+    });
+
+    if (!job) {
+      return res.status(404).json({ message: "Job posting not found." });
+    }
+
+    const jobData = job.toJSON ? job.toJSON() : job;
+    const applications = Array.isArray(jobData.Applications) ? jobData.Applications : [];
+
+    let aiScoreSum = 0;
+    let aiScoreCount = 0;
+    let atsScoreSum = 0;
+    let atsScoreCount = 0;
+    let topApplicant = null;
+    let topScore = -1;
+    let firstApplicationAt = null;
+    let firstHighQualityAt = null;
+
+    const statusCounts = {
+      pending: 0,
+      reviewed: 0,
+      shortlisted: 0,
+      accepted: 0,
+      hired: 0,
+      rejected: 0,
+    };
+
+    for (const application of applications) {
+      const submittedAt = application.submitted_at || null;
+      if (submittedAt) {
+        const submittedDate = new Date(submittedAt);
+        if (!firstApplicationAt || submittedDate < new Date(firstApplicationAt)) {
+          firstApplicationAt = submittedDate.toISOString();
+        }
+      }
+
+      const status = application.status || "pending";
+      if (statusCounts[status] !== undefined) {
+        statusCounts[status] += 1;
+      }
+
+      const cvId = application.CV?.cv_id;
+      let aiScore = null;
+      let atsScore = null;
+
+      if (cvId) {
+        const insights = await CVAIInsights.findOne({
+          where: { cv_id: cvId, job_id: jobData.job_id },
+        });
+        aiScore =
+          insights?.industry_ranking_score ??
+          insights?.ats_score ??
+          null;
+      }
+
+      if (application.CV?.cv_id) {
+        const cvFeature = await CVFeaturesAnalytics.findOne({
+          where: { cv_id: application.CV.cv_id },
+        });
+        atsScore = cvFeature?.ats_score ?? null;
+      }
+
+      if (typeof aiScore === "number") {
+        aiScoreSum += aiScore;
+        aiScoreCount += 1;
+      }
+      if (typeof atsScore === "number") {
+        atsScoreSum += atsScore;
+        atsScoreCount += 1;
+      }
+
+      if (submittedAt && typeof aiScore === "number" && aiScore >= 85) {
+        const submittedDate = new Date(submittedAt);
+        if (!firstHighQualityAt || submittedDate < new Date(firstHighQualityAt)) {
+          firstHighQualityAt = submittedDate.toISOString();
+        }
+      }
+
+      if (typeof aiScore === "number" && aiScore > topScore) {
+        topScore = aiScore;
+        topApplicant = {
+          application_id: application.application_id,
+          candidate: {
+            id: application.User?.user_id ?? null,
+            name: application.User?.full_name ?? "Candidate",
+            email: application.User?.email ?? null,
+          },
+          score: aiScore,
+        };
+      }
+    }
+
+    return successResponse(res, {
+      job: jobData,
+      analytics: {
+        total_applications: applications.length,
+        status_counts: statusCounts,
+        avg_ai_score: aiScoreCount ? Number((aiScoreSum / aiScoreCount).toFixed(2)) : null,
+        avg_ats_score: atsScoreCount ? Number((atsScoreSum / atsScoreCount).toFixed(2)) : null,
+        first_application_at: firstApplicationAt,
+        first_high_quality_at: firstHighQualityAt,
+        top_applicant: topApplicant,
+      },
+    });
+  } catch (error) {
+    console.error("Admin error fetching job posting details:", error);
+    return res.status(500).json({
+      message: "Failed to fetch job posting details.",
       error: error.message,
     });
   }
@@ -300,7 +435,14 @@ exports.updateApplicationStatus = async (req, res) => {
   const { id } = req.params;
   const { status, review_notes } = req.body;
 
-  const validStatuses = ["pending", "reviewed", "accepted", "rejected"];
+  const validStatuses = [
+    "pending",
+    "reviewed",
+    "shortlisted",
+    "accepted",
+    "hired",
+    "rejected",
+  ];
   if (!validStatuses.includes(status)) {
     return res.status(400).json({
       message: `الحالة غير صالحة. يجب أن تكون واحدة من: ${validStatuses.join(
