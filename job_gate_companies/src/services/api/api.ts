@@ -123,8 +123,8 @@ export const companyApi = {
     })) as ApplicationItem[];
   },
   getApplicationById: async (id: string) => {
-    const { data } = await api.get<ApplicationItem>(`/companies/company/applications/${id}`);
-    const item: any = data?.data ?? data;
+    const { data } = await api.get(`/companies/company/applications/${id}`);
+    const item: any = (data as any)?.data ?? data;
     return {
       id: String(item.application_id ?? item.id ?? id),
       status: item.status ?? "pending",

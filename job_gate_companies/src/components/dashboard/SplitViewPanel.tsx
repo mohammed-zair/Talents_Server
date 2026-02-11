@@ -51,7 +51,7 @@ const SplitViewPanel: React.FC<SplitViewPanelProps> = ({ candidate, onClose }) =
       {candidate && (
         <div className="mt-6 space-y-6 text-sm text-[var(--text-primary)]">
           <div className="flex flex-wrap gap-2">
-            {candidate.insightTags.map((tag) => (
+            {(candidate.insightTags ?? []).map((tag) => (
               <Badge key={tag} label={tag} />
             ))}
           </div>
@@ -60,7 +60,7 @@ const SplitViewPanel: React.FC<SplitViewPanelProps> = ({ candidate, onClose }) =
               {language === "ar" ? "خريطة المهارات" : "Heat-mapped Skills Cloud"}
             </p>
             <div className="mt-2">
-              <SkillsCloud skills={candidate.skills} />
+              <SkillsCloud skills={candidate.skills ?? []} />
             </div>
           </div>
           <div>
@@ -68,7 +68,7 @@ const SplitViewPanel: React.FC<SplitViewPanelProps> = ({ candidate, onClose }) =
               {language === "ar" ? "نقاط الملخص" : "AI Summary Bullets"}
             </p>
             <ul className="mt-2 list-disc space-y-2 ps-5">
-              {candidate.summaryBullets.map((bullet) => (
+              {(candidate.summaryBullets ?? []).map((bullet) => (
                 <li key={bullet}>{bullet}</li>
               ))}
             </ul>

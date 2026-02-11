@@ -20,15 +20,20 @@ export const useAI = (candidates: CandidateProfile[]) => {
   const rankedCandidates = useMemo(() => {
     return [...candidates]
       .map((candidate) => {
-        const educationScore = candidate.education.toLowerCase().includes("master") ? 0.9 : 0.7;
-        const experienceScore = Math.min(candidate.experienceYears / 10, 1);
+        const educationValue = candidate.education ?? "";
+        const educationScore = educationValue.toLowerCase().includes("master") ? 0.9 : 0.7;
+        const experienceYears = candidate.experienceYears ?? 0;
+        const experienceScore = Math.min(experienceYears / 10, 1);
+        const skills = candidate.skills ?? [];
         const skillsScore =
-          candidate.skills.filter((skill) => skill.level === "strong").length / 10;
+          skills.filter((skill) => skill.level === "strong").length / 10;
+        const atsScore = candidate.atsScore?.score ?? 0;
+        const atsMax = candidate.atsScore?.max ?? 100;
         const weightedScore =
           educationScore * weights.education +
           experienceScore * weights.experience +
           skillsScore * weights.skills +
-          candidate.atsScore.score / candidate.atsScore.max;
+          atsScore / atsMax;
         return { candidate, weightedScore };
       })
       .sort((a, b) => b.weightedScore - a.weightedScore)
@@ -41,11 +46,14 @@ export const useAI = (candidates: CandidateProfile[]) => {
     }
     const normalized = query.toLowerCase();
     return rankedCandidates.filter((candidate) => {
+      const role = candidate.role ?? "";
+      const location = candidate.location ?? "";
+      const skills = candidate.skills ?? [];
       return (
         candidate.name.toLowerCase().includes(normalized) ||
-        candidate.role.toLowerCase().includes(normalized) ||
-        candidate.location.toLowerCase().includes(normalized) ||
-        candidate.skills.some((skill) => skill.name.toLowerCase().includes(normalized))
+        role.toLowerCase().includes(normalized) ||
+        location.toLowerCase().includes(normalized) ||
+        skills.some((skill) => skill.name.toLowerCase().includes(normalized))
       );
     });
   }, [rankedCandidates, query]);

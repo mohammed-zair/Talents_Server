@@ -24,7 +24,7 @@ const getPulseMessage = ({
 }) => {
   const highAts =
     highMatchesCount ??
-    candidates?.filter((candidate) => candidate.atsScore.score >= 80).length ??
+    candidates?.filter((candidate) => (candidate.atsScore?.score ?? 0) >= 80).length ??
     0;
 
   if (highAts >= 3) {

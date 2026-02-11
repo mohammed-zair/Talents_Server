@@ -22,21 +22,25 @@ const StrategicMatchCard: React.FC<StrategicMatchCardProps> = ({ candidate, onSe
         <div>
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">{candidate.name}</h3>
           <p className="text-xs text-[var(--text-muted)]">
-            {candidate.role} · {candidate.location}
+            {candidate.role ?? "—"} · {candidate.location ?? "—"}
           </p>
         </div>
-        <RadialGauge value={candidate.atsScore.score} max={candidate.atsScore.max} size={54} />
+        <RadialGauge
+          value={candidate.atsScore?.score ?? 0}
+          max={candidate.atsScore?.max ?? 100}
+          size={54}
+        />
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        {candidate.insightTags.map((tag) => (
+        {(candidate.insightTags ?? []).map((tag) => (
           <Badge key={tag} label={tag} />
         ))}
       </div>
       <div className="mt-3 flex items-center justify-between text-xs text-[var(--text-muted)]">
-        <span>{candidate.education}</span>
+        <span>{candidate.education ?? "—"}</span>
         <span className="inline-flex items-center gap-1">
           <Info size={12} />
-          {language === "ar" ? "لماذا هذا التطابق؟" : "Why this match?"}
+          {language === "ar" ? "Ù„Ù…Ø§Ø°Ø§ Ù‡Ø°Ø§ Ø§Ù„ØªØ·Ø§Ø¨Ù‚ØŸ" : "Why this match?"}
         </span>
       </div>
     </button>
