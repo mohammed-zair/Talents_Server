@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { animate } from "framer-motion";
 import {
   Activity,
-  Sparkles,
   Target,
   BriefcaseBusiness,
   FileBarChart2,
