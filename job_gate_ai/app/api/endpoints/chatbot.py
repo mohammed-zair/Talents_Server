@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, ConfigDict
 import uuid
@@ -630,3 +630,21 @@ async def export_cv_document(request: ChatbotExportRequest):
 
     paths = await document_generator.generate_both(cv_data, language)
     return {"success": True, "paths": paths}
+
+
+@router.get("/preview/{session_id}")
+async def preview_cv_document(session_id: str, language: Optional[str] = None):
+    session = _load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    resolved_language = _normalize_language(language or session.get("output_language") or session.get("language"))
+    llm_service = LLMService()
+    cv_data = json.loads(json.dumps(session.get("cv_data", {})))
+
+    if resolved_language != _normalize_language(session.get("language")):
+        cv_data = _translate_cv_payload(llm_service, cv_data, resolved_language)
+
+    cv_data["summary_professional"] = cv_data.get("summary", "")
+    html = document_generator.generate_html(cv_data, resolved_language)
+    return HTMLResponse(content=html)

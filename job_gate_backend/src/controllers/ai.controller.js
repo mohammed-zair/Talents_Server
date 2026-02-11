@@ -351,6 +351,26 @@ exports.exportChatbotDocument = async (req, res) => {
 };
 
 /**
+ * @desc Preview chatbot CV document (HTML)
+ * @route GET /api/ai/chatbot/preview/:sessionId
+ * @access Private
+ */
+exports.previewChatbotDocument = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { language } = req.query;
+    const response = await aiService.previewChatbotDocument(sessionId, language);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.status(200).send(response.data);
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to preview CV document",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * @desc فحص صحة اتصال AI service
  * @route GET /api/ai/health
  * @access Public

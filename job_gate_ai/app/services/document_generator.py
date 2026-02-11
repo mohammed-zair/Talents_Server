@@ -84,6 +84,9 @@ class DocumentGenerator :
         "docx":docx_path 
         }
 
+    def generate_html (self ,cv_data :Dict [str ,Any ],language :str ="arabic")->str :
+        return self ._create_html_template (cv_data ,language )
+
     def _create_html_template (self ,cv_data :Dict [str ,Any ],language :str ="arabic")->str :
 
         personal =cv_data .get ('personal_info',{})

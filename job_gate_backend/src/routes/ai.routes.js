@@ -54,6 +54,12 @@ router.post("/chatbot/export",
   aiController.exportChatbotDocument
 );
 
+// Preview chatbot CV (HTML)
+router.get("/chatbot/preview/:sessionId",
+  verifyToken,
+  aiController.previewChatbotDocument
+);
+
 // الحصول على تحليل CV محفوظ
 router.get("/cv/analysis/:cvId", 
   verifyToken, 

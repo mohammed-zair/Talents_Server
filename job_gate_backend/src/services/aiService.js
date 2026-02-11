@@ -149,6 +149,29 @@ class AIService {
     };
   }
 
+  async previewChatbotDocument(sessionId, language = undefined) {
+    const params = new URLSearchParams();
+    if (language) {
+      params.set("language", language);
+    }
+    const url = params.toString()
+      ? `/chatbot/preview/${encodeURIComponent(sessionId)}?${params.toString()}`
+      : `/chatbot/preview/${encodeURIComponent(sessionId)}`;
+
+    const response = await this.aiClient.get(url, {
+      responseType: "text",
+      headers: {
+        ...this._buildAuthHeaders(),
+      },
+    });
+
+    return {
+      data: response.data,
+      headers: response.headers,
+      status: response.status,
+    };
+  }
+
   async healthCheck() {
     return this._requestWithRetry("/health", null, "Health Check", "get");
   }
