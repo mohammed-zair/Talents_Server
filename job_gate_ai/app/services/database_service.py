@@ -6,7 +6,7 @@ from typing import Dict ,List ,Optional
 from sqlalchemy import create_engine ,text 
 from sqlalchemy .orm import sessionmaker ,scoped_session 
 from sqlalchemy .exc import SQLAlchemyError ,IntegrityError 
-from app .models .database_models import Base ,User ,CVAnalysis ,BuilderSession 
+from app .models .database_models import Base ,User ,CVAnalysis ,BuilderSession ,ChatbotSession 
 
 class DatabaseService :
     def __init__ (self ,database_url =None ):
@@ -194,3 +194,72 @@ class DatabaseService :
         except Exception as e :
             print (f"Error cleaning up sessions: {e }")
             return 0 
+
+    def create_chatbot_session (self ,session_data :Dict )->Optional [ChatbotSession ]:
+        try :
+            with self .get_session ()as session :
+                existing =session .query (ChatbotSession ).filter_by (session_id =session_data ["session_id"]).first ()
+                if existing :
+                    return existing 
+
+                record =ChatbotSession (
+                session_id =session_data ["session_id"],
+                user_id =session_data ["user_id"],
+                language =session_data .get ("language","english"),
+                output_language =session_data .get ("output_language",session_data .get ("language","english")),
+                current_step =session_data .get ("current_step","personal_info"),
+                cv_data =session_data .get ("cv_data",{}),
+                conversation =session_data .get ("conversation",[]),
+                job_requirements =session_data .get ("job_requirements"),
+                job_posting_meta =session_data .get ("job_posting_meta",{}),
+                score_data =session_data .get ("score_data",{}),
+                final_summary =session_data .get ("final_summary"),
+                is_complete =1 if session_data .get ("is_complete") else 0 
+                )
+
+                session .add (record )
+                session .flush ()
+                return record 
+        except Exception as e :
+            print (f"Error creating chatbot session: {e }")
+            return None 
+
+    def get_chatbot_session (self ,session_id :str )->Optional [ChatbotSession ]:
+        try :
+            with self .get_session ()as session :
+                return session .query (ChatbotSession ).filter_by (session_id =session_id ).first ()
+        except Exception as e :
+            print (f"Error getting chatbot session: {e }")
+            return None 
+
+    def list_chatbot_sessions (self ,user_id :str ,limit :int =50 )->List [ChatbotSession ]:
+        try :
+            with self .get_session ()as session :
+                return (
+                session .query (ChatbotSession )
+                .filter_by (user_id =user_id )
+                .order_by (ChatbotSession .updated_at .desc ())
+                .limit (limit )
+                .all ()
+                )
+        except Exception as e :
+            print (f"Error listing chatbot sessions: {e }")
+            return []
+
+    def update_chatbot_session (self ,session_id :str ,updates :Dict )->bool :
+        try :
+            with self .get_session ()as session :
+                record =session .query (ChatbotSession ).filter_by (session_id =session_id ).first ()
+                if not record :
+                    return False 
+
+                for key ,value in updates .items ():
+                    if hasattr (record ,key ):
+                        setattr (record ,key ,value )
+
+                record .updated_at =datetime .utcnow ()
+                session .flush ()
+                return True 
+        except Exception as e :
+            print (f"Error updating chatbot session: {e }")
+            return False 

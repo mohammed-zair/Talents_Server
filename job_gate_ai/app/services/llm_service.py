@@ -176,3 +176,33 @@ class LLMService :
         except Exception as e :
             logger .error (f"Content generation failed: {e }")
             return f"Professional {section_type } content."
+
+    def translate_text (self ,text :str ,target_language :str ="english")->str :
+        if not text :
+            return text 
+        if not self .is_available ():
+            return text 
+
+        prompt =f"""
+        Translate the following text to {target_language}.
+        Keep names, emails, and URLs unchanged.
+        Return only the translated text without extra commentary.
+        Text:
+        {text }
+        """
+
+        try :
+            response =self .client .chat .completions .create (
+            model =self .model ,
+            messages =[
+            {"role":"system","content":"You are a professional translator."},
+            {"role":"user","content":prompt }
+            ],
+            temperature =0.2 ,
+            max_tokens =800 
+            )
+
+            return response .choices [0 ].message .content .strip ()
+        except Exception as e :
+            logger .error (f"Translation failed: {e }")
+            return text 

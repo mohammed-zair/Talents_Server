@@ -1,126 +1,85 @@
 import React, { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Card from "../components/shared/Card";
 import SectionHeader from "../components/shared/SectionHeader";
-import RadialGauge from "../components/shared/RadialGauge";
 import Button from "../components/shared/Button";
+import Skeleton from "../components/shared/Skeleton";
 import { useLanguage } from "../contexts/LanguageContext";
+import { companyApi } from "../services/api/api";
+import type { ApplicationItem } from "../types";
 
-type MockStage = "review" | "shortlist" | "interview" | "hold";
+const getApiBaseUrl = () =>
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000/api";
 
-interface MockCandidate {
-  id: string;
-  name: string;
-  role: string;
-  location: string;
-  experienceYears: number;
-  education: string;
-  atsScore: { score: number; max: number; label: string };
-  insights: string[];
-  recommendation: string;
-  cvUrl: string;
-  stage: MockStage;
-  submittedAt: string;
-}
-
-const MOCK_CANDIDATES: MockCandidate[] = [
-  {
-    id: "c-101",
-    name: "Sara Al-Harbi",
-    role: "Senior Backend Engineer",
-    location: "Riyadh",
-    experienceYears: 7,
-    education: "BSc Computer Science",
-    atsScore: { score: 92, max: 100, label: "Top Match" },
-    insights: ["Strong Java & Spring", "Led 3 microservices migrations", "AWS Certified"],
-    recommendation: "Advance to interview. High system design strength.",
-    cvUrl: "/download/app-release.apk",
-    stage: "shortlist",
-    submittedAt: "2026-01-23",
-  },
-  {
-    id: "c-104",
-    name: "Yousef M.",
-    role: "DevOps Engineer",
-    location: "Riyadh",
-    experienceYears: 6,
-    education: "BSc IT",
-    atsScore: { score: 88, max: 100, label: "High Fit" },
-    insights: ["Kubernetes + Terraform", "CI/CD pipelines", "Cost optimization wins"],
-    recommendation: "Schedule interview. Strong infra impact.",
-    cvUrl: "/download/app-release.apk",
-    stage: "shortlist",
-    submittedAt: "2026-01-21",
-  },
-];
-
-const stageLabel = (stage: MockStage, language: "en" | "ar") => {
+const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") => {
   const map = {
-    review: { en: "Review", ar: "مراجعة" },
-    shortlist: { en: "Shortlist", ar: "قائمة قصيرة" },
-    interview: { en: "Interview", ar: "مقابلة" },
-    hold: { en: "On Hold", ar: "معلّق" },
+    pending: { en: "Pending", ar: "??? ????????" },
+    reviewed: { en: "Reviewed", ar: "??? ????????" },
+    accepted: { en: "Accepted", ar: "?????" },
+    rejected: { en: "Rejected", ar: "?????" },
   };
-  return map[stage][language];
+  return map[status]?.[language] ?? status;
 };
 
 const ApplicationList: React.FC = () => {
   const { language } = useLanguage();
+  const apiBase = getApiBaseUrl();
+  const { data: applications = [], isLoading } = useQuery({
+    queryKey: ["company-applications"],
+    queryFn: companyApi.getApplications,
+  });
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const search = query.trim().toLowerCase();
-    const base = [...MOCK_CANDIDATES].sort(
-      (a, b) => b.atsScore.score - a.atsScore.score
+    const base = [...applications].sort(
+      (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
     );
     if (!search) return base;
     return base.filter(
       (item) =>
-        item.name.toLowerCase().includes(search) ||
-        item.role.toLowerCase().includes(search) ||
-        item.location.toLowerCase().includes(search)
+        item.candidate.name.toLowerCase().includes(search) ||
+        item.job.title.toLowerCase().includes(search) ||
+        (item.job.location || "").toLowerCase().includes(search)
     );
-  }, [query]);
+  }, [applications, query]);
 
   const copy = {
     en: {
       eyebrow: "Applications",
       title: "HR-Curated Candidate Feed",
-      subtitle:
-        "Only HR-approved CVs appear here with AI insights and recommendations.",
-      search: "Search candidate, role, or location",
-      listTitle: "Incoming Profiles",
-      insights: "AI Insights",
-      recommendation: "Recommendation",
+      subtitle: "Applications sent to your company are shown here in real time.",
+      search: "Search candidate, job, or location",
+      listTitle: "Incoming Applications",
       viewCv: "Open CV",
-      experience: "yrs",
-      highMatch: "High match",
       total: "Total",
-      shortlist: "Shortlist",
-      empty: "No candidates match your search.",
+      pending: "Pending",
+      reviewed: "Reviewed",
+      empty: "No applications match your search.",
+      appliedAt: "Applied",
+      job: "Job",
     },
     ar: {
-      eyebrow: "الطلبات",
-      title: "مرشحون معتمدون من الموارد البشرية",
-      subtitle:
-        "تظهر هنا فقط السير الذاتية المعتمدة مع ملخصات الذكاء والتوصيات.",
-      search: "ابحث بالاسم أو الدور أو الموقع",
-      listTitle: "المرشحون الواردون",
-      insights: "رؤى الذكاء",
-      recommendation: "التوصية",
-      viewCv: "فتح السيرة",
-      experience: "سنوات",
-      highMatch: "تطابق مرتفع",
-      total: "الإجمالي",
-      shortlist: "قائمة قصيرة",
-      empty: "لا توجد نتائج مطابقة.",
+      eyebrow: "???????",
+      title: "?????? ??????? ?? ??????? ???????",
+      subtitle: "???? ???? ????? ??????? ??????? ??????.",
+      search: "???? ?????? ?? ??????? ?? ??????",
+      listTitle: "??????? ???????",
+      viewCv: "??? ??????",
+      total: "????????",
+      pending: "??? ????????",
+      reviewed: "??? ????????",
+      empty: "?? ???? ????? ??????.",
+      appliedAt: "????? ???????",
+      job: "???????",
     },
   }[language];
 
   const stats = useMemo(() => {
     const total = filtered.length;
-    const highMatch = filtered.filter((c) => c.atsScore.score >= 85).length;
-    const shortlist = filtered.filter((c) => c.stage === "shortlist").length;
-    return { total, highMatch, shortlist };
+    const pending = filtered.filter((c) => c.status === "pending").length;
+    const reviewed = filtered.filter((c) => c.status === "reviewed").length;
+    return { total, pending, reviewed };
   }, [filtered]);
 
   return (
@@ -141,11 +100,9 @@ const ApplicationList: React.FC = () => {
 
       <Card>
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-[var(--text-primary)]">
-            {copy.listTitle}
-          </p>
+          <p className="text-sm font-semibold text-[var(--text-primary)]">{copy.listTitle}</p>
           <span className="text-xs text-[var(--text-muted)]">
-            {language === "ar" ? "مرتبة حسب التطابق" : "Sorted by match"}
+            {language === "ar" ? "????? ??? ??????" : "Sorted by latest"}
           </span>
         </div>
 
@@ -155,33 +112,39 @@ const ApplicationList: React.FC = () => {
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.total}</p>
           </div>
           <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
-            <p className="text-xs text-[var(--text-muted)]">{copy.highMatch}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.highMatch}</p>
+            <p className="text-xs text-[var(--text-muted)]">{copy.pending}</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.pending}</p>
           </div>
           <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
-            <p className="text-xs text-[var(--text-muted)]">{copy.shortlist}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.shortlist}</p>
+            <p className="text-xs text-[var(--text-muted)]">{copy.reviewed}</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.reviewed}</p>
           </div>
         </div>
 
         <div className="mt-5 max-h-[520px] space-y-4 overflow-y-auto pe-2">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <>
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+            </>
+          ) : filtered.length === 0 ? (
             <div className="rounded-xl border border-[var(--panel-border)] p-4 text-sm text-[var(--text-muted)]">
               {copy.empty}
             </div>
           ) : (
-            filtered.map((candidate) => (
+            filtered.map((application) => (
               <div
-                key={candidate.id}
+                key={application.id}
                 className="relative grid gap-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/80 p-5 shadow-[0_0_25px_var(--glow)] lg:grid-cols-[1.2fr_1fr]"
               >
                 <div
                   className="absolute inset-y-4 start-0 w-1 rounded-full"
                   style={{
                     background:
-                      candidate.atsScore.score >= 90
+                      application.status === "accepted"
                         ? "var(--accent)"
-                        : candidate.atsScore.score >= 85
+                        : application.status === "reviewed"
                         ? "var(--accent-strong)"
                         : "var(--text-muted)",
                   }}
@@ -190,71 +153,65 @@ const ApplicationList: React.FC = () => {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-base font-semibold text-[var(--text-primary)]">
-                        {candidate.name}
+                        {application.candidate.name}
                       </p>
                       <p className="text-xs text-[var(--text-muted)]">
-                        {candidate.role} - {candidate.location} -{" "}
-                        {candidate.experienceYears} {copy.experience}
+                        {application.job.title}
+                        {application.job.location ? ` - ${application.job.location}` : ""}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="rounded-full bg-[var(--chip-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-                        {stageLabel(candidate.stage, language)}
+                        {statusLabel(application.status, language)}
                       </span>
-                      <RadialGauge
-                        value={candidate.atsScore.score}
-                        max={candidate.atsScore.max}
-                        size={50}
-                      />
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-3">
-                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                        {copy.insights}
-                      </p>
-                      <ul className="mt-2 space-y-1 text-xs text-[var(--text-primary)]">
-                        {candidate.insights.map((item, idx) => (
-                          <li key={`${candidate.id}-insight-${idx}`}>• {item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-3">
-                      <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                        {copy.recommendation}
-                      </p>
-                      <p className="mt-2 text-xs text-[var(--text-primary)]">
-                        {candidate.recommendation}
-                      </p>
-                    </div>
+                  <div className="mt-4 text-xs text-[var(--text-muted)]">
+                    {copy.appliedAt}: {application.submittedAt
+                      ? new Date(application.submittedAt).toLocaleDateString()
+                      : "-"}
                   </div>
                 </div>
 
                 <div className="flex flex-col justify-between rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                      {language === "ar" ? "ملف المرشح" : "Candidate File"}
+                      {language === "ar" ? "??? ??????" : "Candidate File"}
                     </p>
                     <p className="mt-2 text-sm text-[var(--text-primary)]">
-                      {candidate.education}
+                      {application.candidate.email || application.candidate.phone || "-"}
                     </p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {language === "ar" ? "تم الإرسال" : "Submitted"}:{" "}
-                      {candidate.submittedAt}
-                    </p>
-                    <p className="mt-3 text-xs text-[var(--text-muted)]">
-                      {language === "ar"
-                        ? "تمت مشاركة هذا المرشح من قبل فريق الموارد البشرية."
-                        : "This candidate was shared by the HR team."}
+                      {copy.job}: {application.job.title}
                     </p>
                   </div>
                   <Button
                     variant="outline"
                     className="mt-4 justify-center"
-                    onClick={() => window.open(candidate.cvUrl, "_blank")}
+                    onClick={() => {
+                      window.open(
+                        `${apiBase}/companies/company/applications/${application.id}/cv`,
+                        "_blank"
+                      );
+                    }}
                   >
                     {copy.viewCv}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="mt-2 justify-center"
+                    onClick={() => {
+                      if (application.candidate.id) {
+                        window.open(
+                          `https://talents-we-trust.tech/profile/${application.candidate.id}`,
+                          "_blank"
+                        );
+                      }
+                    }}
+                    disabled={!application.candidate.id}
+                  >
+                    {language === "ar" ? "عرض الملف" : "View profile"}
                   </Button>
                 </div>
               </div>

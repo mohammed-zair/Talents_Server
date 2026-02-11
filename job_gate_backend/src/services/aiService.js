@@ -98,20 +98,55 @@ class AIService {
     }, cvFile, "CV File Analysis");
   }
 
-  async startChatbotSession(userId, language = "english", initialData = {}) {
+  async startChatbotSession(userId, language = "english", initialData = {}, options = {}) {
     const normalizedUserId = userId != null ? String(userId) : "";
     return this._requestWithRetry("/chatbot/start", {
       user_id: normalizedUserId,
       language,
       initial_data: initialData,
+      output_language: options.output_language,
+      job_description: options.job_description,
+      job_posting: options.job_posting,
     }, "Chatbot Start");
   }
 
-  async sendChatbotMessage(sessionId, message) {
+  async sendChatbotMessage(sessionId, message, options = {}) {
     return this._requestWithRetry("/chatbot/chat", {
       session_id: sessionId,
       message,
+      job_description: options.job_description,
+      job_posting: options.job_posting,
     }, "Chatbot Message");
+  }
+
+  async getChatbotSession(sessionId) {
+    return this._requestWithRetry(`/chatbot/session/${sessionId}`, null, "Chatbot Session", "get");
+  }
+
+  async listChatbotSessions(userId) {
+    return this._requestWithRetry(`/chatbot/sessions?user_id=${encodeURIComponent(userId)}`, null, "Chatbot Sessions", "get");
+  }
+
+  async exportChatbotDocument(sessionId, format = "pdf", language = undefined) {
+    const payload = {
+      session_id: sessionId,
+      format,
+      language,
+    };
+
+    const response = await this.aiClient.post("/chatbot/export", payload, {
+      responseType: "arraybuffer",
+      headers: {
+        "Content-Type": "application/json",
+        ...this._buildAuthHeaders(),
+      },
+    });
+
+    return {
+      data: response.data,
+      headers: response.headers,
+      status: response.status,
+    };
   }
 
   async healthCheck() {

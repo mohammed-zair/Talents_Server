@@ -26,6 +26,8 @@ Base path:
 - `POST /chatbot/start`
 - `POST /chatbot/chat`
 - `GET /chatbot/session/{session_id}`
+- `GET /chatbot/sessions?user_id=...`
+- `POST /chatbot/export`
 
 ### Interactive Builder (`/builder`)
 

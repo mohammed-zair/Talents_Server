@@ -10,6 +10,9 @@ const AIChatbot = () => {
   const [conversation, setConversation] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isComplete, setIsComplete] = useState(false);
+  const [score, setScore] = useState(null);
+  const [finalSummary, setFinalSummary] = useState(null);
 
   const startSession = async () => {
     setError(null);
@@ -24,6 +27,9 @@ const AIChatbot = () => {
       setConversation([
         { role: 'assistant', content: payload.message || 'Session started.' },
       ]);
+      setIsComplete(false);
+      setScore(null);
+      setFinalSummary(null);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to start chatbot session.');
     } finally {
@@ -57,6 +63,9 @@ const AIChatbot = () => {
         ...prev,
         { role: 'assistant', content: payload.message || 'No reply.' },
       ]);
+      setIsComplete(Boolean(payload.is_complete));
+      setScore(payload.score || null);
+      setFinalSummary(payload.final_summary || null);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to send message.');
     } finally {
@@ -69,6 +78,37 @@ const AIChatbot = () => {
     setConversation([]);
     setMessage('');
     setError(null);
+    setIsComplete(false);
+    setScore(null);
+    setFinalSummary(null);
+  };
+
+  const exportDocument = async (format) => {
+    if (!sessionId) {
+      setError('Start a session first.');
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await axiosInstance.post(
+        '/ai/chatbot/export',
+        { session_id: sessionId, format, language },
+        { responseType: 'blob' }
+      );
+      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `cv-${sessionId}.${format === 'docx' ? 'docx' : 'pdf'}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Failed to export CV document.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderAssistantText = (text) => {
@@ -232,6 +272,58 @@ const AIChatbot = () => {
               {loading ? 'Sending...' : 'Send'}
             </button>
           </form>
+
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => exportDocument('pdf')}
+              disabled={loading || !sessionId}
+              className="border border-indigo-600 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-50 transition disabled:opacity-50"
+            >
+              Export PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => exportDocument('docx')}
+              disabled={loading || !sessionId}
+              className="border border-indigo-600 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-50 transition disabled:opacity-50"
+            >
+              Export DOCX
+            </button>
+          </div>
+
+          {(finalSummary || score) && (
+            <div className="mt-6 bg-slate-50 border rounded-lg p-4">
+              {score && (
+                <div className="mb-4">
+                  <p className="text-sm text-slate-500">CV Score</p>
+                  <p className="text-2xl font-semibold text-slate-800">{score.score ?? '-'}</p>
+                  {Array.isArray(score.checklist) && score.checklist.length > 0 && (
+                    <ul className="mt-2 list-disc pl-5 text-sm text-slate-600 space-y-1">
+                      {score.checklist.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+              {finalSummary && (
+                <div className="space-y-2 text-sm text-slate-700">
+                  {finalSummary.summary && <p>{finalSummary.summary}</p>}
+                  {Array.isArray(finalSummary.improvements) && finalSummary.improvements.length > 0 && (
+                    <ul className="list-disc pl-5">
+                      {finalSummary.improvements.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {finalSummary.job_requirements && (
+                    <p className="text-xs text-slate-500">{finalSummary.job_requirements}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

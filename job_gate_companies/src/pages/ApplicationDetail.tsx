@@ -3,56 +3,67 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
-import { ChevronRight, Zap } from "lucide-react";
 import SectionHeader from "../components/shared/SectionHeader";
 import Card from "../components/shared/Card";
 import Button from "../components/shared/Button";
 import Skeleton from "../components/shared/Skeleton";
-import SkillsCloud from "../components/dashboard/SkillsCloud";
 import { companyApi } from "../services/api/api";
 import type { ApplicationItem } from "../types";
 import { useLanguage } from "../contexts/LanguageContext";
 
-const stages: Array<ApplicationItem["stage"]> = [
-  "screening",
-  "interview",
-  "offer",
-  "hired",
+const getApiBaseUrl = () =>
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000/api";
+
+const stages: Array<ApplicationItem["status"]> = [
+  "pending",
+  "reviewed",
+  "accepted",
+  "rejected",
 ];
+
+const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") => {
+  const map = {
+    pending: { en: "Pending", ar: "??? ????????" },
+    reviewed: { en: "Reviewed", ar: "??? ????????" },
+    accepted: { en: "Accepted", ar: "?????" },
+    rejected: { en: "Rejected", ar: "?????" },
+  };
+  return map[status]?.[language] ?? status;
+};
 
 const ApplicationDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [fading, setFading] = useState(false);
   const { language } = useLanguage();
+  const apiBase = getApiBaseUrl();
 
   const copy = {
     en: {
       headerEyebrow: "Applications Workflow",
       headerTitle: "Decision Side-Panel",
       timeline: "Status Timeline",
-      advance: "Advance",
-      shortlist: "Shortlist",
-      archive: "Archive",
-      aiBreakdown: "AI Score Breakdown",
-      skillsHeatmap: "Skills Heatmap",
-      whyMatch: "Why this match?",
-      matchReason:
-        "Strong ATS alignment in leadership outcomes and advanced product delivery.",
+      advance: "Mark Reviewed",
+      shortlist: "Accept",
+      archive: "Reject",
       notFound: "No application found.",
+      candidate: "Candidate",
+      job: "Job",
+      appliedAt: "Applied",
+      cv: "Open CV",
     },
     ar: {
-      headerEyebrow: "سير الطلبات",
-      headerTitle: "لوحة القرار",
-      timeline: "خط الحالة",
-      advance: "ترقية",
-      shortlist: "ترشيح",
-      archive: "أرشفة",
-      aiBreakdown: "تفاصيل درجة الذكاء",
-      skillsHeatmap: "خريطة المهارات",
-      whyMatch: "لماذا هذا التطابق؟",
-      matchReason: "توافق قوي مع معايير ATS في النتائج والقيادة وتنفيذ المنتجات.",
-      notFound: "لم يتم العثور على الطلب.",
+      headerEyebrow: "??? ???????",
+      headerTitle: "???? ??????",
+      timeline: "?? ??????",
+      advance: "??? ????????",
+      shortlist: "????",
+      archive: "???",
+      notFound: "?? ??? ?????? ??? ?????.",
+      candidate: "??????",
+      job: "???????",
+      appliedAt: "????? ???????",
+      cv: "??? ??????",
     },
   }[language];
 
@@ -63,20 +74,21 @@ const ApplicationDetail: React.FC = () => {
   });
 
   const updateStatus = useMutation({
-    mutationFn: ({ applicationId, status }: { applicationId: string; status: string }) =>
+    mutationFn: ({ applicationId, status }: { applicationId: string; status: ApplicationItem["status"] }) =>
       companyApi.updateApplicationStatus(applicationId, status),
     onSuccess: () => {
-      toast.success(language === "ar" ? "تم تحديث الحالة" : "Status updated");
+      toast.success(language === "ar" ? "?? ????? ??????" : "Status updated");
       queryClient.invalidateQueries({ queryKey: ["application", id] });
+      queryClient.invalidateQueries({ queryKey: ["company-applications"] });
       setFading(false);
     },
     onError: () => {
-      toast.error(language === "ar" ? "تعذر تحديث الحالة" : "Failed to update status");
+      toast.error(language === "ar" ? "???? ????? ??????" : "Failed to update status");
       setFading(false);
     },
   });
 
-  const handleAction = (status: ApplicationItem["stage"]) => {
+  const handleAction = (status: ApplicationItem["status"]) => {
     if (!id) return;
     setFading(true);
     updateStatus.mutate({ applicationId: id, status });
@@ -101,18 +113,20 @@ const ApplicationDetail: React.FC = () => {
         <SectionHeader
           eyebrow={copy.headerEyebrow}
           title={copy.headerTitle}
-          subtitle={`${data.candidate.name} · ${data.jobTitle}`}
+          subtitle={`${data.candidate.name} ? ${data.job.title}`}
         />
         <Card>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--text-primary)]">
-                {data.candidate.role}
+                {data.candidate.name}
               </p>
-              <p className="text-xs text-[var(--text-muted)]">{data.candidate.location}</p>
+              <p className="text-xs text-[var(--text-muted)]">
+                {data.candidate.email || data.candidate.phone || "-"}
+              </p>
             </div>
             <span className="rounded-full bg-[var(--chip-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-              {data.stage}
+              {statusLabel(data.status, language)}
             </span>
           </div>
 
@@ -126,23 +140,31 @@ const ApplicationDetail: React.FC = () => {
                 <div key={stage} className="flex items-center gap-3">
                   <div
                     className={`h-3 w-3 rounded-full ${
-                      stages.indexOf(data.stage) >= index
+                      stages.indexOf(data.status) >= index
                         ? "bg-[var(--accent)]"
                         : "bg-slate-300"
                     }`}
                   />
-                  <span className="text-sm text-[var(--text-primary)]">{stage}</span>
+                  <span className="text-sm text-[var(--text-primary)]">
+                    {statusLabel(stage, language)}
+                  </span>
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="mt-6 text-xs text-[var(--text-muted)]">
+            {copy.appliedAt}: {data.submittedAt
+              ? new Date(data.submittedAt).toLocaleDateString()
+              : "-"}
           </div>
 
           <motion.div
             className="mt-6 flex flex-wrap gap-2"
             animate={{ opacity: fading ? 0.4 : 1 }}
           >
-            <Button onClick={() => handleAction("interview")}>{copy.advance}</Button>
-            <Button variant="outline" onClick={() => handleAction("offer")}>
+            <Button onClick={() => handleAction("reviewed")}>{copy.advance}</Button>
+            <Button variant="outline" onClick={() => handleAction("accepted")}>
               {copy.shortlist}
             </Button>
             <Button
@@ -157,46 +179,42 @@ const ApplicationDetail: React.FC = () => {
       </div>
 
       <Card>
-        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
-          <Zap size={16} className="text-[var(--accent)]" />
-          {copy.aiBreakdown}
-        </div>
-        <div className="mt-4 space-y-3 text-xs text-[var(--text-muted)]">
-          {[
-            { label: language === "ar" ? "الخبرة" : "Experience", value: 84 },
-            { label: language === "ar" ? "التعليم" : "Education", value: 78 },
-            { label: language === "ar" ? "المهارات" : "Skills", value: 92 },
-          ].map((metric) => (
-            <div key={metric.label} className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span>{metric.label}</span>
-                <span>{metric.value}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-slate-200">
-                <div
-                  className="h-2 rounded-full bg-[var(--accent)]"
-                  style={{ width: `${metric.value}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-            {copy.skillsHeatmap}
-          </p>
-          <div className="mt-3">
-            <SkillsCloud skills={data.candidate.skills} />
+        <div className="space-y-3 text-sm text-[var(--text-primary)]">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{copy.candidate}</p>
+            <p className="mt-2">{data.candidate.name}</p>
+            <p className="text-xs text-[var(--text-muted)]">{data.candidate.email || "-"}</p>
+            <p className="text-xs text-[var(--text-muted)]">{data.candidate.phone || "-"}</p>
           </div>
-        </div>
-
-        <div className="mt-6 rounded-xl border border-dashed border-[var(--panel-border)] p-3 text-xs text-[var(--text-muted)]">
-          <div className="flex items-center gap-2 text-[var(--text-primary)]">
-            {copy.whyMatch}
-            <ChevronRight size={12} />
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{copy.job}</p>
+            <p className="mt-2">{data.job.title}</p>
+            <p className="text-xs text-[var(--text-muted)]">{data.job.location || "-"}</p>
           </div>
-          {copy.matchReason}
+          <Button
+            variant="outline"
+            className="justify-center"
+            onClick={() => {
+              window.open(`${apiBase}/companies/company/applications/${data.id}/cv`, "_blank");
+            }}
+          >
+            {copy.cv}
+          </Button>
+          <Button
+            variant="outline"
+            className="justify-center"
+            onClick={() => {
+              if (data.candidate.id) {
+                window.open(
+                  `https://talents-we-trust.tech/profile/${data.candidate.id}`,
+                  "_blank"
+                );
+              }
+            }}
+            disabled={!data.candidate.id}
+          >
+            {language === "ar" ? "عرض الملف" : "View profile"}
+          </Button>
         </div>
       </Card>
     </div>

@@ -153,6 +153,13 @@ router.get(
   verifyCompanyApproved,
   companiesController.getCompanyApplicationsByID
 );
+router.get(
+  "/company/applications/:id/cv",
+  verifyCompanyAccess,
+  verifyCompany,
+  verifyCompanyApproved,
+  companiesController.downloadApplicationCv
+);
 
 router.put(
   "/company/applications/:id",

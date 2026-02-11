@@ -25,6 +25,7 @@ class ChatMessage (BaseModel ):
 class GenerateDocumentRequest (BaseModel ):
     session_id :str 
     format :str ="pdf"
+    language :str ="arabic"
 
 @router .post ("/start")
 async def start_cv_chatbot (request :StartChatRequest ):
@@ -109,18 +110,19 @@ async def generate_cv_document (request :GenerateDocumentRequest ,background_tas
 
 
     if request .format =="pdf":
-        document_path =await document_generator .generate_pdf (final_cv ["professional_cv"])
+        document_path =await document_generator .generate_pdf (final_cv ["professional_cv"],request .language)
     elif request .format =="docx":
-        document_path =await document_generator .generate_docx (final_cv ["professional_cv"])
+        document_path =await document_generator .generate_docx (final_cv ["professional_cv"],request .language)
     else :
-        document_path =await document_generator .generate_both (final_cv ["professional_cv"])
+        document_path =await document_generator .generate_both (final_cv ["professional_cv"],request .language)
 
     return {
     "success":True ,
     "document_url":f"/download/{document_path }",
     "cv_data":final_cv ["cv_data"],
     "session_id":request .session_id ,
-    "format":request .format 
+    "format":request .format ,
+    "language":request .language 
     }
 
 @router .get ("/session/{session_id}")

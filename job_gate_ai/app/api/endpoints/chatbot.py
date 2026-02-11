@@ -1,80 +1,65 @@
-from fastapi import APIRouter ,HTTPException 
-from typing import Dict ,Any ,List 
-import uuid 
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, ConfigDict
+import uuid
 import json
 import logging
 import os
-from datetime import datetime 
-from pydantic import BaseModel 
-from pydantic import ConfigDict
+import re
+from datetime import datetime
+
 from app.services.llm_service import LLMService
+from app.services.database_service import DatabaseService
+from app.services.document_generator import DocumentGenerator
 
 logger = logging.getLogger(__name__)
-router =APIRouter (prefix ="/chatbot",tags =["Chatbot"])
+router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
 
-class ChatbotStartRequest (BaseModel ):
+db = DatabaseService()
+document_generator = DocumentGenerator()
+
+
+class ChatbotStartRequest(BaseModel):
     model_config = ConfigDict(coerce_numbers_to_str=True)
-    user_id :str 
-    language :str ="english"
-    initial_data :Dict [str ,Any ]={}
-
-class ChatbotMessageRequest (BaseModel ):
-    session_id :str 
-    message :str 
-
-chatbot_sessions ={}
-
-_SESSIONS_FILE = os.getenv(
-    "CHATBOT_SESSIONS_FILE",
-    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "chatbot_sessions.json"),
-)
+    user_id: str
+    language: str = "english"
+    output_language: Optional[str] = None
+    initial_data: Dict[str, Any] = {}
+    job_description: Optional[str] = None
+    job_posting: Optional[Dict[str, Any]] = None
 
 
-def _load_sessions() -> None:
-    global chatbot_sessions
-    try:
-        if os.path.exists(_SESSIONS_FILE):
-            with open(_SESSIONS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    chatbot_sessions = data
-    except Exception as e:
-        logger.warning(f"Failed to load chatbot sessions: {e}")
+class ChatbotMessageRequest(BaseModel):
+    session_id: str
+    message: str
+    job_description: Optional[str] = None
+    job_posting: Optional[Dict[str, Any]] = None
 
 
-def _save_sessions() -> None:
-    try:
-        base_dir = os.path.dirname(_SESSIONS_FILE)
-        if base_dir:
-            os.makedirs(base_dir, exist_ok=True)
-        with open(_SESSIONS_FILE, "w", encoding="utf-8") as f:
-            json.dump(chatbot_sessions, f, ensure_ascii=False)
-    except Exception as e:
-        logger.warning(f"Failed to save chatbot sessions: {e}")
+class ChatbotExportRequest(BaseModel):
+    session_id: str
+    format: str = "pdf"
+    language: Optional[str] = None
 
 
-_load_sessions()
-
-
-# Initialize LLM service globally
-_llm_service = None
-
-
-def get_llm_service():
-    global _llm_service
-    if _llm_service is None:
-        _llm_service = LLMService()
-    return _llm_service
+def _normalize_language(language: str) -> str:
+    value = (language or "english").strip().lower()
+    if value in ["ar", "arabic"]:
+        return "arabic"
+    return "english"
 
 
 def _initialize_cv_data(initial_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Initialize structured CV data with defaults"""
     return {
         "personal_info": initial_data.get("personal_info", {
             "full_name": "",
             "email": "",
             "phone": "",
-            "location": ""
+            "location": "",
+            "linkedin": "",
+            "github": "",
+            "title": ""
         }),
         "experience": initial_data.get("experience", []),
         "education": initial_data.get("education", []),
@@ -82,19 +67,76 @@ def _initialize_cv_data(initial_data: Dict[str, Any]) -> Dict[str, Any]:
         "projects": initial_data.get("projects", []),
         "summary": initial_data.get("summary", ""),
         "certifications": initial_data.get("certifications", []),
-        "languages": initial_data.get("languages", [])
+        "languages": initial_data.get("languages", []),
+        "_meta": initial_data.get("_meta", {})
     }
 
 
-def _determine_current_step(cv_data: Dict[str, Any]) -> str:
-    """Determine which section of CV needs attention next"""
-    if not cv_data.get("personal_info", {}).get("full_name"):
+def _get_meta(cv_data: Dict[str, Any]) -> Dict[str, Any]:
+    if "_meta" not in cv_data or not isinstance(cv_data["_meta"], dict):
+        cv_data["_meta"] = {}
+    return cv_data["_meta"]
+
+
+def _detect_skip_flags(message: str) -> Dict[str, bool]:
+    msg = (message or "").lower()
+    return {
+        "no_experience": bool(re.search(r"\b(no experience|no work experience|no jobs)\b", msg)),
+        "no_certifications": bool(re.search(r"\b(no certifications|no certificates)\b", msg)),
+        "no_projects": bool(re.search(r"\b(no projects)\b", msg)),
+        "no_education": bool(re.search(r"\b(no education|no degree)\b", msg)),
+    }
+
+
+def _merge_cv_data(cv_data: Dict[str, Any], updates: Dict[str, Any]) -> None:
+    if not updates:
+        return
+
+    personal_updates = updates.get("personal_info") or {}
+    if personal_updates:
+        personal_info = cv_data.get("personal_info", {})
+        for key, value in personal_updates.items():
+            if value is None:
+                continue
+            if isinstance(value, str) and not value.strip():
+                continue
+            personal_info[key] = value
+        cv_data["personal_info"] = personal_info
+
+    for list_key in ["experience", "education", "skills", "projects", "certifications", "languages"]:
+        incoming = updates.get(list_key)
+        if not incoming:
+            continue
+        if list_key in ["skills", "certifications", "languages"]:
+            existing = list(cv_data.get(list_key, []))
+            for item in incoming:
+                if not item:
+                    continue
+                cleaned = item.strip() if isinstance(item, str) else item
+                if cleaned and cleaned not in existing:
+                    existing.append(cleaned)
+            cv_data[list_key] = existing
+        else:
+            existing = list(cv_data.get(list_key, []))
+            for entry in incoming:
+                if isinstance(entry, dict) and entry:
+                    existing.append(entry)
+            cv_data[list_key] = existing
+
+    if updates.get("summary"):
+        cv_data["summary"] = updates["summary"]
+
+
+def _determine_current_step(cv_data: Dict[str, Any], skip_flags: Dict[str, bool]) -> str:
+    personal = cv_data.get("personal_info", {})
+    if not personal.get("full_name"):
         return "personal_info"
-    if not cv_data.get("personal_info", {}).get("email"):
+    if not personal.get("email"):
         return "personal_info_contact"
-    if len(cv_data.get("experience", [])) == 0:
+
+    if not skip_flags.get("no_experience") and len(cv_data.get("experience", [])) == 0:
         return "experience"
-    if len(cv_data.get("education", [])) == 0:
+    if not skip_flags.get("no_education") and len(cv_data.get("education", [])) == 0:
         return "education"
     if len(cv_data.get("skills", [])) < 3:
         return "skills"
@@ -103,236 +145,488 @@ def _determine_current_step(cv_data: Dict[str, Any]) -> str:
     return "review"
 
 
-def _build_system_prompt(cv_data: Dict[str, Any], current_step: str, language: str) -> str:
-    """Build dynamic system prompt with current CV data"""
+def _is_cv_complete(cv_data: Dict[str, Any], skip_flags: Dict[str, bool]) -> bool:
+    personal = cv_data.get("personal_info", {})
+    has_name = bool(personal.get("full_name"))
+    has_email = bool(personal.get("email"))
+    has_skills = len(cv_data.get("skills", [])) >= 3
+    has_experience = len(cv_data.get("experience", [])) > 0 or skip_flags.get("no_experience")
+    has_education = len(cv_data.get("education", [])) > 0 or skip_flags.get("no_education")
+    return has_name and has_email and has_skills and (has_experience or has_education)
+
+
+def _build_system_prompt(
+    cv_data: Dict[str, Any],
+    current_step: str,
+    language: str,
+    job_requirements: Optional[str],
+    skip_flags: Dict[str, bool],
+) -> str:
     cv_json_str = json.dumps(cv_data, ensure_ascii=False, indent=2)
-    
-    system_prompt = f"""You are 'Job Gate CV Assistant,' an expert, friendly, and highly professional CV (Curriculum Vitae) creator and optimization coach. Your primary language is Arabic, but you must respond in the user's requested language ({language}). Your goal is to guide the user through building a professional, ATS-compatible CV and improving their content.
+    skip_json = json.dumps(skip_flags, ensure_ascii=False)
+    requirements_text = job_requirements or ""
 
-**Tone:** Highly supportive, encouraging, professional, and friendly. Never judgmental.
-**Goal:** Maximize employment chances by creating a results-oriented, high-scoring CV.
-**Key Principle:** Always prioritize quantifiable achievements (numbers, percentages, metrics) over basic duties.
+    return f"""You are 'Job Gate CV Assistant,' a friendly, highly professional CV coach.
+Respond in {language}. Ask only ONE clear question at a time.
+Be encouraging and focus on achievements with numbers.
 
-**Current CV Data:**
-```json
+Current CV data:
 {cv_json_str}
-```
 
-**Current Focus Section:** {current_step}
+Skip flags: {skip_json}
+Current focus: {current_step}
 
-**Core Functions:**
-1. **CV Creation (Data Collection):** Extract specific data from user's message, update the CV data field, and ask the next logical question.
-2. **Content Improvement:** Rewrite user's input into professional, performance-oriented bullet points using strong action verbs and quantifiable metrics.
-3. **Summary Generation:** Generate a 3-4 line professional career summary based on ALL existing data (Experience, Skills, Education).
-4. **Finalization:** When required data is complete (Name, 1 Experience, 1 Education, 3 Skills), confirm completion.
-5. **General Advice:** Answer general CV/ATS questions clearly and suggest how to continue building.
+Job requirements (if provided):
+{requirements_text}
 
-**Response Guidelines:**
-- Keep responses concise (1-3 sentences for questions, up to 5 for advice/rewrites).
-- Always reference user's existing data when providing context.
-- For content improvement, provide the exact rewritten text the user should use.
-- Guide the user step-by-step through CV sections.
-- Be encouraging and highlight their strengths.
-
-**Always ensure your response directly addresses the user's message and moves the CV building forward.**"""
-    
-    return system_prompt
+Instructions:
+- Extract useful details from the user's message and acknowledge them.
+- Ask the next best single question to complete the CV.
+- If the user says they have no experience or certifications, do not ask for those sections again.
+- If the CV is complete, confirm completion and offer export (PDF/DOCX) in English or Arabic.
+"""
 
 
-@router .post ("/start")
-async def start_chatbot (request :ChatbotStartRequest ):
-    session_id =f"chat_{request .user_id }_{uuid .uuid4 ().hex [:8 ]}"
-    
-    cv_data = _initialize_cv_data(request.initial_data)
-    current_step = _determine_current_step(cv_data)
-
-    welcome_msg = f"Hello! I'm Job Gate CV Assistant. Let's build your professional CV together. {chr(10)}{chr(10)}What is your **full name**?"
-    
-    session ={
-    "session_id":session_id ,
-    "user_id":request .user_id ,
-    "language":request .language ,
-    "conversation":[
-    {
-    "role":"assistant",
-    "content": welcome_msg,
-    "timestamp":datetime .now ().isoformat ()
-    }
-    ],
-    "cv_data": cv_data,
-    "current_step": current_step,
-    "created_at":datetime .now ().isoformat (),
-    "last_activity":datetime .now ().isoformat ()
-    }
-
-    chatbot_sessions [session_id ]=session 
-
-    _save_sessions()
-
-    return {
-    "success":True ,
-    "session_id":session_id ,
-    "message": welcome_msg,
-    "session":{
-    "session_id":session_id ,
-    "user_id":request .user_id ,
-    "conversation_length":1,
-    "current_step": current_step
-    }
-    }
+def _safe_json_loads(raw: str) -> Optional[Dict[str, Any]]:
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None
 
 
-@router .post ("/chat")
-async def chat_with_cv_bot (request :ChatbotMessageRequest ):
-    if request .session_id not in chatbot_sessions :
-        raise HTTPException (status_code =404 ,detail ="Session not found")
+def _extract_cv_updates_with_llm(llm: LLMService, message: str, cv_data: Dict[str, Any]) -> Dict[str, Any]:
+    if not llm.is_available():
+        return {}
 
-    session =chatbot_sessions [request .session_id ]
-    
-    session["conversation"].append({
-    "role":"user",
-    "content":request .message,
-    "timestamp":datetime .now ().isoformat ()
-    })
-    session["last_activity"] = datetime.now().isoformat()
-    _save_sessions()
+    prompt = f"""
+Extract CV updates from the user's message.
+Return ONLY JSON with this schema:
+{{
+  "updates": {{
+    "personal_info": {{
+      "full_name": "", "email": "", "phone": "", "location": "",
+      "linkedin": "", "github": "", "title": ""
+    }},
+    "experience": [{{"position":"", "company":"", "duration":"", "description":"", "achievements":[]}}],
+    "education": [{{"degree":"", "institution":"", "duration":"", "description":""}}],
+    "skills": [],
+    "projects": [],
+    "certifications": [],
+    "languages": [],
+    "summary": ""
+  }},
+  "flags": {{
+    "no_experience": false,
+    "no_certifications": false,
+    "no_projects": false,
+    "no_education": false
+  }},
+  "intent": {{
+    "complete": false,
+    "request_export": false,
+    "output_language": null
+  }}
+}}
+
+User message:
+{message}
+"""
 
     try:
-        llm_service = get_llm_service()
-        system_prompt = _build_system_prompt(
-            session["cv_data"],
-            session.get("current_step", "review"),
-            session.get("language", "english")
+        response = llm.client.chat.completions.create(
+            model=llm.model,
+            messages=[
+                {"role": "system", "content": "You extract CV data and return only valid JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+            max_tokens=800,
+            response_format={"type": "json_object"},
         )
+        parsed = _safe_json_loads(response.choices[0].message.content)
+        return parsed or {}
+    except Exception as e:
+        logger.warning(f"LLM extraction failed: {e}")
+        return {}
 
-        messages = [
-            {"role": "system", "content": system_prompt}
-        ]
 
-        for msg in session["conversation"][-20:]:
-            if msg.get("role") in ["user", "assistant"]:
-                messages.append({
-                    "role": msg["role"],
-                    "content": msg.get("content", "")
-                })
+def _fallback_extract(message: str) -> Dict[str, Any]:
+    updates: Dict[str, Any] = {"personal_info": {}, "skills": []}
+    if "@" in message and "." in message:
+        emails = re.findall(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", message)
+        if emails:
+            updates["personal_info"]["email"] = emails[0]
+    phone_match = re.findall(r"[\+\(]?[1-9][0-9 .\-\(\)]{8,}[0-9]", message)
+    if phone_match:
+        updates["personal_info"]["phone"] = phone_match[0]
+    if "," in message and len(message) < 200:
+        skills = [s.strip().title() for s in message.split(",") if len(s.strip()) > 2]
+        if skills:
+            updates["skills"] = skills
+    return {"updates": updates, "flags": {}, "intent": {}}
 
-        if llm_service.is_available():
-            try:
-                response_obj = llm_service.client.chat.completions.create(
-                    model=llm_service.model,
-                    messages=messages,
-                    temperature=0.7,
-                    max_tokens=500
-                )
-                response = response_obj.choices[0].message.content.strip()
-            except Exception as llm_error:
-                logger.warning(f"LLM error: {llm_error}, using fallback")
-                response = _generate_fallback_response(request.message, session["cv_data"])
-        else:
-            response = _generate_fallback_response(request.message, session["cv_data"])
 
-        session["conversation"].append({
-            "role": "assistant",
-            "content": response,
-            "timestamp": datetime.now().isoformat()
-        })
+def _score_cv(cv_data: Dict[str, Any]) -> Dict[str, Any]:
+    score = 100
+    checklist = []
 
-        _try_extract_cv_data(request.message, session["cv_data"], session.get("current_step", "review"))
-        session["current_step"] = _determine_current_step(session["cv_data"])
-        session["last_activity"] = datetime.now().isoformat()
-        _save_sessions()
+    personal = cv_data.get("personal_info", {})
+    if not personal.get("linkedin") and not personal.get("github"):
+        score -= 10
+        checklist.append("Add LinkedIn or GitHub links.")
 
+    experience = cv_data.get("experience", [])
+    has_metrics = any(re.search(r"\d", str(item.get("description", ""))) for item in experience)
+    if experience and not has_metrics:
+        score -= 10
+        checklist.append("Add measurable results (numbers, %).")
+
+    skills = cv_data.get("skills", [])
+    if len(skills) < 3:
+        score -= 10
+        checklist.append("Add at least 3 key skills.")
+
+    if not cv_data.get("summary"):
+        score -= 5
+        checklist.append("Add a professional summary.")
+
+    score = max(0, min(100, score))
+    return {
+        "score": score,
+        "checklist": checklist
+    }
+
+
+def _generate_final_summary(llm: LLMService, cv_data: Dict[str, Any], job_requirements: Optional[str]) -> Dict[str, Any]:
+    if not llm.is_available():
         return {
-            "success": True,
-            "session_id": request.session_id,
-            "message": response,
-            "conversation_length": len(session["conversation"]),
-            "current_step": session["current_step"],
-            "cv_data_summary": {
-                "has_name": bool(session["cv_data"].get("personal_info", {}).get("full_name")),
-                "has_email": bool(session["cv_data"].get("personal_info", {}).get("email")),
-                "experience_count": len(session["cv_data"].get("experience", [])),
-                "skills_count": len(session["cv_data"].get("skills", [])),
-                "education_count": len(session["cv_data"].get("education", []))
-            }
+            "summary": "Your CV is ready. Consider adding more measurable achievements.",
+            "improvements": ["Add metrics to your experience", "Include LinkedIn/GitHub links"],
+            "job_requirements": job_requirements or "",
         }
 
+    prompt = f"""
+Create a final CV summary response in JSON with:
+{{
+  "summary": "",
+  "improvements": ["", ""],
+  "job_requirements": ""
+}}
+
+Base it on this CV data and job requirements. Keep it concise and practical.
+CV Data:
+{json.dumps(cv_data, ensure_ascii=False)}
+
+Job requirements:
+{job_requirements or ""}
+"""
+    try:
+        response = llm.client.chat.completions.create(
+            model=llm.model,
+            messages=[
+                {"role": "system", "content": "Return only valid JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=800,
+            response_format={"type": "json_object"},
+        )
+        parsed = _safe_json_loads(response.choices[0].message.content)
+        return parsed or {}
     except Exception as e:
-        logger.error(f"Chat error: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
+        logger.warning(f"Final summary generation failed: {e}")
+        return {}
 
 
-def _generate_fallback_response(user_message: str, cv_data: Dict[str, Any]) -> str:
-    """Generate response without LLM"""
-    msg_lower = user_message.lower()
-    
-    # Simple keyword-based responses
-    if any(word in msg_lower for word in ["hello", "hi", "hey", "start"]):
-        if not cv_data.get("personal_info", {}).get("full_name"):
-            return "Great! Let's begin. What is your full name?"
-        else:
-            return f"Hi {cv_data['personal_info']['full_name']}! What would you like to work on next?"
-    
-    elif any(word in msg_lower for word in ["improve", "better", "fix", "rewrite"]):
-        return "I'd be happy to help improve that section. Please tell me the exact text you'd like me to rewrite."
-    
-    elif any(word in msg_lower for word in ["experience", "work", "job", "position"]):
-        return "Tell me about your most recent job: What was your position, company, and dates?"
-    
-    elif any(word in msg_lower for word in ["skill", "technical", "tools", "language"]):
-        return "List 3-5 key skills or technologies you're proficient in, separated by commas."
-    
-    elif any(word in msg_lower for word in ["education", "degree", "university", "college"]):
-        return "What is your highest education level and where did you study?"
-    
-    elif any(word in msg_lower for word in ["summary", "profile", "objective"]):
-        return "I'll generate a professional summary based on your experience and skills."
-    
-    elif any(word in msg_lower for word in ["finish", "done", "complete", "export", "pdf", "download"]):
-        return "Excellent! Your CV is ready. Click 'Generate PDF' or 'Generate DOCX' to download your document."
-    
-    else:
-        return "I can help you with: building your CV, improving sections, or answering ATS questions. What would you like to do?"
+def _translate_cv_payload(llm: LLMService, cv_data: Dict[str, Any], target_language: str) -> Dict[str, Any]:
+    if not llm.is_available():
+        return cv_data
 
-def _try_extract_cv_data(user_message: str, cv_data: Dict[str, Any], current_step: str) -> None:
-    """Attempt simple extraction of CV data from user message"""
-    msg_lower = user_message.lower()
-    
-    # Try to extract email
-    if "@" in user_message and "." in user_message:
-        import re
-        emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', user_message)
-        if emails and not cv_data.get("personal_info", {}).get("email"):
-            cv_data["personal_info"]["email"] = emails[0]
-    
-    # Try to extract name (simple heuristic: if current_step is personal_info and message has 2+ words)
-    if current_step == "personal_info" and not cv_data.get("personal_info", {}).get("full_name"):
-        words = [w for w in user_message.split() if len(w) > 2 and w[0].isupper()]
-        if len(words) >= 1:
-            cv_data["personal_info"]["full_name"] = " ".join(words[:3])
-    
-    # Try to extract skills (simple: if skills mentioned, split by comma)
-    if "skill" in msg_lower or "technical" in msg_lower:
-        # Extract comma-separated items
-        import re
-        potential_skills = re.split(r'[,;]', user_message)
-        for skill in potential_skills:
-            skill_clean = skill.strip().title()
-            if len(skill_clean) > 2 and skill_clean not in cv_data.get("skills", []):
-                cv_data["skills"].append(skill_clean)
+    payload = {
+        "summary": cv_data.get("summary", ""),
+        "experience": cv_data.get("experience", []),
+        "education": cv_data.get("education", []),
+        "skills": cv_data.get("skills", []),
+        "projects": cv_data.get("projects", []),
+        "certifications": cv_data.get("certifications", []),
+        "languages": cv_data.get("languages", []),
+    }
 
-@router .get ("/session/{session_id}")
-async def get_chatbot_session (session_id :str ):
-    if session_id not in chatbot_sessions :
-        raise HTTPException (status_code =404 ,detail ="Session not found")
+    prompt = f"""
+Translate all user-written text to {target_language}.
+Keep names, emails, URLs, and numbers unchanged.
+Return ONLY JSON with the same structure.
+{json.dumps(payload, ensure_ascii=False)}
+"""
+    try:
+        response = llm.client.chat.completions.create(
+            model=llm.model,
+            messages=[
+                {"role": "system", "content": "You are a professional translator. Return only JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+            max_tokens=1000,
+            response_format={"type": "json_object"},
+        )
+        parsed = _safe_json_loads(response.choices[0].message.content)
+        if parsed:
+            cv_data["summary"] = parsed.get("summary", cv_data.get("summary", ""))
+            cv_data["experience"] = parsed.get("experience", cv_data.get("experience", []))
+            cv_data["education"] = parsed.get("education", cv_data.get("education", []))
+            cv_data["skills"] = parsed.get("skills", cv_data.get("skills", []))
+            cv_data["projects"] = parsed.get("projects", cv_data.get("projects", []))
+            cv_data["certifications"] = parsed.get("certifications", cv_data.get("certifications", []))
+            cv_data["languages"] = parsed.get("languages", cv_data.get("languages", []))
+    except Exception as e:
+        logger.warning(f"Translation JSON failed: {e}")
+    return cv_data
 
-    session =chatbot_sessions [session_id ]
+
+def _load_session(session_id: str) -> Optional[Dict[str, Any]]:
+    record = db.get_chatbot_session(session_id)
+    if not record:
+        return None
+    return {
+        "session_id": record.session_id,
+        "user_id": record.user_id,
+        "language": record.language,
+        "output_language": record.output_language,
+        "current_step": record.current_step,
+        "cv_data": record.cv_data or {},
+        "conversation": record.conversation or [],
+        "job_requirements": record.job_requirements,
+        "job_posting_meta": record.job_posting_meta or {},
+        "score_data": record.score_data or {},
+        "final_summary": record.final_summary,
+        "is_complete": bool(record.is_complete),
+        "created_at": record.created_at.isoformat() if record.created_at else None,
+        "updated_at": record.updated_at.isoformat() if record.updated_at else None,
+    }
+
+
+def _save_session(session: Dict[str, Any]) -> None:
+    updates = {
+        "language": session.get("language", "english"),
+        "output_language": session.get("output_language", session.get("language", "english")),
+        "current_step": session.get("current_step"),
+        "cv_data": session.get("cv_data"),
+        "conversation": session.get("conversation"),
+        "job_requirements": session.get("job_requirements"),
+        "job_posting_meta": session.get("job_posting_meta"),
+        "score_data": session.get("score_data"),
+        "final_summary": session.get("final_summary"),
+        "is_complete": 1 if session.get("is_complete") else 0,
+        "completed_at": datetime.utcnow() if session.get("is_complete") else None,
+    }
+    db.update_chatbot_session(session["session_id"], updates)
+
+
+@router.post("/start")
+async def start_chatbot(request: ChatbotStartRequest):
+    language = _normalize_language(request.language)
+    output_language = _normalize_language(request.output_language or request.language)
+    session_id = f"chat_{request.user_id}_{uuid.uuid4().hex[:8]}"
+
+    cv_data = _initialize_cv_data(request.initial_data)
+    meta = _get_meta(cv_data)
+    meta.setdefault("skip_flags", {})
+
+    job_requirements = request.job_description or ""
+    job_posting_meta = request.job_posting or {}
+
+    current_step = _determine_current_step(cv_data, meta.get("skip_flags", {}))
+    welcome_msg = (
+        "مرحبا! أنا مساعد السيرة الذاتية. لنبدأ باسمك الكامل."
+        if language == "arabic"
+        else "Hello! I'm your CV assistant. Let's start with your full name."
+    )
+
+    session = {
+        "session_id": session_id,
+        "user_id": request.user_id,
+        "language": language,
+        "output_language": output_language,
+        "current_step": current_step,
+        "cv_data": cv_data,
+        "conversation": [
+            {"role": "assistant", "content": welcome_msg, "timestamp": datetime.now().isoformat()}
+        ],
+        "job_requirements": job_requirements,
+        "job_posting_meta": job_posting_meta,
+        "score_data": {},
+        "final_summary": None,
+        "is_complete": False,
+    }
+
+    db.create_chatbot_session(session)
 
     return {
-    "success":True ,
-    "session_id":session_id ,
-    "user_id":session ["user_id"],
-    "conversation_length":len (session ["conversation"]),
-    "last_activity":session ["last_activity"],
-    "created_at":session ["created_at"]
+        "success": True,
+        "session_id": session_id,
+        "message": welcome_msg,
+        "current_step": current_step,
     }
+
+
+@router.post("/chat")
+async def chat_with_cv_bot(request: ChatbotMessageRequest):
+    session = _load_session(request.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    message = request.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message is required")
+
+    session["conversation"].append({
+        "role": "user",
+        "content": message,
+        "timestamp": datetime.now().isoformat(),
+    })
+
+    llm_service = LLMService()
+    cv_data = session.get("cv_data", {})
+    meta = _get_meta(cv_data)
+    skip_flags = meta.get("skip_flags", {})
+
+    extracted = _extract_cv_updates_with_llm(llm_service, message, cv_data)
+    if not extracted:
+        extracted = _fallback_extract(message)
+
+    updates = extracted.get("updates", {})
+    flags = extracted.get("flags", {})
+    intent = extracted.get("intent", {})
+
+    for flag, value in _detect_skip_flags(message).items():
+        if value:
+            flags[flag] = True
+
+    if flags:
+        skip_flags.update(flags)
+        meta["skip_flags"] = skip_flags
+
+    _merge_cv_data(cv_data, updates)
+
+    if request.job_description:
+        session["job_requirements"] = request.job_description
+    if request.job_posting:
+        session["job_posting_meta"] = request.job_posting
+
+    current_step = _determine_current_step(cv_data, skip_flags)
+    session["current_step"] = current_step
+
+    is_complete = _is_cv_complete(cv_data, skip_flags)
+    if intent.get("complete"):
+        is_complete = True
+    session["is_complete"] = is_complete
+
+    system_prompt = _build_system_prompt(
+        cv_data,
+        current_step,
+        session.get("language", "english"),
+        session.get("job_requirements"),
+        skip_flags,
+    )
+
+    response_text = ""
+    if llm_service.is_available():
+        try:
+            messages = [{"role": "system", "content": system_prompt}]
+            for msg in session["conversation"][-12:]:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+            response_obj = llm_service.client.chat.completions.create(
+                model=llm_service.model,
+                messages=messages,
+                temperature=0.6,
+                max_tokens=600,
+            )
+            response_text = response_obj.choices[0].message.content.strip()
+        except Exception as llm_error:
+            logger.warning(f"LLM error: {llm_error}")
+            response_text = (
+                "Thanks! Tell me more about your experience."
+                if session.get("language") == "english"
+                else "شكرًا! أخبرني أكثر عن خبراتك."
+            )
+    else:
+        response_text = (
+            "Thanks! Tell me more about your experience."
+            if session.get("language") == "english"
+            else "شكرًا! أخبرني أكثر عن خبراتك."
+        )
+
+    session["conversation"].append({
+        "role": "assistant",
+        "content": response_text,
+        "timestamp": datetime.now().isoformat(),
+    })
+
+    if session["is_complete"]:
+        score_data = _score_cv(cv_data)
+        final_summary = _generate_final_summary(llm_service, cv_data, session.get("job_requirements"))
+        session["score_data"] = score_data
+        session["final_summary"] = final_summary
+
+    _save_session(session)
+
+    return {
+        "success": True,
+        "session_id": session["session_id"],
+        "message": response_text,
+        "current_step": session["current_step"],
+        "is_complete": session["is_complete"],
+        "score": session.get("score_data", {}),
+        "final_summary": session.get("final_summary"),
+    }
+
+
+@router.get("/session/{session_id}")
+async def get_chatbot_session(session_id: str):
+    session = _load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {
+        "success": True,
+        "session": session,
+    }
+
+
+@router.get("/sessions")
+async def list_chatbot_sessions(user_id: str = Query(..., min_length=1)):
+    records = db.list_chatbot_sessions(user_id, limit=50)
+    return {
+        "success": True,
+        "sessions": [record.to_dict() for record in records],
+    }
+
+
+@router.post("/export")
+async def export_cv_document(request: ChatbotExportRequest):
+    session = _load_session(request.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    language = _normalize_language(request.language or session.get("output_language") or session.get("language"))
+    llm_service = LLMService()
+    cv_data = json.loads(json.dumps(session.get("cv_data", {})))
+
+    if language != _normalize_language(session.get("language")):
+        cv_data = _translate_cv_payload(llm_service, cv_data, language)
+
+    cv_data["summary_professional"] = cv_data.get("summary", "")
+
+    fmt = (request.format or "pdf").lower()
+    if fmt == "pdf":
+        path = await document_generator.generate_pdf(cv_data, language)
+        return FileResponse(path, media_type="application/pdf", filename=os.path.basename(path))
+    if fmt == "docx":
+        path = await document_generator.generate_docx(cv_data, language)
+        return FileResponse(
+            path,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            filename=os.path.basename(path),
+        )
+
+    paths = await document_generator.generate_both(cv_data, language)
+    return {"success": True, "paths": paths}

@@ -1,6 +1,6 @@
 // file: src/controllers/ai.controller.js
 const aiService = require('../services/aiService');
-const { CV, CVStructuredData, CVFeaturesAnalytics } = require('../models');
+const { CV, CVStructuredData, CVFeaturesAnalytics, JobPosting } = require('../models');
 const { successResponse } = require('../utils/responseHandler');
 const { v4: uuidv4 } = require('uuid');
 
@@ -203,10 +203,21 @@ exports.startChatbotSession = async (req, res) => {
   const requestId = uuidv4();
   console.log(`[${requestId}] Start Chatbot Session`);
   try {
-    const { language = 'english', initialData = {} } = req.body;
+    const { language = 'english', initialData = {}, output_language, job_posting_id, job_description } = req.body;
     const userId = req.user.user_id;
 
-    const result = await aiService.startChatbotSession(userId, language, initialData);
+    let jobPosting = null;
+    if (job_posting_id) {
+      jobPosting = await JobPosting.findByPk(job_posting_id, {
+        attributes: ["job_id", "title", "description", "requirements", "location"],
+      });
+    }
+
+    const result = await aiService.startChatbotSession(userId, language, initialData, {
+      output_language,
+      job_description,
+      job_posting: jobPosting ? jobPosting.toJSON() : null,
+    });
 
     console.log(`[${requestId}] Chatbot Session started for user ${userId}`);
     return successResponse(res, { ...result, requestId }, 'تم بدء محادثة chatbot بنجاح');
@@ -229,7 +240,7 @@ exports.sendChatbotMessage = async (req, res) => {
   const requestId = uuidv4();
   console.log(`[${requestId}] Send Chatbot Message`);
   try {
-    const { sessionId, session_id, message } = req.body;
+    const { sessionId, session_id, message, job_posting_id, job_description } = req.body;
     const resolvedSessionId = sessionId || session_id;
 
     if (!resolvedSessionId || !message) {
@@ -239,7 +250,17 @@ exports.sendChatbotMessage = async (req, res) => {
       });
     }
 
-    const result = await aiService.sendChatbotMessage(resolvedSessionId, message);
+    let jobPosting = null;
+    if (job_posting_id) {
+      jobPosting = await JobPosting.findByPk(job_posting_id, {
+        attributes: ["job_id", "title", "description", "requirements", "location"],
+      });
+    }
+
+    const result = await aiService.sendChatbotMessage(resolvedSessionId, message, {
+      job_description,
+      job_posting: jobPosting ? jobPosting.toJSON() : null,
+    });
 
     console.log(`[${requestId}] Message sent in session ${resolvedSessionId}`);
     return successResponse(res, { ...result, requestId }, 'تم إرسال الرسالة بنجاح');
@@ -258,6 +279,73 @@ exports.sendChatbotMessage = async (req, res) => {
       message: 'فشل في إرسال الرسالة',
       error: error.message,
       requestId,
+    });
+  }
+};
+
+/**
+ * @desc Get chatbot session details
+ * @route GET /api/ai/chatbot/session/:sessionId
+ * @access Private
+ */
+exports.getChatbotSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const result = await aiService.getChatbotSession(sessionId);
+    return successResponse(res, result, "Chatbot session retrieved");
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to get chatbot session",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc List chatbot sessions for current user
+ * @route GET /api/ai/chatbot/sessions
+ * @access Private
+ */
+exports.listChatbotSessions = async (req, res) => {
+  try {
+    const userId = req.user.user_id;
+    const result = await aiService.listChatbotSessions(String(userId));
+    return successResponse(res, result, "Chatbot sessions fetched");
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to list chatbot sessions",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc Export chatbot CV document
+ * @route POST /api/ai/chatbot/export
+ * @access Private
+ */
+exports.exportChatbotDocument = async (req, res) => {
+  try {
+    const { session_id, sessionId, format = "pdf", language } = req.body;
+    const resolvedSessionId = sessionId || session_id;
+
+    if (!resolvedSessionId) {
+      return res.status(400).json({ message: "Session ID is required" });
+    }
+
+    const response = await aiService.exportChatbotDocument(resolvedSessionId, format, language);
+    const contentType = response.headers["content-type"] || "application/octet-stream";
+    const contentDisposition = response.headers["content-disposition"];
+
+    if (contentDisposition) {
+      res.setHeader("Content-Disposition", contentDisposition);
+    }
+    res.setHeader("Content-Type", contentType);
+    return res.status(200).send(response.data);
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to export CV document",
+      error: error.message,
     });
   }
 };

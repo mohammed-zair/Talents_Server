@@ -36,6 +36,24 @@ router.post("/chatbot/chat",
   aiController.sendChatbotMessage
 );
 
+// Get chatbot session
+router.get("/chatbot/session/:sessionId",
+  verifyToken,
+  aiController.getChatbotSession
+);
+
+// List chatbot sessions
+router.get("/chatbot/sessions",
+  verifyToken,
+  aiController.listChatbotSessions
+);
+
+// Export chatbot CV document
+router.post("/chatbot/export",
+  verifyToken,
+  aiController.exportChatbotDocument
+);
+
 // الحصول على تحليل CV محفوظ
 router.get("/cv/analysis/:cvId", 
   verifyToken, 

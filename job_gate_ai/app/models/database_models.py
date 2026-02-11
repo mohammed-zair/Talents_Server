@@ -124,6 +124,47 @@ class BuilderSession (Base ):
         return round ((completed /len (sections ))*100 ,2 )
 
 
+class ChatbotSession (Base ):
+    __tablename__ ="ai_cv_chat_sessions"
+
+    id =Column (Integer ,primary_key =True ,index =True )
+    session_id =Column (String ,unique =True ,index =True ,nullable =False )
+    user_id =Column (String ,index =True ,nullable =False )
+
+    language =Column (String ,default ="english")
+    output_language =Column (String ,default ="english")
+    current_step =Column (String ,default ="personal_info")
+
+    cv_data =Column (JSON ,nullable =False ,default =dict )
+    conversation =Column (JSON ,nullable =False ,default =list )
+
+    job_requirements =Column (Text ,nullable =True )
+    job_posting_meta =Column (JSON ,nullable =True ,default =dict )
+    score_data =Column (JSON ,nullable =True ,default =dict )
+    final_summary =Column (Text ,nullable =True )
+
+    is_complete =Column (Integer ,default =0 )
+    created_at =Column (DateTime ,default =datetime .utcnow )
+    updated_at =Column (DateTime ,default =datetime .utcnow ,onupdate =datetime .utcnow )
+    completed_at =Column (DateTime ,nullable =True )
+
+    def to_dict (self ):
+        return {
+        "session_id":self .session_id ,
+        "user_id":self .user_id ,
+        "language":self .language ,
+        "output_language":self .output_language ,
+        "current_step":self .current_step ,
+        "is_complete":bool (self .is_complete ),
+        "created_at":self .created_at .isoformat () if self .created_at else None ,
+        "updated_at":self .updated_at .isoformat () if self .updated_at else None ,
+        "completed_at":self .completed_at .isoformat () if self .completed_at else None ,
+        "conversation_length":len (self .conversation or []),
+        "score":self .score_data or {},
+        "job_posting_meta":self .job_posting_meta or {}
+        }
+
+
 class FileType (str ,Enum ):
     PDF ="application/pdf"
     DOCX ="application/vnd.openxmlformats-officedocument.wordprocessingml.document"

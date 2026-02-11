@@ -43,27 +43,39 @@ export interface CompanyProfile {
 export interface CandidateProfile {
   id: string;
   name: string;
-  role: string;
-  location: string;
-  experienceYears: number;
-  education: string;
-  atsScore: ATSScore;
-  insightTags: string[];
-  skills: SkillMatch[];
-  summaryBullets: string[];
+  role?: string;
+  location?: string;
+  experienceYears?: number;
+  education?: string;
+  atsScore?: ATSScore;
+  insightTags?: string[];
+  skills?: SkillMatch[];
+  summaryBullets?: string[];
   companyHistory?: string[];
+  email?: string;
+  phone?: string;
 }
 
 export interface ApplicationItem {
   id: string;
+  status: "pending" | "reviewed" | "accepted" | "rejected";
+  submittedAt: string;
   candidate: CandidateProfile;
-  jobTitle: string;
-  stage: "screening" | "interview" | "offer" | "hired" | "rejected";
-  appliedAt: string;
+  job: {
+    id: string;
+    title: string;
+    location?: string;
+  };
+  cv?: {
+    id?: string;
+    title?: string;
+    url?: string;
+  };
+  reviewNotes?: string | null;
 }
 
 export interface ApplicationStatusUpdate {
-  status: ApplicationItem["stage"];
+  status: ApplicationItem["status"];
 }
 
 export interface JobFormQuestion {

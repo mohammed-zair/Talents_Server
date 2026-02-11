@@ -2,6 +2,8 @@
 
 const { Company, CompanyUser, JobPosting, Application, User, CV } = require("../models");
 const bcrypt = require("bcryptjs");
+const fs = require("fs");
+const path = require("path");
 const { successResponse } = require("../utils/responseHandler");
 
 //   O_U^O
@@ -830,6 +832,63 @@ exports.getCompanyApplicationsByID = async (req, res) => {
     console.error("Error fetching company application by ID:", error);
     return res.status(500).json({
       message: "فشل في جلب بيانات الطلب.",
+      error: error.message,
+    });
+  }
+};
+
+
+/**
+ * @desc [Company Only] Download CV for a specific application (must belong to company)
+ * @route GET /api/companies/company/applications/:id/cv
+ * @access Private (Company)
+ */
+exports.downloadApplicationCv = async (req, res) => {
+  try {
+    const company_id = req.company.company_id;
+    const application_id = req.params.id;
+
+    const application = await Application.findOne({
+      include: [
+        {
+          model: JobPosting,
+          where: { company_id: company_id },
+          attributes: ["job_id", "title"],
+        },
+        {
+          model: CV,
+          attributes: ["cv_id", "file_url", "title"],
+        },
+      ],
+      where: { application_id: application_id },
+    });
+
+    if (!application) {
+      return res.status(404).json({ message: "??? ??????? ??? ?????" });
+    }
+
+    const cv = application.CV;
+    if (!cv || !cv.file_url) {
+      return res.status(404).json({ message: "CV ??? ????? ???? ?????" });
+    }
+
+    const rawPath = String(cv.file_url);
+    const backendRoot = path.join(__dirname, "..", "..");
+    const normalized = rawPath.replace(/^\/+/, "");
+    const filePath = path.isAbsolute(rawPath)
+      ? rawPath
+      : path.join(backendRoot, normalized);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "??? ?????? ??? ?????" });
+    }
+
+    const filename = cv.title ? `${cv.title}` : `cv_${cv.cv_id}`;
+    return res.download(filePath, filename);
+  } catch (error) {
+    console.error("Error downloading CV:", error);
+    return res.status(500).json({
+      message: "??? ?? ????? ?????? ???????.",
       error: error.message,
     });
   }

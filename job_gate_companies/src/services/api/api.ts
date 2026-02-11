@@ -97,11 +97,58 @@ export const companyApi = {
     const { data } = await api.get("/companies/company/applications");
     const normalized =
       Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
-    return normalized as ApplicationItem[];
+    return (normalized as any[]).map((item) => ({
+      id: String(item.application_id ?? item.id ?? ""),
+      status: item.status ?? "pending",
+      submittedAt: item.submitted_at ?? item.submittedAt ?? "",
+      candidate: {
+        id: String(item.User?.user_id ?? item.user_id ?? ""),
+        name: item.User?.full_name ?? item.full_name ?? "Candidate",
+        email: item.User?.email ?? item.email,
+        phone: item.User?.phone ?? item.phone,
+      },
+      job: {
+        id: String(item.JobPosting?.job_id ?? item.job_id ?? ""),
+        title: item.JobPosting?.title ?? item.job_title ?? "Job",
+        location: item.JobPosting?.location ?? item.location,
+      },
+      cv: item.CV
+        ? {
+            id: String(item.CV?.cv_id ?? ""),
+            title: item.CV?.title ?? "CV",
+            url: item.CV?.file_url ?? item.cv_url,
+          }
+        : undefined,
+      reviewNotes: item.review_notes ?? null,
+    })) as ApplicationItem[];
   },
   getApplicationById: async (id: string) => {
     const { data } = await api.get<ApplicationItem>(`/companies/company/applications/${id}`);
-    return data;
+    const item: any = data?.data ?? data;
+    return {
+      id: String(item.application_id ?? item.id ?? id),
+      status: item.status ?? "pending",
+      submittedAt: item.submitted_at ?? item.submittedAt ?? "",
+      candidate: {
+        id: String(item.User?.user_id ?? item.user_id ?? ""),
+        name: item.User?.full_name ?? item.full_name ?? "Candidate",
+        email: item.User?.email ?? item.email,
+        phone: item.User?.phone ?? item.phone,
+      },
+      job: {
+        id: String(item.JobPosting?.job_id ?? item.job_id ?? ""),
+        title: item.JobPosting?.title ?? item.job_title ?? "Job",
+        location: item.JobPosting?.location ?? item.location,
+      },
+      cv: item.CV
+        ? {
+            id: String(item.CV?.cv_id ?? ""),
+            title: item.CV?.title ?? "CV",
+            url: item.CV?.file_url ?? item.cv_url,
+          }
+        : undefined,
+      reviewNotes: item.review_notes ?? null,
+    } as ApplicationItem;
   },
   updateApplicationStatus: async (id: string, status: string) => {
     const { data } = await api.put(`/companies/company/applications/${id}`, { status });
