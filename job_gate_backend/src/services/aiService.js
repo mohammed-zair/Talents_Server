@@ -81,20 +81,22 @@ class AIService {
   }
 
   // Public Methods
-  async analyzeCVText(userId, cvText, useAI = false) {
+  async analyzeCVText(userId, cvText, useAI = false, options = {}) {
     const normalizedUserId = userId != null ? String(userId) : "";
     return this._requestWithRetry("/cv/analyze-text", {
       user_id: normalizedUserId,
       cv_text: cvText,
       use_ai: useAI,
+      job_description: options.job_description,
     }, "CV Analysis");
   }
 
-  async analyzeCVFile(userId, cvFile, useAI = false) {
+  async analyzeCVFile(userId, cvFile, useAI = false, options = {}) {
     const normalizedUserId = userId != null ? String(userId) : "";
     return this._requestFileWithRetry("/cv/analyze", {
       user_id: normalizedUserId,
       use_ai: useAI,
+      job_description: options.job_description,
     }, cvFile, "CV File Analysis");
   }
 
@@ -221,9 +223,14 @@ class AIService {
           filename: file.originalname,
           contentType: file.mimetype,
         });
+        Object.entries(query || {}).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && key !== "use_ai") {
+            form.append(key, String(value));
+          }
+        });
 
         const response = await this.aiClient.post(endpoint, form, {
-          params: query,
+          params: { user_id: query.user_id, use_ai: query.use_ai },
           headers: {
             ...form.getHeaders(),
             ...this._buildAuthHeaders(),

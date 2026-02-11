@@ -71,7 +71,7 @@ export const companyApi = {
   },
   getDashboard: async () => {
     const { data } = await api.get<CompanyDashboardData>("/companies/company/dashboard");
-    return data;
+    return (data as any)?.data ?? data;
   },
   getJobPostings: async () => {
     const { data } = await api.get("/companies/company/job-postings");
@@ -93,14 +93,44 @@ export const companyApi = {
     const { data } = await api.post<JobPosting>("/companies/company/job-postings", payload);
     return data;
   },
-  getApplications: async () => {
-    const { data } = await api.get("/companies/company/applications");
+  getApplications: async (filters?: {
+    search?: string;
+    ats_min?: number;
+    ats_max?: number;
+    experience_min?: number;
+    experience_max?: number;
+    skills?: string[];
+    education?: string;
+    location?: string;
+    strengths?: string[];
+    weaknesses?: string[];
+    starred?: boolean;
+    job_id?: string;
+  }) => {
+    const params: Record<string, string> = {};
+    if (filters?.search) params.search = filters.search;
+    if (typeof filters?.ats_min === "number") params.ats_min = String(filters.ats_min);
+    if (typeof filters?.ats_max === "number") params.ats_max = String(filters.ats_max);
+    if (typeof filters?.experience_min === "number")
+      params.experience_min = String(filters.experience_min);
+    if (typeof filters?.experience_max === "number")
+      params.experience_max = String(filters.experience_max);
+    if (filters?.skills?.length) params.skills = filters.skills.join(",");
+    if (filters?.education) params.education = filters.education;
+    if (filters?.location) params.location = filters.location;
+    if (filters?.strengths?.length) params.strengths = filters.strengths.join(",");
+    if (filters?.weaknesses?.length) params.weaknesses = filters.weaknesses.join(",");
+    if (typeof filters?.starred === "boolean") params.starred = String(filters.starred);
+    if (filters?.job_id) params.job_id = filters.job_id;
+
+    const { data } = await api.get("/companies/company/applications", { params });
     const normalized =
       Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
     return (normalized as any[]).map((item) => ({
       id: String(item.application_id ?? item.id ?? ""),
       status: item.status ?? "pending",
       submittedAt: item.submitted_at ?? item.submittedAt ?? "",
+      is_starred: item.is_starred ?? false,
       candidate: {
         id: String(item.User?.user_id ?? item.user_id ?? ""),
         name: item.User?.full_name ?? item.full_name ?? "Candidate",
@@ -119,6 +149,12 @@ export const companyApi = {
             url: item.CV?.file_url ?? item.cv_url,
           }
         : undefined,
+      ai_insights: item.ai_insights ?? null,
+      ai_score: item.ai_score ?? null,
+      candidate_location: item.candidate_location ?? null,
+      candidate_education: item.candidate_education ?? null,
+      candidate_experience_years: item.candidate_experience_years ?? null,
+      candidate_skills: item.candidate_skills ?? [],
       reviewNotes: item.review_notes ?? null,
     })) as ApplicationItem[];
   },
@@ -147,11 +183,24 @@ export const companyApi = {
             url: item.CV?.file_url ?? item.cv_url,
           }
         : undefined,
+      ai_insights: item.ai_insights ?? null,
+      ai_score: item.ai_score ?? null,
+      is_starred: item.is_starred ?? false,
       reviewNotes: item.review_notes ?? null,
     } as ApplicationItem;
   },
+  refreshApplicationInsights: async (id: string) => {
+    const { data } = await api.get(`/companies/company/applications/${id}?refresh=1`);
+    return data;
+  },
   updateApplicationStatus: async (id: string, status: string) => {
     const { data } = await api.put(`/companies/company/applications/${id}`, { status });
+    return data;
+  },
+  toggleApplicationStar: async (id: string, starred?: boolean) => {
+    const { data } = await api.put(`/companies/company/applications/${id}/star`, {
+      starred,
+    });
     return data;
   },
   getCompanyProfile: async () => {

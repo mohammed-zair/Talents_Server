@@ -35,6 +35,7 @@ const ApplicationDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [fading, setFading] = useState(false);
+  const [refreshingInsights, setRefreshingInsights] = useState(false);
   const { language } = useLanguage();
   const apiBase = getApiBaseUrl();
 
@@ -51,6 +52,15 @@ const ApplicationDetail: React.FC = () => {
       job: "Job",
       appliedAt: "Applied",
       cv: "Open CV",
+      aiTitle: "AI CV Intelligence",
+      aiScore: "CV Score",
+      aiSummary: "Contextual Summary",
+      aiStrengths: "Strengths",
+      aiWeaknesses: "Weaknesses",
+      aiCulture: "Culture & Growth Fit",
+      aiTips: "ATS Optimization Tips",
+      aiRanking: "Industry Ranking",
+      aiJobContext: "Job Context (Cleaned)",
     },
     ar: {
       headerEyebrow: "??? ???????",
@@ -64,6 +74,15 @@ const ApplicationDetail: React.FC = () => {
       job: "???????",
       appliedAt: "????? ???????",
       cv: "??? ??????",
+      aiTitle: "???? ?????? ??????",
+      aiScore: "????? CV",
+      aiSummary: "????? ???????",
+      aiStrengths: "????? ????",
+      aiWeaknesses: "????? ????",
+      aiCulture: "????? ????????",
+      aiTips: "?????? ATS",
+      aiRanking: "????? ??????",
+      aiJobContext: "????? ?????? (?????)",
     },
   }[language];
 
@@ -94,6 +113,20 @@ const ApplicationDetail: React.FC = () => {
     updateStatus.mutate({ applicationId: id, status });
   };
 
+  const refreshInsights = async () => {
+    if (!id) return;
+    try {
+      setRefreshingInsights(true);
+      await companyApi.refreshApplicationInsights(id);
+      queryClient.invalidateQueries({ queryKey: ["application", id] });
+      toast.success(language === "ar" ? "تم تحديث التحليل" : "AI insights refreshed");
+    } catch (err) {
+      toast.error(language === "ar" ? "فشل تحديث التحليل" : "Failed to refresh insights");
+    } finally {
+      setRefreshingInsights(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -106,6 +139,9 @@ const ApplicationDetail: React.FC = () => {
   if (!data) {
     return <Card>{copy.notFound}</Card>;
   }
+
+  const insights = data.ai_insights;
+  const intelligence = insights?.ai_intelligence;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -215,6 +251,96 @@ const ApplicationDetail: React.FC = () => {
           >
             {language === "ar" ? "عرض الملف" : "View profile"}
           </Button>
+
+          {insights && (
+            <div className="mt-6 border-t border-[var(--panel-border)] pt-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                {copy.aiTitle}
+              </p>
+              <Button
+                variant="outline"
+                className="mt-2 w-full justify-center"
+                onClick={refreshInsights}
+                disabled={refreshingInsights}
+              >
+                {refreshingInsights
+                  ? language === "ar"
+                    ? "جاري التحديث..."
+                    : "Refreshing..."
+                  : language === "ar"
+                    ? "تحديث التحليل"
+                    : "Refresh AI Insights"}
+              </Button>
+              <div className="mt-3 space-y-3 text-sm text-[var(--text-primary)]">
+                <div className="rounded-lg border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.aiScore}</p>
+                  <p className="text-xl font-semibold">
+                    {insights.ats_score ?? intelligence?.industry_ranking_score ?? "-"}
+                  </p>
+                </div>
+                {intelligence?.industry_ranking_label && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">{copy.aiRanking}</p>
+                    <p>{intelligence.industry_ranking_label}</p>
+                  </div>
+                )}
+                {intelligence?.contextual_summary && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">{copy.aiSummary}</p>
+                    <p>{intelligence.contextual_summary}</p>
+                  </div>
+                )}
+                {Array.isArray(intelligence?.strategic_analysis?.strengths) && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">{copy.aiStrengths}</p>
+                    <ul className="mt-1 list-disc space-y-1 ps-5">
+                      {intelligence.strategic_analysis.strengths.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(intelligence?.strategic_analysis?.weaknesses) && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">{copy.aiWeaknesses}</p>
+                    <ul className="mt-1 list-disc space-y-1 ps-5">
+                      {intelligence.strategic_analysis.weaknesses.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(intelligence?.strategic_analysis?.culture_growth_fit) && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">{copy.aiCulture}</p>
+                    <ul className="mt-1 list-disc space-y-1 ps-5">
+                      {intelligence.strategic_analysis.culture_growth_fit.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(intelligence?.ats_optimization_tips) && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">{copy.aiTips}</p>
+                    <ul className="mt-1 list-disc space-y-1 ps-5">
+                      {intelligence.ats_optimization_tips.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {insights.cleaned_job_description && (
+                  <div>
+                    <p className="text-xs text-[var(--text-muted)]">{copy.aiJobContext}</p>
+                    <p className="text-xs text-[var(--text-muted)] whitespace-pre-wrap">
+                      {insights.cleaned_job_description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </Card>
     </div>

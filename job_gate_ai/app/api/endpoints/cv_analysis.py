@@ -5,7 +5,7 @@ import traceback
 from datetime import datetime 
 from typing import Dict ,Optional, Union 
 
-from fastapi import APIRouter ,File ,HTTPException ,UploadFile 
+from fastapi import APIRouter ,File ,HTTPException ,UploadFile ,Form 
 from fastapi .responses import JSONResponse 
 from pydantic import BaseModel
 
@@ -95,7 +95,8 @@ def _normalize_structured_data(structured_data: Dict) -> Dict:
 async def analyze_cv (
 user_id :str ,
 file :UploadFile =File (...),
-use_ai :bool =True 
+use_ai :bool =True ,
+job_description :Optional [str ]=Form (None )
 ):
     """
     Analyze uploaded CV file and extract structured data with ATS scoring
@@ -186,7 +187,8 @@ use_ai :bool =True
             print (f"Parsing took {processing_time:.2f} seconds")
 
 
-            ats_result =ats_scorer .calculate_score (structured_data )
+            cleaned_job_description =llm_service .clean_job_description (job_description or "") if job_description else ""
+            ats_result =ats_scorer .calculate_score (structured_data ,cleaned_job_description )
             ats_score =ats_result .get ("score",0.0 )
             print (f"ATS Score: {ats_score}")
 
@@ -219,6 +221,8 @@ use_ai :bool =True
                 print (f"Database save error (non-critical): {db_error}")
 
 
+            ai_intelligence =llm_service .generate_ai_intelligence (raw_text ,cleaned_job_description ) if use_ai else {}
+
             return CVAnalysisResponse (
             success =True ,
             structured_data =cv_structured_data ,
@@ -226,7 +230,11 @@ use_ai :bool =True
             features =features ,
             analysis_method =analysis_method ,
             processing_time =processing_time ,
-            error_message =None 
+            error_message =None ,
+            ai_intelligence =ai_intelligence ,
+            cleaned_job_description =cleaned_job_description ,
+            industry_ranking_score =ai_intelligence .get ("industry_ranking_score") if isinstance (ai_intelligence ,dict ) else None ,
+            industry_ranking_label =ai_intelligence .get ("industry_ranking_label") if isinstance (ai_intelligence ,dict ) else None 
             )
 
         finally :
@@ -265,6 +273,7 @@ class CVTextAnalyzeRequest(BaseModel):
     user_id: Union[str, int]
     cv_text: str
     use_ai: bool = True
+    job_description: Optional[str] = None
 
 @router .post ("/analyze-text")
 async def analyze_cv_text (request: CVTextAnalyzeRequest):
@@ -304,7 +313,8 @@ async def analyze_cv_text (request: CVTextAnalyzeRequest):
         processing_time =(datetime .now ()-start_time ).total_seconds ()
 
 
-        ats_result =ats_scorer .calculate_score (structured_data )
+        cleaned_job_description =llm_service .clean_job_description (request.job_description or "") if request.job_description else ""
+        ats_result =ats_scorer .calculate_score (structured_data ,cleaned_job_description )
 
 
         features =ats_scorer .extract_cv_features (structured_data )
@@ -330,6 +340,8 @@ async def analyze_cv_text (request: CVTextAnalyzeRequest):
         except Exception as db_error :
             print (f"Database save error: {db_error}")
 
+        ai_intelligence =llm_service .generate_ai_intelligence (cv_text ,cleaned_job_description ) if use_ai else {}
+
         return {
         "success":True ,
         "user_id":user_id ,
@@ -339,7 +351,11 @@ async def analyze_cv_text (request: CVTextAnalyzeRequest):
         "analysis_method":analysis_method ,
         "processing_time":processing_time ,
         "feedback":ats_result .get ("feedback",[]),
-        "text_length":len (cv_text )
+        "text_length":len (cv_text ),
+        "ai_intelligence":ai_intelligence ,
+        "cleaned_job_description":cleaned_job_description ,
+        "industry_ranking_score":ai_intelligence .get ("industry_ranking_score") if isinstance (ai_intelligence ,dict ) else None ,
+        "industry_ranking_label":ai_intelligence .get ("industry_ranking_label") if isinstance (ai_intelligence ,dict ) else None 
         }
 
     except Exception as e :

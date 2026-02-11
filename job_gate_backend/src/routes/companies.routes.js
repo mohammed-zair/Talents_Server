@@ -168,6 +168,13 @@ router.put(
   verifyCompanyApproved,
   companiesController.updateApplicationStatus
 );
+router.put(
+  "/company/applications/:id/star",
+  verifyCompanyAccess,
+  verifyCompany,
+  verifyCompanyApproved,
+  companiesController.toggleApplicationStar
+);
 
 //           Job Postings (Company)
  

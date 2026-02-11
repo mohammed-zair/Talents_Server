@@ -1,4 +1,5 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { animate } from "framer-motion";
 import {
   Activity,
@@ -13,10 +14,15 @@ import Card from "../components/shared/Card";
 import SectionHeader from "../components/shared/SectionHeader";
 import Button from "../components/shared/Button";
 import { useLanguage } from "../contexts/LanguageContext";
+import { companyApi } from "../services/api/api";
 
 const CompanyDashboard: React.FC = () => {
   const { language } = useLanguage();
   const isRtl = language === "ar";
+  const { data: dashboard } = useQuery({
+    queryKey: ["company-dashboard"],
+    queryFn: companyApi.getDashboard,
+  });
 
   const copy = {
     en: {
@@ -77,11 +83,17 @@ const CompanyDashboard: React.FC = () => {
   }[language];
 
   const stats = [
-    { label: copy.availableTalent, value: "2,340", icon: Activity },
-    { label: copy.hires30, value: "18", icon: Sparkles },
-    { label: copy.cvPurchased, value: "164", icon: FileBarChart2 },
-    { label: copy.alignmentIndex, value: "87%", icon: Target, glow: true },
+    { label: copy.activeJobs, value: dashboard?.jobs_count ?? 0, icon: BriefcaseBusiness },
+    { label: copy.totalApplicants, value: dashboard?.applications_count ?? 0, icon: FileBarChart2 },
+    { label: language === "ar" ? "قيد المراجعة" : "Reviewed", value: dashboard?.reviewed_count ?? 0, icon: Activity },
+    { label: language === "ar" ? "المميزين" : "Starred", value: dashboard?.starred_count ?? 0, icon: Target, glow: true },
   ];
+
+  const topApplicant = dashboard?.top_applicant ?? null;
+  const topSummary =
+    topApplicant?.ai_insights?.ai_intelligence?.contextual_summary ||
+    topApplicant?.ai_insights?.ai_intelligence?.professional_summary ||
+    "";
 
   return (
     <div className="space-y-8">
@@ -134,9 +146,23 @@ const CompanyDashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                {copy.copilot}
+                {language === "ar" ? "أفضل مرشح" : "Top Applicant"}
               </p>
-              <p className="text-sm text-[var(--text-primary)]">{copy.copilotText}</p>
+              <p className="text-sm text-[var(--text-primary)]">
+                {topApplicant
+                  ? `${topApplicant.candidate?.name ?? "Candidate"} · ${topApplicant.job?.title ?? "Job"}`
+                  : language === "ar"
+                  ? "لا يوجد مرشح بعد"
+                  : "No applicant yet"}
+              </p>
+              {topSummary ? (
+                <p className="mt-2 text-xs text-[var(--text-muted)]">{topSummary}</p>
+              ) : null}
+              {topApplicant?.score !== undefined && topApplicant?.score !== null ? (
+                <p className="mt-2 text-xs text-[var(--accent)]">
+                  {language === "ar" ? "الدرجة" : "Score"}: {topApplicant.score}
+                </p>
+              ) : null}
             </div>
           </div>
         </Card>
@@ -150,8 +176,8 @@ const CompanyDashboard: React.FC = () => {
             subtitle={copy.competencyCurve}
           />
           <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <FunnelMetric label={copy.activeJobs} value={24} />
-            <FunnelMetric label={copy.totalApplicants} value={612} />
+            <FunnelMetric label={copy.activeJobs} value={dashboard?.jobs_count ?? 0} />
+            <FunnelMetric label={copy.totalApplicants} value={dashboard?.applications_count ?? 0} />
           </div>
           <div className="mt-6">
             <BellCurve isRtl={isRtl} />

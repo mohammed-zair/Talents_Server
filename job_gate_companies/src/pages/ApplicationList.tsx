@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Card from "../components/shared/Card";
 import SectionHeader from "../components/shared/SectionHeader";
 import Button from "../components/shared/Button";
@@ -24,25 +24,72 @@ const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") =
 const ApplicationList: React.FC = () => {
   const { language } = useLanguage();
   const apiBase = getApiBaseUrl();
-  const { data: applications = [], isLoading } = useQuery({
-    queryKey: ["company-applications"],
-    queryFn: companyApi.getApplications,
-  });
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
+  const [atsMin, setAtsMin] = useState("");
+  const [atsMax, setAtsMax] = useState("");
+  const [experienceMin, setExperienceMin] = useState("");
+  const [experienceMax, setExperienceMax] = useState("");
+  const [skills, setSkills] = useState("");
+  const [education, setEducation] = useState("");
+  const [location, setLocation] = useState("");
+  const [strengths, setStrengths] = useState("");
+  const [weaknesses, setWeaknesses] = useState("");
+  const [starredOnly, setStarredOnly] = useState(false);
 
-  const filtered = useMemo(() => {
-    const search = query.trim().toLowerCase();
-    const base = [...applications].sort(
-      (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-    );
-    if (!search) return base;
-    return base.filter(
-      (item) =>
-        item.candidate.name.toLowerCase().includes(search) ||
-        item.job.title.toLowerCase().includes(search) ||
-        (item.job.location || "").toLowerCase().includes(search)
-    );
-  }, [applications, query]);
+  const filters = useMemo(() => {
+    const parseNumber = (value: string) => {
+      const num = Number(value);
+      return Number.isNaN(num) ? undefined : num;
+    };
+    return {
+      search: query.trim() || undefined,
+      ats_min: parseNumber(atsMin),
+      ats_max: parseNumber(atsMax),
+      experience_min: parseNumber(experienceMin),
+      experience_max: parseNumber(experienceMax),
+      skills: skills
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      education: education.trim() || undefined,
+      location: location.trim() || undefined,
+      strengths: strengths
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      weaknesses: weaknesses
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      starred: starredOnly ? true : undefined,
+    };
+  }, [
+    atsMax,
+    atsMin,
+    education,
+    experienceMax,
+    experienceMin,
+    location,
+    query,
+    skills,
+    strengths,
+    weaknesses,
+    starredOnly,
+  ]);
+
+  const { data: applications = [], isLoading } = useQuery({
+    queryKey: ["company-applications", filters],
+    queryFn: () => companyApi.getApplications(filters),
+  });
+
+  const toggleStar = useMutation({
+    mutationFn: ({ id, starred }: { id: string; starred?: boolean }) =>
+      companyApi.toggleApplicationStar(id, starred),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-applications"] });
+    },
+  });
 
   const copy = {
     en: {
@@ -76,11 +123,11 @@ const ApplicationList: React.FC = () => {
   }[language];
 
   const stats = useMemo(() => {
-    const total = filtered.length;
-    const pending = filtered.filter((c) => c.status === "pending").length;
-    const reviewed = filtered.filter((c) => c.status === "reviewed").length;
+    const total = applications.length;
+    const pending = applications.filter((c) => c.status === "pending").length;
+    const reviewed = applications.filter((c) => c.status === "reviewed").length;
     return { total, pending, reviewed };
-  }, [filtered]);
+  }, [applications]);
 
   return (
     <div className="space-y-6">
@@ -106,6 +153,71 @@ const ApplicationList: React.FC = () => {
           </span>
         </div>
 
+        <div className="mt-4 grid gap-3 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4 md:grid-cols-3">
+          <input
+            value={atsMin}
+            onChange={(event) => setAtsMin(event.target.value)}
+            placeholder={language === "ar" ? "الحد الأدنى للدرجة" : "ATS min score"}
+            className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
+          />
+          <input
+            value={atsMax}
+            onChange={(event) => setAtsMax(event.target.value)}
+            placeholder={language === "ar" ? "الحد الأعلى للدرجة" : "ATS max score"}
+            className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
+          />
+          <input
+            value={skills}
+            onChange={(event) => setSkills(event.target.value)}
+            placeholder={language === "ar" ? "مهارات (React, Node)" : "Skills (React, Node)"}
+            className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
+          />
+          <input
+            value={experienceMin}
+            onChange={(event) => setExperienceMin(event.target.value)}
+            placeholder={language === "ar" ? "خبرة (حد أدنى)" : "Experience min (years)"}
+            className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
+          />
+          <input
+            value={experienceMax}
+            onChange={(event) => setExperienceMax(event.target.value)}
+            placeholder={language === "ar" ? "خبرة (حد أعلى)" : "Experience max (years)"}
+            className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
+          />
+          <input
+            value={education}
+            onChange={(event) => setEducation(event.target.value)}
+            placeholder={language === "ar" ? "المستوى التعليمي" : "Education level"}
+            className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
+          />
+          <input
+            value={location}
+            onChange={(event) => setLocation(event.target.value)}
+            placeholder={language === "ar" ? "الموقع" : "Location"}
+            className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
+          />
+          <input
+            value={strengths}
+            onChange={(event) => setStrengths(event.target.value)}
+            placeholder={language === "ar" ? "نقاط القوة" : "AI strengths keywords"}
+            className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
+          />
+          <input
+            value={weaknesses}
+            onChange={(event) => setWeaknesses(event.target.value)}
+            placeholder={language === "ar" ? "نقاط الضعف" : "AI weaknesses keywords"}
+            className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
+          />
+          <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            <input
+              type="checkbox"
+              checked={starredOnly}
+              onChange={(event) => setStarredOnly(event.target.checked)}
+            />
+            {language === "ar" ? "المفضلين فقط" : "Starred only"}
+          </label>
+        </div>
+
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
             <p className="text-xs text-[var(--text-muted)]">{copy.total}</p>
@@ -128,12 +240,12 @@ const ApplicationList: React.FC = () => {
               <Skeleton className="h-24" />
               <Skeleton className="h-24" />
             </>
-          ) : filtered.length === 0 ? (
+          ) : applications.length === 0 ? (
             <div className="rounded-xl border border-[var(--panel-border)] p-4 text-sm text-[var(--text-muted)]">
               {copy.empty}
             </div>
           ) : (
-            filtered.map((application) => (
+            applications.map((application) => (
               <div
                 key={application.id}
                 className="relative grid gap-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/80 p-5 shadow-[0_0_25px_var(--glow)] lg:grid-cols-[1.2fr_1fr]"
@@ -164,6 +276,32 @@ const ApplicationList: React.FC = () => {
                       <span className="rounded-full bg-[var(--chip-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
                         {statusLabel(application.status, language)}
                       </span>
+                      <span className="rounded-full bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                        {language === "ar" ? "درجة" : "Score"}{" "}
+                        {application.ai_score ?? "-"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleStar.mutate({
+                            id: application.id,
+                            starred: !application.is_starred,
+                          })
+                        }
+                        className={`rounded-full border px-2 py-1 text-xs ${
+                          application.is_starred
+                            ? "border-[var(--accent)] text-[var(--accent)]"
+                            : "border-[var(--panel-border)] text-[var(--text-muted)]"
+                        }`}
+                      >
+                        {application.is_starred
+                          ? language === "ar"
+                            ? "مميز"
+                            : "Starred"
+                          : language === "ar"
+                          ? "تمييز"
+                          : "Star"}
+                      </button>
                     </div>
                   </div>
 
@@ -181,6 +319,11 @@ const ApplicationList: React.FC = () => {
                     </p>
                     <p className="mt-2 text-sm text-[var(--text-primary)]">
                       {application.candidate.email || application.candidate.phone || "-"}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      {language === "ar" ? "الخبرة" : "Experience"}:{" "}
+                      {application.candidate_experience_years ?? "-"}{" "}
+                      {language === "ar" ? "سنوات" : "years"}
                     </p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
                       {copy.job}: {application.job.title}

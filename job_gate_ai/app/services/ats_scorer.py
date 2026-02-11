@@ -27,11 +27,12 @@ class ATSScorer :
         "project_names": [p.get("title","") for p in structured_data.get("projects", [])]
         }
 
-    def calculate_score (self ,structured_cv :Dict [str ,Any ])->Dict [str ,Any ]:
+    def calculate_score (self ,structured_cv :Dict [str ,Any ],job_description :str ="" ,weights :Dict [str ,float ]=None )->Dict [str ,Any ]:
 
         score =0 
         feedback =[]
         features ={}
+        weights =weights or {}
 
 
         if structured_cv .get ("personal_info",{}).get ("email"):
@@ -81,6 +82,25 @@ class ATSScorer :
             features ["achievement_count"]=quantifiable_count 
         else :
             feedback .append ("❌ Missing quantifiable achievements")
+
+        keyword_bonus =0 
+        if job_description and structured_cv .get ("skills"):
+            job_lower =job_description .lower ()
+            matched =[
+            skill for skill in structured_cv .get ("skills",[])
+            if isinstance (skill ,str )and skill .lower ()in job_lower 
+            ]
+            if matched :
+                keyword_bonus =min (10 ,len (matched )*2 )
+                score +=keyword_bonus 
+                features ["keyword_matches"]=matched 
+                feedback .append (f"âœ… Matched {len(matched)} job keywords")
+
+        impact_bonus =0 
+        if quantifiable_count >0 :
+            impact_bonus =round (score *0.1 ,2 )
+            score +=impact_bonus 
+            features ["impact_bonus"]=impact_bonus 
 
         return {
         "score":min (score ,100 ),

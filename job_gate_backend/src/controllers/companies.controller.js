@@ -1,10 +1,11 @@
 // file: src/controllers/companies.controller.js (الملف المُحدث والنهائي)
 
-const { Company, CompanyUser, JobPosting, Application, User, CV } = require("../models");
+const { Company, CompanyUser, JobPosting, Application, User, CV, CVAIInsights, CVStructuredData, CVFeaturesAnalytics } = require("../models");
 const bcrypt = require("bcryptjs");
 const fs = require("fs");
 const path = require("path");
 const { successResponse } = require("../utils/responseHandler");
+const aiService = require("../services/aiService");
 
 //   O_U^O
 
@@ -420,31 +421,91 @@ exports.getCompanyDashboard = async (req, res) => {
     const company = req.company;
     const companyId = company.company_id;
 
-    // عدد الوظائف
     const jobsCount = await JobPosting.count({
       where: { company_id: companyId },
     });
 
-    // عدد التقديمات على وظائف الشركة
-    const applicationsCount = await Application.count({
-      include: [
-        {
-          model: JobPosting,
-          where: { company_id: companyId },
-          attributes: [],
-        },
-      ],
+    const applicationInclude = [
+      {
+        model: JobPosting,
+        where: { company_id: companyId },
+        attributes: ["job_id", "title", "location"],
+      },
+      {
+        model: User,
+        attributes: ["user_id", "full_name", "email", "phone"],
+      },
+      {
+        model: CV,
+        attributes: ["cv_id", "file_url", "title", "file_type"],
+        include: [
+          { model: CVAIInsights },
+          { model: CVFeaturesAnalytics, attributes: ["ats_score"] },
+        ],
+      },
+    ];
+
+    const applications = await Application.findAll({
+      include: applicationInclude,
+      order: [["submitted_at", "DESC"]],
+    });
+
+    const applicationsCount = applications.length;
+    const pendingCount = applications.filter((a) => a.status === "pending").length;
+    const reviewedCount = applications.filter((a) => a.status === "reviewed").length;
+    const acceptedCount = applications.filter((a) => a.status === "accepted").length;
+    const rejectedCount = applications.filter((a) => a.status === "rejected").length;
+    const starredCount = applications.filter((a) => a.is_starred).length;
+
+    let topApplicant = null;
+    let topScore = -1;
+
+    applications.forEach((application) => {
+      const data = application.toJSON ? application.toJSON() : application;
+      const cv = data.CV;
+      const job = data.JobPosting;
+      const aiInsights =
+        cv?.CVAIInsights?.find((item) => item.job_id === job?.job_id) || null;
+      const score =
+        aiInsights?.industry_ranking_score ??
+        aiInsights?.ats_score ??
+        cv?.CVFeaturesAnalytics?.ats_score ??
+        null;
+
+      if (typeof score === "number" && score > topScore) {
+        topScore = score;
+        topApplicant = {
+          application_id: data.application_id,
+          candidate: {
+            id: data.User?.user_id ?? data.user_id ?? null,
+            name: data.User?.full_name ?? data.full_name ?? "Candidate",
+            email: data.User?.email ?? data.email ?? null,
+          },
+          job: {
+            id: job?.job_id ?? null,
+            title: job?.title ?? "Job",
+          },
+          ai_insights: aiInsights,
+          score,
+        };
+      }
     });
 
     return successResponse(res, {
       company_name: company.name,
       jobs_count: jobsCount,
       applications_count: applicationsCount,
+      pending_count: pendingCount,
+      reviewed_count: reviewedCount,
+      accepted_count: acceptedCount,
+      rejected_count: rejectedCount,
+      starred_count: starredCount,
+      top_applicant: topApplicant,
     });
   } catch (error) {
     console.error("Error getting company dashboard:", error);
     return res.status(500).json({
-      message: "فشل في جلب بيانات لوحة التحكم",
+      message: "Failed to fetch dashboard data.",
       error: error.message,
     });
   }
@@ -740,15 +801,41 @@ exports.updateApplicationStatus = async (req, res) => {
  */
 exports.getCompanyApplications = async (req, res) => {
   try {
-    // نستخدم req.company.company_id الذي تم إعداده في middleware verifyCompany
     const company_id = req.company.company_id;
-
     const jobId = req.query.job_id;
+    const search = String(req.query.search || "").trim().toLowerCase();
+    const atsMin = Number.isNaN(Number(req.query.ats_min))
+      ? null
+      : Number(req.query.ats_min);
+    const atsMax = Number.isNaN(Number(req.query.ats_max))
+      ? null
+      : Number(req.query.ats_max);
+    const experienceMin = Number.isNaN(Number(req.query.experience_min))
+      ? null
+      : Number(req.query.experience_min);
+    const experienceMax = Number.isNaN(Number(req.query.experience_max))
+      ? null
+      : Number(req.query.experience_max);
+    const skillsQuery = String(req.query.skills || "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+    const educationQuery = String(req.query.education || "").trim().toLowerCase();
+    const locationQuery = String(req.query.location || "").trim().toLowerCase();
+    const strengthsQuery = String(req.query.strengths || "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+    const weaknessesQuery = String(req.query.weaknesses || "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+    const starredQuery = String(req.query.starred || "").toLowerCase();
 
     const applications = await Application.findAll({
       include: [
         {
-          model: User, // الـ Join مع جدول الموظف (User)
+          model: User,
           attributes: [
             "user_id",
             "full_name",
@@ -762,22 +849,202 @@ exports.getCompanyApplications = async (req, res) => {
           where: {
             company_id: company_id,
             ...(jobId ? { job_id: jobId } : {}),
-          }, // فلترة لضمان جلب وظائف هذه الشركة فقط + اختيارياً حسب job_id
-          attributes: ["job_id", "title", "location"],
+          },
+          attributes: ["job_id", "title", "location", "description", "requirements"],
         },
         {
           model: CV,
-          attributes: ["cv_id", "file_url", "title"],
+          attributes: ["cv_id", "file_url", "title", "file_type"],
+          include: [
+            { model: CVStructuredData, attributes: ["data_json"] },
+            { model: CVFeaturesAnalytics, attributes: ["ats_score", "total_years_experience", "key_skills"] },
+            { model: CVAIInsights },
+          ],
         },
       ],
       order: [["submitted_at", "DESC"]],
     });
 
-    return successResponse(res, applications, "تم جلب المتقدمين بنجاح.");
+    let payload = applications.map((application) => {
+      const data = application.toJSON ? application.toJSON() : application;
+      const cv = data.CV;
+      let ai_insights = null;
+      let ai_score = null;
+      let experienceYears = null;
+      let skillPool = [];
+      let location = null;
+      let education = null;
+
+      if (cv?.CVAIInsights && data.JobPosting) {
+        ai_insights = cv.CVAIInsights.find(
+          (item) => item.job_id === data.JobPosting.job_id
+        ) || null;
+      }
+
+      if (cv?.CVFeaturesAnalytics) {
+        ai_score =
+          ai_insights?.industry_ranking_score ??
+          ai_insights?.ats_score ??
+          cv.CVFeaturesAnalytics.ats_score ??
+          null;
+        experienceYears = cv.CVFeaturesAnalytics.total_years_experience ?? null;
+        skillPool = Array.isArray(cv.CVFeaturesAnalytics.key_skills)
+          ? cv.CVFeaturesAnalytics.key_skills
+          : [];
+      }
+
+      const structured = cv?.CVStructuredData?.data_json || {};
+      if (structured?.skills) {
+        skillPool = skillPool.concat(structured.skills);
+      }
+      if (structured?.personal_info?.location) {
+        location = structured.personal_info.location;
+      }
+      if (structured?.education?.length) {
+        education = structured.education
+          .map((item) => item.degree || item.school || "")
+          .filter(Boolean)
+          .join(" ");
+      }
+
+      return {
+        ...data,
+        ai_insights,
+        ai_score,
+        candidate_location: location,
+        candidate_education: education,
+        candidate_experience_years: experienceYears,
+        candidate_skills: skillPool,
+      };
+    });
+
+    if (search) {
+      payload = payload.filter((item) => {
+        const candidateName = String(item.User?.full_name ?? item.full_name ?? "").toLowerCase();
+        const jobTitle = String(item.JobPosting?.title ?? item.job_title ?? "").toLowerCase();
+        const jobLocation = String(item.JobPosting?.location ?? item.location ?? "").toLowerCase();
+        const email = String(item.User?.email ?? item.email ?? "").toLowerCase();
+        return (
+          candidateName.includes(search) ||
+          jobTitle.includes(search) ||
+          jobLocation.includes(search) ||
+          email.includes(search)
+        );
+      });
+    }
+
+    if (starredQuery === "true" || starredQuery === "false") {
+      const starredValue = starredQuery === "true";
+      payload = payload.filter((item) => Boolean(item.is_starred) === starredValue);
+    }
+
+    if (typeof atsMin === "number") {
+      payload = payload.filter((item) => typeof item.ai_score === "number" && item.ai_score >= atsMin);
+    }
+
+    if (typeof atsMax === "number") {
+      payload = payload.filter((item) => typeof item.ai_score === "number" && item.ai_score <= atsMax);
+    }
+
+    if (typeof experienceMin === "number") {
+      payload = payload.filter(
+        (item) =>
+          typeof item.candidate_experience_years === "number" &&
+          item.candidate_experience_years >= experienceMin
+      );
+    }
+
+    if (typeof experienceMax === "number") {
+      payload = payload.filter(
+        (item) =>
+          typeof item.candidate_experience_years === "number" &&
+          item.candidate_experience_years <= experienceMax
+      );
+    }
+
+    if (skillsQuery.length) {
+      payload = payload.filter((item) => {
+        const skills = Array.isArray(item.candidate_skills) ? item.candidate_skills : [];
+        const bag = skills.map((skill) => String(skill).toLowerCase());
+        return skillsQuery.every((querySkill) => bag.some((skill) => skill.includes(querySkill)));
+      });
+    }
+
+    if (educationQuery) {
+      payload = payload.filter((item) =>
+        String(item.candidate_education || "").toLowerCase().includes(educationQuery)
+      );
+    }
+
+    if (locationQuery) {
+      payload = payload.filter((item) =>
+        String(item.candidate_location || "").toLowerCase().includes(locationQuery)
+      );
+    }
+
+    if (strengthsQuery.length) {
+      payload = payload.filter((item) => {
+        const strengths =
+          item.ai_insights?.ai_intelligence?.strategic_analysis?.strengths || [];
+        const bag = strengths.map((value) => String(value).toLowerCase());
+        return strengthsQuery.every((querySkill) => bag.some((skill) => skill.includes(querySkill)));
+      });
+    }
+
+    if (weaknessesQuery.length) {
+      payload = payload.filter((item) => {
+        const weaknesses =
+          item.ai_insights?.ai_intelligence?.strategic_analysis?.weaknesses || [];
+        const bag = weaknesses.map((value) => String(value).toLowerCase());
+        return weaknessesQuery.every((querySkill) => bag.some((skill) => skill.includes(querySkill)));
+      });
+    }
+
+    return successResponse(res, payload, "Applications retrieved successfully.");
   } catch (error) {
     console.error("Error fetching company applications:", error);
     return res.status(500).json({
-      message: "فشل في جلب طلبات التوظيف.",
+      message: "Failed to fetch applications.",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc [Company] Toggle star on an application
+ * @route PUT /api/companies/company/applications/:id/star
+ * @access Private (Company)
+ */
+exports.toggleApplicationStar = async (req, res) => {
+  try {
+    const company = req.company;
+    const applicationId = req.params.id;
+    const { starred } = req.body;
+
+    const application = await Application.findOne({
+      include: [
+        {
+          model: JobPosting,
+          where: { company_id: company.company_id },
+          attributes: ["job_id"],
+        },
+      ],
+      where: { application_id: applicationId },
+    });
+
+    if (!application) {
+      return res.status(404).json({ message: "Application not found." });
+    }
+
+    const nextValue =
+      typeof starred === "boolean" ? starred : !Boolean(application.is_starred);
+    await application.update({ is_starred: nextValue });
+
+    return successResponse(res, { application_id: applicationId, is_starred: nextValue });
+  } catch (error) {
+    console.error("Error toggling application star:", error);
+    return res.status(500).json({
+      message: "Failed to update star.",
       error: error.message,
     });
   }
@@ -787,6 +1054,9 @@ exports.getCompanyApplicationsByID = async (req, res) => {
   try {
     const company_id = req.company.company_id;
     const application_id = req.params.id;
+    const refreshInsights =
+      String(req.query.refresh || "").toLowerCase() === "true" ||
+      String(req.query.refresh || "") === "1";
 
     const application = await Application.findOne({
       include: [
@@ -817,21 +1087,103 @@ exports.getCompanyApplicationsByID = async (req, res) => {
         },
         {
           model: CV,
-          attributes: ["cv_id", "file_url", "title"],
+          attributes: ["cv_id", "file_url", "title", "file_type"],
         },
       ],
       where: { application_id: application_id },
     });
 
     if (!application) {
-      return res.status(404).json({ message: "طلب التوظيف غير موجود" });
+      return res.status(404).json({ message: "Application not found" });
     }
 
-    return successResponse(res, application, "تم جلب بيانات الطلب بنجاح.");
+    const applicationData = application.toJSON ? application.toJSON() : application;
+    const cv = applicationData.CV;
+    const job = applicationData.JobPosting;
+    let aiInsights = null;
+
+    if (cv?.cv_id) {
+      aiInsights = await CVAIInsights.findOne({
+        where: {
+          cv_id: cv.cv_id,
+          job_id: job?.job_id || null,
+        },
+      });
+
+      if ((refreshInsights || !aiInsights) && cv.file_url && job) {
+        const rawPath = String(cv.file_url);
+        const backendRoot = path.join(__dirname, "..", "..");
+        const normalized = rawPath.replace(/^\/+/, "");
+        const filePath = path.isAbsolute(rawPath)
+          ? rawPath
+          : path.join(backendRoot, normalized);
+
+        if (fs.existsSync(filePath)) {
+          const jobDescription = [job.description, job.requirements]
+            .filter(Boolean)
+            .join("\n\n")
+            .trim();
+          const fileObj = {
+            path: filePath,
+            originalname: cv.title || `cv_${cv.cv_id}`,
+            mimetype: cv.file_type || "application/pdf",
+          };
+
+          try {
+            const aiResult = await aiService.analyzeCVFile(
+              applicationData.user_id,
+              fileObj,
+              true,
+              { job_description: jobDescription }
+            );
+
+            if (aiResult?.ai_intelligence) {
+              if (aiInsights) {
+                await aiInsights.update({
+                  ai_intelligence: aiResult.ai_intelligence,
+                  ats_score: aiResult.ats_score ?? null,
+                  industry_ranking_score: aiResult.industry_ranking_score ?? null,
+                  industry_ranking_label: aiResult.industry_ranking_label ?? null,
+                  cleaned_job_description: aiResult.cleaned_job_description ?? null,
+                  analysis_method: aiResult.analysis_method ?? null,
+                  updated_at: new Date(),
+                });
+              } else {
+                aiInsights = await CVAIInsights.create({
+                  cv_id: cv.cv_id,
+                  job_id: job.job_id,
+                  ai_intelligence: aiResult.ai_intelligence,
+                  ats_score: aiResult.ats_score ?? null,
+                  industry_ranking_score: aiResult.industry_ranking_score ?? null,
+                  industry_ranking_label: aiResult.industry_ranking_label ?? null,
+                  cleaned_job_description: aiResult.cleaned_job_description ?? null,
+                  analysis_method: aiResult.analysis_method ?? null,
+                });
+              }
+            }
+          } catch (aiError) {
+            console.error("AI insight generation failed:", aiError);
+          }
+        }
+      }
+    }
+
+    const aiScore =
+      aiInsights?.industry_ranking_score ??
+      aiInsights?.ats_score ??
+      null;
+
+    const payload = {
+      ...applicationData,
+      ai_insights: aiInsights ? aiInsights.toJSON() : null,
+      ai_score: aiScore,
+    };
+
+    return successResponse(res, payload, "Application details retrieved.");
   } catch (error) {
     console.error("Error fetching company application by ID:", error);
     return res.status(500).json({
-      message: "فشل في جلب بيانات الطلب.",
+      message: "Failed to fetch application details.",
       error: error.message,
     });
   }

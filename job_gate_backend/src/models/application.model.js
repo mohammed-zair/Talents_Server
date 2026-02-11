@@ -20,6 +20,11 @@ const Application = sequelize.define("Application", {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  is_starred: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
   submitted_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,

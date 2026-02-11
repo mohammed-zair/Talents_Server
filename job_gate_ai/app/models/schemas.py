@@ -29,6 +29,10 @@ class CVAnalysisResponse (BaseModel ):
     analysis_method :str 
     processing_time :float 
     error_message :Optional [str ]=None 
+    ai_intelligence :Optional [Dict [str ,Any ]]=None 
+    cleaned_job_description :Optional [str ]=None 
+    industry_ranking_score :Optional [float ]=None 
+    industry_ranking_label :Optional [str ]=None 
 
 class ContentGenerationRequest (BaseModel ):
     user_id :str 

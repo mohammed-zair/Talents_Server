@@ -14,9 +14,28 @@ export interface DashboardPipelineStage {
 }
 
 export interface CompanyDashboardData {
-  metrics: DashboardMetric[];
-  pipeline: DashboardPipelineStage[];
-  strategicMatches: CandidateProfile[];
+  company_name?: string;
+  jobs_count?: number;
+  applications_count?: number;
+  pending_count?: number;
+  reviewed_count?: number;
+  accepted_count?: number;
+  rejected_count?: number;
+  starred_count?: number;
+  top_applicant?: {
+    application_id?: number | string;
+    candidate?: {
+      id?: number | string | null;
+      name?: string;
+      email?: string | null;
+    };
+    job?: {
+      id?: number | string | null;
+      title?: string;
+    };
+    ai_insights?: AIInsightsRecord | null;
+    score?: number | null;
+  } | null;
 }
 
 export interface JobPosting {
@@ -60,6 +79,7 @@ export interface ApplicationItem {
   id: string;
   status: "pending" | "reviewed" | "accepted" | "rejected";
   submittedAt: string;
+  is_starred?: boolean;
   candidate: CandidateProfile;
   job: {
     id: string;
@@ -71,6 +91,12 @@ export interface ApplicationItem {
     title?: string;
     url?: string;
   };
+  ai_insights?: AIInsightsRecord | null;
+  ai_score?: number | null;
+  candidate_location?: string | null;
+  candidate_education?: string | null;
+  candidate_experience_years?: number | null;
+  candidate_skills?: string[];
   reviewNotes?: string | null;
 }
 
@@ -156,4 +182,24 @@ export interface CVFeatures {
   has_education?: boolean;
   has_experience?: boolean;
   is_ats_compliant?: boolean;
+}
+
+export interface AIInsightsRecord {
+  ai_intelligence?: {
+    contextual_summary?: string;
+    professional_summary?: string;
+    strategic_analysis?: {
+      strengths?: string[];
+      weaknesses?: string[];
+      red_flags?: string[];
+      culture_growth_fit?: string[];
+    };
+    ats_optimization_tips?: string[];
+    industry_ranking_score?: number;
+    industry_ranking_label?: string;
+  };
+  ats_score?: number;
+  industry_ranking_score?: number;
+  industry_ranking_label?: string;
+  cleaned_job_description?: string | null;
 }

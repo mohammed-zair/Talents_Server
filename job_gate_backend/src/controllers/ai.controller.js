@@ -1,6 +1,6 @@
 // file: src/controllers/ai.controller.js
 const aiService = require('../services/aiService');
-const { CV, CVStructuredData, CVFeaturesAnalytics, JobPosting } = require('../models');
+const { CV, CVStructuredData, CVFeaturesAnalytics, CVAIInsights, JobPosting } = require('../models');
 const { successResponse } = require('../utils/responseHandler');
 const { v4: uuidv4 } = require('uuid');
 
@@ -28,6 +28,10 @@ exports.analyzeCVText = async (req, res) => {
     const ats_score = analysisResult.ats_score ?? analysisResult.score ?? 0;
     const analysis_method = analysisResult.analysis_method || analysisResult.analysisMethod || null;
     const processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
+    const ai_intelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
+    const cleaned_job_description = analysisResult.cleaned_job_description || null;
+    const industry_ranking_score = analysisResult.industry_ranking_score ?? null;
+    const industry_ranking_label = analysisResult.industry_ranking_label ?? null;
 
     if (saveToDb) {
       const cvRecord = await CV.create({
@@ -54,12 +58,29 @@ exports.analyzeCVText = async (req, res) => {
         is_ats_compliant: ats_score >= 70,
       });
 
+      if (ai_intelligence) {
+        await CVAIInsights.create({
+          cv_id: cvRecord.cv_id,
+          job_id: null,
+          ai_intelligence,
+          ats_score,
+          industry_ranking_score,
+          industry_ranking_label,
+          cleaned_job_description,
+          analysis_method,
+        });
+      }
+
       console.log(`[${requestId}] CV Analysis completed and saved for user ${userId}`);
 
       return successResponse(res, {
         cv_id: cvRecord.cv_id,
         structured_data: structuredData,
         features,
+        ai_intelligence,
+        cleaned_job_description,
+        industry_ranking_score,
+        industry_ranking_label,
         ats_score,
         analysis_method,
         processing_time,
@@ -72,6 +93,10 @@ exports.analyzeCVText = async (req, res) => {
     return successResponse(res, {
       structured_data: structuredData,
       features,
+      ai_intelligence,
+      cleaned_job_description,
+      industry_ranking_score,
+      industry_ranking_label,
       ats_score,
       analysis_method,
       processing_time,
@@ -125,6 +150,10 @@ exports.analyzeCVFile = async (req, res) => {
     const ats_score = analysisResult.ats_score ?? analysisResult.score ?? 0;
     const analysis_method = analysisResult.analysis_method || analysisResult.analysisMethod || 'ai_core';
     const processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
+    const ai_intelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
+    const cleaned_job_description = analysisResult.cleaned_job_description || null;
+    const industry_ranking_score = analysisResult.industry_ranking_score ?? null;
+    const industry_ranking_label = analysisResult.industry_ranking_label ?? null;
 
     if (saveToDb) {
       const cvRecord = await CV.create({
@@ -153,6 +182,19 @@ exports.analyzeCVFile = async (req, res) => {
         is_ats_compliant: ats_score >= 70,
       });
 
+      if (ai_intelligence) {
+        await CVAIInsights.create({
+          cv_id: cvRecord.cv_id,
+          job_id: null,
+          ai_intelligence,
+          ats_score,
+          industry_ranking_score,
+          industry_ranking_label,
+          cleaned_job_description,
+          analysis_method,
+        });
+      }
+
       console.log(`[${requestId}] CV File Analysis completed and saved for user ${userId}`);
       return successResponse(
         res,
@@ -161,6 +203,10 @@ exports.analyzeCVFile = async (req, res) => {
           structured_data: structuredData,
           features,
           ats_score,
+          ai_intelligence,
+          cleaned_job_description,
+          industry_ranking_score,
+          industry_ranking_label,
           analysis_method,
           processing_time,
           saved_to_db: true,
@@ -177,6 +223,10 @@ exports.analyzeCVFile = async (req, res) => {
         structured_data: structuredData,
         features,
         ats_score,
+        ai_intelligence,
+        cleaned_job_description,
+        industry_ranking_score,
+        industry_ranking_label,
         analysis_method,
         processing_time,
         saved_to_db: false,

@@ -13,6 +13,7 @@ const Application = require("./application.model");
 const CV = require("./cv.model");
 const CVStructuredData = require("./cvStructuredData.model");
 const CVFeaturesAnalytics = require("./cvFeaturesAnalytics.model"); 
+const CVAIInsights = require("./cvAIInsights.model");
 const EmailNotification = require("./EmailNotification.model");
 const PushNotification = require("./PushNotification.model");
 const CompanyCVRequest = require("./companyCVRequest.model");
@@ -82,6 +83,12 @@ CVStructuredData.belongsTo(CV, { foreignKey: "cv_id" });
 // السيرة الذاتية لديها بيانات تحليلية (للفلترة والمطابقة) ⬅️ جديد
 CV.hasOne(CVFeaturesAnalytics, { foreignKey: "cv_id", onDelete: "CASCADE" });
 CVFeaturesAnalytics.belongsTo(CV, { foreignKey: "cv_id" });
+
+// AI Insights per CV/job
+CV.hasMany(CVAIInsights, { foreignKey: "cv_id", onDelete: "CASCADE" });
+CVAIInsights.belongsTo(CV, { foreignKey: "cv_id" });
+JobPosting.hasMany(CVAIInsights, { foreignKey: "job_id", onDelete: "SET NULL" });
+CVAIInsights.belongsTo(JobPosting, { foreignKey: "job_id" });
 
 Company.hasMany(CompanyCVRequest, { foreignKey: "company_id",onDelete: "CASCADE",
 });
@@ -168,6 +175,7 @@ module.exports = {
   CV,
   CVStructuredData,
   CVFeaturesAnalytics, 
+  CVAIInsights,
   EmailNotification,
   PushNotification,
   CompanyCVRequest,

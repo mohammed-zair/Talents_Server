@@ -180,6 +180,85 @@ class LLMService :
     def translate_text (self ,text :str ,target_language :str ="english")->str :
         if not text :
             return text 
+
+    def clean_job_description (self ,job_description :str )->str :
+        if not job_description :
+            return ""
+        if not self .is_available ():
+            return job_description 
+
+        prompt =f"""
+        Clean and normalize this job description. 
+        - Fix corrupted text if possible.
+        - Remove duplicates and boilerplate.
+        - Keep it concise and professional.
+        Return only the cleaned job description text.
+        Job Description:
+        {job_description }
+        """
+
+        try :
+            response =self .client .chat .completions .create (
+            model =self .model ,
+            messages =[
+            {"role":"system","content":"You are a professional HR editor. Return only the cleaned text."},
+            {"role":"user","content":prompt }
+            ],
+            temperature =0.2 ,
+            max_tokens =700 
+            )
+
+            return response .choices [0 ].message .content .strip ()
+        except Exception as e :
+            logger .error (f"Job description cleanup failed: {e }")
+            return job_description 
+
+    def generate_ai_intelligence (self ,cv_text :str ,job_description :str ="" )->Dict [str ,Any ]:
+        if not self .is_available ():
+            return {}
+
+        prompt =f"""
+        You are an Expert Technical Recruiter and Career Analyst.
+        Analyze the CV against the job description (if provided) and return ONLY JSON.
+
+        CV Text:
+        {cv_text }
+
+        Job Description:
+        {job_description }
+
+        Required JSON:
+        {{
+          "contextual_summary": "2-3 sentence trajectory-focused bio.",
+          "professional_summary": "A brief, punchy summary of their career superpower.",
+          "strategic_analysis": {{
+            "strengths": ["Specific achievements or evidence"],
+            "weaknesses": ["Skill gaps relative to the job or industry standards"],
+            "red_flags": ["Potential risks like job hopping or gaps"],
+            "culture_growth_fit": ["Soft skill inferences and growth potential"]
+          }},
+          "ats_optimization_tips": ["Actionable ATS tips"],
+          "industry_ranking_score": 0,
+          "industry_ranking_label": "Top 10% for Senior Frontend roles based on tech stack depth."
+        }}
+        """
+
+        try :
+            response =self .client .chat .completions .create (
+            model =self .model ,
+            messages =[
+            {"role":"system","content":"You return only valid JSON. No extra text."},
+            {"role":"user","content":prompt }
+            ],
+            temperature =0.3 ,
+            max_tokens =1000 ,
+            response_format ={"type":"json_object"}
+            )
+
+            return json .loads (response .choices [0 ].message .content )
+        except Exception as e :
+            logger .error (f"AI intelligence generation failed: {e }")
+            return {}
         if not self .is_available ():
             return text 
 
