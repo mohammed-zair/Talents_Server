@@ -331,7 +331,29 @@ const AIChatbot = () => {
                   setError('Start a session first.');
                   return;
                 }
-                window.open(`/api/ai/chatbot/preview/${sessionId}?language=${language}`, '_blank');
+                setError(null);
+                setLoading(true);
+                axiosInstance
+                  .get(`/ai/chatbot/preview/${sessionId}?language=${language}`, {
+                    responseType: 'text',
+                  })
+                  .then((response) => {
+                    const html = response.data;
+                    const previewWindow = window.open('', '_blank');
+                    if (previewWindow) {
+                      previewWindow.document.open();
+                      previewWindow.document.write(html);
+                      previewWindow.document.close();
+                    } else {
+                      setError('Pop-up blocked. Please allow pop-ups for preview.');
+                    }
+                  })
+                  .catch((err) => {
+                    setError(err?.response?.data?.message || 'Failed to load preview.');
+                  })
+                  .finally(() => {
+                    setLoading(false);
+                  });
               }}
               disabled={loading || !sessionId}
               className="border border-indigo-600 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-50 transition disabled:opacity-50 md:col-span-2"
