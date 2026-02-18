@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
 
@@ -8,6 +8,10 @@ const AIConsultantPage: React.FC = () => {
   const [messages, setMessages] = useState<Array<{ role: string; text: string }>>([]);
 
   const sessionsQ = useQuery({ queryKey: ["chat-sessions"], queryFn: seekerApi.listChatSessions });
+  const sessionItems = useMemo(
+    () => (Array.isArray(sessionsQ.data) ? sessionsQ.data : []),
+    [sessionsQ.data]
+  );
 
   const startMutation = useMutation({
     mutationFn: (mockInterview: boolean) =>
@@ -37,7 +41,7 @@ const AIConsultantPage: React.FC = () => {
         <button className="btn-ghost" onClick={() => startMutation.mutate(true)}>Mock Interview Mode</button>
         <select className="field max-w-xs" value={sessionId} onChange={(e) => setSessionId(e.target.value)}>
           <option value="">Select session</option>
-          {(sessionsQ.data || []).map((s: any) => {
+          {sessionItems.map((s: any) => {
             const id = String(s.session_id || s.id || "");
             return <option key={id} value={id}>{id}</option>;
           })}

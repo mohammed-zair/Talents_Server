@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
 
@@ -8,6 +8,7 @@ const ApplicationsPage: React.FC = () => {
     queryFn: seekerApi.listApplications,
     retry: false,
   });
+  const appItems = useMemo(() => (Array.isArray(appsQ.data) ? appsQ.data : []), [appsQ.data]);
 
   return (
     <div className="space-y-4">
@@ -15,7 +16,7 @@ const ApplicationsPage: React.FC = () => {
         <h1 className="text-2xl font-bold">Applications</h1>
       </div>
       <div className="grid gap-3">
-        {(appsQ.data || []).map((a: any) => (
+        {appItems.map((a: any) => (
           <div key={a.application_id} className="glass-card p-4">
             <div className="flex items-center justify-between gap-2">
               <div>

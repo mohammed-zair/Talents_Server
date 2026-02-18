@@ -17,7 +17,10 @@ const PulsePage: React.FC = () => {
     ],
   });
 
-  const applications = appsQ.data || [];
+  const applications = useMemo(
+    () => (Array.isArray(appsQ.data) ? appsQ.data : []),
+    [appsQ.data]
+  );
   const matchRoles = Math.min((jobsQ.data?.length || 0), 3);
   const atsScore = useMemo(() => {
     const hasCv = (cvsQ.data?.length || 0) > 0;

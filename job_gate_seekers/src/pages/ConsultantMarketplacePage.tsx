@@ -9,9 +9,14 @@ const ConsultantMarketplacePage: React.FC = () => {
   const [message, setMessage] = useState("");
   const [feedback, setFeedback] = useState("");
 
+  const consultantItems = useMemo(
+    () => (Array.isArray(consultantsQ.data) ? consultantsQ.data : []),
+    [consultantsQ.data]
+  );
+
   const selectedConsultant = useMemo(
-    () => (consultantsQ.data || []).find((c: any) => c.User?.user_id === selected),
-    [consultantsQ.data, selected]
+    () => consultantItems.find((c: any) => c.User?.user_id === selected),
+    [consultantItems, selected]
   );
 
   const bookMutation = useMutation({
@@ -31,7 +36,7 @@ const ConsultantMarketplacePage: React.FC = () => {
       <div className="glass-card p-4">
         <h1 className="mb-3 text-2xl font-bold">Consultant Marketplace</h1>
         <div className="grid gap-3 md:grid-cols-2">
-          {(consultantsQ.data || []).map((c: any) => (
+          {consultantItems.map((c: any) => (
             <button
               key={c.consultant_id}
               onClick={() => setSelected(c.User?.user_id || null)}

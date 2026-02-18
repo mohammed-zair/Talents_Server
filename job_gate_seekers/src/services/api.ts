@@ -41,6 +41,15 @@ const unwrap = <T>(payload: ApiEnvelope<T>): T => {
   return payload as T;
 };
 
+const ensureArray = <T>(payload: any, keys: string[] = []): T[] => {
+  if (Array.isArray(payload)) return payload as T[];
+  for (const key of keys) {
+    if (Array.isArray(payload?.[key])) return payload[key] as T[];
+  }
+  if (Array.isArray(payload?.data)) return payload.data as T[];
+  return [];
+};
+
 export const seekerApi = {
   login: async (data: { email: string; password: string }) => {
     const res = await api.post<ApiEnvelope<{ token: string; user: User }>>("/auth/login", data);
@@ -56,7 +65,7 @@ export const seekerApi = {
 
   getJobs: async () => {
     const res = await api.get<ApiEnvelope<JobPosting[]>>("/jop_seeker/job-postings");
-    return unwrap(res.data) || [];
+    return ensureArray<JobPosting>(unwrap<any>(res.data), ["jobs"]);
   },
   getJobDetails: async (id: string) => {
     const res = await api.get<ApiEnvelope<JobPosting>>(`/jop_seeker/job-postings/${id}`);
@@ -75,16 +84,12 @@ export const seekerApi = {
   },
   listApplications: async () => {
     const res = await api.get<ApiEnvelope<Application[]>>("/jop_seeker/applications/user");
-    return unwrap(res.data) || [];
+    return ensureArray<Application>(unwrap<any>(res.data), ["applications"]);
   },
 
   listCVs: async () => {
     const res = await api.get<ApiEnvelope<CVItem[]>>("/jop_seeker/profile/cv");
-    const payload = unwrap<any>(res.data);
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.cvs)) return payload.cvs;
-    if (Array.isArray(payload?.data)) return payload.data;
-    return [];
+    return ensureArray<CVItem>(unwrap<any>(res.data), ["cvs"]);
   },
   uploadCV: async (payload: FormData) => {
     const res = await api.put("/jop_seeker/profile/cv", payload, {
@@ -100,13 +105,13 @@ export const seekerApi = {
   saveJob: async (jobId: number) => api.post(`/jop_seeker/saved-jobs/${jobId}`),
   getSavedJobs: async () => {
     const res = await api.get("/jop_seeker/saved-jobs");
-    return unwrap(res.data) || [];
+    return ensureArray<any>(unwrap<any>(res.data), ["saved_jobs", "savedJobs", "jobs"]);
   },
   removeSavedJob: async (jobId: number) => api.delete(`/jop_seeker/saved-jobs/${jobId}`),
 
   listNotifications: async () => {
     const res = await api.get<ApiEnvelope<NotificationItem[]>>("/jop_seeker/notifications");
-    return unwrap(res.data) || [];
+    return ensureArray<NotificationItem>(unwrap<any>(res.data), ["notifications"]);
   },
   listUnreadNotifications: async () => {
     const res = await api.get("/jop_seeker/notifications/unread");
@@ -116,11 +121,7 @@ export const seekerApi = {
 
   listCompanies: async () => {
     const res = await api.get<ApiEnvelope<Company[]>>("/jop_seeker/companies");
-    const payload = unwrap<any>(res.data);
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.companies)) return payload.companies;
-    if (Array.isArray(payload?.data)) return payload.data;
-    return [];
+    return ensureArray<Company>(unwrap<any>(res.data), ["companies"]);
   },
   getCompanyDetails: async (id: number) => {
     const res = await api.get<ApiEnvelope<Company>>(`/jop_seeker/companies/${id}`);
@@ -129,7 +130,7 @@ export const seekerApi = {
 
   listConsultants: async () => {
     const res = await api.get<ApiEnvelope<Consultant[]>>("/consultant");
-    return unwrap(res.data) || [];
+    return ensureArray<Consultant>(unwrap<any>(res.data), ["consultants"]);
   },
   requestConsultation: async (consultantUserId: number, message: string) => {
     const res = await api.post(`/consultant/${consultantUserId}/request-consultation`, { message });
@@ -160,7 +161,7 @@ export const seekerApi = {
   },
   getUserAiCvs: async () => {
     const res = await api.get("/ai/user/cvs");
-    return unwrap(res.data);
+    return ensureArray<any>(unwrap<any>(res.data), ["cvs"]);
   },
   generatePitch: async (payload: { cv_id: number; job_id: number; language?: "en" | "ar" }) => {
     const res = await api.post("/ai/cv/generate-pitch", payload);
@@ -189,11 +190,7 @@ export const seekerApi = {
   },
   listChatSessions: async () => {
     const res = await api.get("/ai/chatbot/sessions");
-    const payload = unwrap<any>(res.data);
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload?.sessions)) return payload.sessions;
-    if (Array.isArray(payload?.data)) return payload.data;
-    return [];
+    return ensureArray<any>(unwrap<any>(res.data), ["sessions"]);
   },
   getChatSession: async (sessionId: string) => {
     const res = await api.get(`/ai/chatbot/session/${sessionId}`);
