@@ -181,7 +181,11 @@ export const seekerApi = {
   },
   listChatSessions: async () => {
     const res = await api.get("/ai/chatbot/sessions");
-    return unwrap(res.data);
+    const payload = unwrap<any>(res.data);
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.sessions)) return payload.sessions;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
   getChatSession: async (sessionId: string) => {
     const res = await api.get(`/ai/chatbot/session/${sessionId}`);

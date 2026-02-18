@@ -3,7 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
 
 const ApplicationsPage: React.FC = () => {
-  const appsQ = useQuery({ queryKey: ["apps"], queryFn: seekerApi.listApplications });
+  const appsQ = useQuery({
+    queryKey: ["apps"],
+    queryFn: seekerApi.listApplications,
+    retry: false,
+  });
 
   return (
     <div className="space-y-4">

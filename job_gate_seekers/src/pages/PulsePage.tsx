@@ -11,7 +11,7 @@ const PulsePage: React.FC = () => {
   const user = getStoredUser();
   const [appsQ, cvsQ, jobsQ] = useQueries({
     queries: [
-      { queryKey: ["apps"], queryFn: seekerApi.listApplications },
+      { queryKey: ["apps"], queryFn: seekerApi.listApplications, retry: false },
       { queryKey: ["cvs"], queryFn: seekerApi.listCVs },
       { queryKey: ["jobs"], queryFn: seekerApi.getJobs },
     ],

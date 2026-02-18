@@ -631,15 +631,21 @@ exports.listUserApplications = async (req, res) => {
   const { user_id } = req.user;
 
   try {
+    const applicationAttributes = [
+      "application_id",
+      "status",
+      "submitted_at",
+      "review_notes",
+    ];
+
+    // Keep query compatible with environments where this legacy column is absent.
+    if (Application.rawAttributes?.cover_letter) {
+      applicationAttributes.push("cover_letter");
+    }
+
     const applications = await Application.findAll({
       where: { user_id },
-      attributes: [
-        "application_id",
-        "status",
-        "submitted_at",
-        "review_notes",
-        "cover_letter", // أضفنا cover_letter
-      ],
+      attributes: applicationAttributes,
       include: [
         {
           model: JobPosting,
@@ -656,10 +662,39 @@ exports.listUserApplications = async (req, res) => {
 
     return successResponse(res, applications);
   } catch (error) {
-    console.error("Error listing user applications:", error);
-    return res
-      .status(500)
-      .json({ message: "فشل في جلب طلبات التوظيف.", error: error.message });
+    console.error("Error listing user applications (rich query):", error);
+
+    // Resilience fallback: return minimal application list instead of 500.
+    try {
+      const fallbackApps = await Application.findAll({
+        where: { user_id },
+        attributes: ["application_id", "status", "submitted_at"],
+        order: [["submitted_at", "DESC"]],
+      });
+
+      const normalized = fallbackApps.map((app) => ({
+        application_id: app.application_id,
+        status: app.status,
+        submitted_at: app.submitted_at,
+        JobPosting: null,
+        CV: null,
+      }));
+
+      return successResponse(
+        res,
+        normalized,
+        "Applications loaded with limited details due to a temporary data issue."
+      );
+    } catch (fallbackError) {
+      console.error("Error listing user applications (fallback query):", fallbackError);
+
+      // Last-resort fallback to keep client stable.
+      return successResponse(
+        res,
+        [],
+        "Applications are temporarily unavailable. Please try again later."
+      );
+    }
   }
 };
 
