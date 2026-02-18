@@ -66,6 +66,12 @@ router.get("/cv/analysis/:cvId",
   aiController.getCVAnalysis
 );
 
+router.post(
+  "/cv/generate-pitch",
+  verifyToken,
+  aiController.generateCVMatchPitch
+);
+
 // فحص صحة AI service
 router.get("/health", 
   aiController.aiHealthCheck

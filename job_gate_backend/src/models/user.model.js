@@ -8,7 +8,7 @@ const User = sequelize.define("User", {
   hashed_password: { type: DataTypes.STRING, allowNull: false },
   phone: { type: DataTypes.STRING },
   user_type: {
-    type: DataTypes.ENUM("admin", "seeker"),
+    type: DataTypes.ENUM("admin", "seeker", "consultant", "company"),
     defaultValue: "seeker",
   },
   is_active: { type: DataTypes.BOOLEAN, defaultValue: true },

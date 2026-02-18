@@ -18,6 +18,7 @@ import Email from './pages/Admin/Email';
 import Push from './pages/Admin/Push';
 import TryAI from './pages/Admin/TryAI';
 import AIChatbot from './pages/Admin/AIChatbot';
+import MarketPulse from './pages/Admin/MarketPulse';
 
 import { useStateContext } from './contexts/ContextProvider';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -146,6 +147,7 @@ const AppContent = () => {
               <Route path="/push" element={<ProtectedRoute><Push /></ProtectedRoute>} />
               <Route path="/try-ai" element={<ProtectedRoute><TryAI /></ProtectedRoute>} />
               <Route path="/ai-chatbot" element={<ProtectedRoute><AIChatbot /></ProtectedRoute>} />
+              <Route path="/market-pulse" element={<ProtectedRoute><MarketPulse /></ProtectedRoute>} />
 
               {/* Fallback route */}
               <Route path="*" element={<Navigate to="/" replace />} />

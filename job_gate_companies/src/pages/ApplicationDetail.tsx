@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -35,11 +35,149 @@ const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") =
   return map[status]?.[language] ?? status;
 };
 
+type MatrixPoint = {
+  skill: string;
+  value: number;
+  target: number;
+  missing: boolean;
+};
+
+const buildFallbackMatrix = (application: ApplicationItem): MatrixPoint[] => {
+  const skillsBag = new Set((application.candidate_skills || []).map((s) => s.toLowerCase()));
+  const reqSource = `${application.job.title} ${(application.ai_insights?.cleaned_job_description || "")}`.toLowerCase();
+  const known = [
+    "react",
+    "typescript",
+    "javascript",
+    "node",
+    "python",
+    "sql",
+    "aws",
+    "docker",
+  ];
+  const required = known.filter((skill) => reqSource.includes(skill)).slice(0, 6);
+  const normalizedRequired = required.length ? required : ["react", "typescript", "sql", "communication", "aws", "docker"];
+  return normalizedRequired.map((skill) => {
+    const matched = Array.from(skillsBag).some((candidateSkill) => candidateSkill.includes(skill));
+    return {
+      skill,
+      value: matched ? 84 : 26,
+      target: 100,
+      missing: !matched,
+    };
+  });
+};
+
+const RadarChartCard: React.FC<{
+  points: MatrixPoint[];
+  language: "en" | "ar";
+}> = ({ points, language }) => {
+  const size = 280;
+  const center = size / 2;
+  const radius = 92;
+  const rings = [0.25, 0.5, 0.75, 1];
+
+  const toPoint = (idx: number, value: number, total: number) => {
+    const angle = (Math.PI * 2 * idx) / total - Math.PI / 2;
+    const r = (Math.max(0, Math.min(100, value)) / 100) * radius;
+    return {
+      x: center + r * Math.cos(angle),
+      y: center + r * Math.sin(angle),
+    };
+  };
+
+  const polyline = points
+    .map((point, idx) => toPoint(idx, point.value, points.length))
+    .map((p) => `${p.x},${p.y}`)
+    .join(" ");
+
+  return (
+    <div className="rounded-3xl border border-cyan-400/25 bg-[rgba(7,10,15,0.72)] p-4 shadow-[0_0_30px_rgba(0,168,232,0.25)]">
+      <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">
+        {language === "ar" ? "خريطة فجوات الكفاءات" : "Competency Gap Visualizer"}
+      </p>
+      <div className="mt-4 flex flex-col gap-4 lg:flex-row">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto">
+          <defs>
+            <linearGradient id="radarNeon" x1="0%" x2="100%">
+              <stop offset="0%" stopColor="#00A8E8" />
+              <stop offset="100%" stopColor="#20E3B2" />
+            </linearGradient>
+          </defs>
+          {rings.map((ring) => (
+            <circle
+              key={ring}
+              cx={center}
+              cy={center}
+              r={radius * ring}
+              fill="none"
+              stroke="rgba(255,255,255,0.15)"
+              strokeWidth={1}
+            />
+          ))}
+          {points.map((_, idx) => {
+            const endpoint = toPoint(idx, 100, points.length);
+            return (
+              <line
+                key={`axis-${idx}`}
+                x1={center}
+                y1={center}
+                x2={endpoint.x}
+                y2={endpoint.y}
+                stroke="rgba(255,255,255,0.2)"
+                strokeWidth={1}
+              />
+            );
+          })}
+          <polygon points={polyline} fill="rgba(0,168,232,0.2)" stroke="url(#radarNeon)" strokeWidth={2.5} />
+          {points.map((point, idx) => {
+            const p = toPoint(idx, point.value, points.length);
+            return (
+              <circle
+                key={`dot-${point.skill}`}
+                cx={p.x}
+                cy={p.y}
+                r={4}
+                fill={point.missing ? "#ff4d6d" : "#00A8E8"}
+                style={point.missing ? { filter: "drop-shadow(0 0 8px #ff4d6d)" } : undefined}
+              />
+            );
+          })}
+        </svg>
+        <div className="flex-1 space-y-2">
+          {points.map((point) => (
+            <div
+              key={point.skill}
+              className={`rounded-2xl border p-2 text-xs ${
+                point.missing
+                  ? "border-red-400/40 bg-red-500/10 text-red-200 shadow-[0_0_16px_rgba(255,77,109,0.45)]"
+                  : "border-cyan-500/30 bg-cyan-500/10 text-slate-100"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{point.skill}</span>
+                <span>{point.value}%</span>
+              </div>
+              {point.missing && (
+                <p className="mt-1 text-[11px]">
+                  {language === "ar" ? "مهارة ناقصة" : "Missing skill"}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ApplicationDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [fading, setFading] = useState(false);
   const [refreshingInsights, setRefreshingInsights] = useState(false);
+  const [typedPitch, setTypedPitch] = useState("");
+  const [isTypingPitch, setIsTypingPitch] = useState(false);
   const { language } = useLanguage();
   const apiBase = getApiBaseUrl();
 
@@ -67,6 +205,8 @@ const ApplicationDetail: React.FC = () => {
       aiTips: "ATS Optimization Tips",
       aiRanking: "Industry Ranking",
       aiJobContext: "Job Context (Cleaned)",
+      whyCandidate: "Why This Candidate?",
+      pitchLoading: "Generating smart pitch...",
     },
     ar: {
       headerEyebrow: "سير العمل",
@@ -91,6 +231,8 @@ const ApplicationDetail: React.FC = () => {
       aiTips: "نصائح تحسين ATS",
       aiRanking: "تصنيف الصناعة",
       aiJobContext: "سياق الوظيفة (منقح)",
+      whyCandidate: "لماذا هذا المرشح؟",
+      pitchLoading: "جاري توليد الملخص الذكي...",
     },
   }[language];
 
@@ -98,6 +240,18 @@ const ApplicationDetail: React.FC = () => {
     queryKey: ["application", id],
     queryFn: () => companyApi.getApplicationById(id ?? ""),
     enabled: Boolean(id),
+  });
+
+  const generatePitch = useMutation({
+    mutationFn: ({ cvId, jobId }: { cvId: string; jobId: string }) =>
+      companyApi.generateSmartMatchPitch({
+        cv_id: cvId,
+        job_id: jobId,
+        language,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["application", id] });
+    },
   });
 
   const updateStatus = useMutation({
@@ -135,6 +289,58 @@ const ApplicationDetail: React.FC = () => {
     }
   };
 
+  const insights = data?.ai_insights;
+  const intelligence = insights?.ai_intelligence;
+  const generatedPitch =
+    insights?.smart_match_pitch ||
+    intelligence?.smart_match_pitch ||
+    "";
+  const matrixFromInsights = Array.isArray(intelligence?.competency_matrix)
+    ? intelligence?.competency_matrix
+    : [];
+  const radarPoints: MatrixPoint[] = useMemo(() => {
+    if (matrixFromInsights.length) {
+      return matrixFromInsights.slice(0, 6).map((item: any) => ({
+        skill: item.required_skill,
+        value: Number(item.candidate_proficiency ?? 0),
+        target: Number(item.job_target ?? 100),
+        missing: Boolean(item.is_missing ?? Number(item.candidate_proficiency ?? 0) < 60),
+      }));
+    }
+    return data ? buildFallbackMatrix(data) : [];
+  }, [matrixFromInsights, data]);
+
+  useEffect(() => {
+    if (!generatedPitch && data?.cv?.id && data?.job?.id && !generatePitch.isPending) {
+      generatePitch.mutate({ cvId: data.cv.id, jobId: data.job.id });
+    }
+  }, [
+    generatedPitch,
+    data?.cv?.id,
+    data?.job?.id,
+    generatePitch.isPending,
+  ]);
+
+  useEffect(() => {
+    if (!generatedPitch) {
+      setTypedPitch("");
+      setIsTypingPitch(false);
+      return;
+    }
+    setTypedPitch("");
+    setIsTypingPitch(true);
+    let idx = 0;
+    const timer = window.setInterval(() => {
+      idx += 2;
+      setTypedPitch(generatedPitch.slice(0, idx));
+      if (idx >= generatedPitch.length) {
+        window.clearInterval(timer);
+        setIsTypingPitch(false);
+      }
+    }, 18);
+    return () => window.clearInterval(timer);
+  }, [generatedPitch]);
+
   if (isLoading) {
     return (
       <Card>
@@ -147,9 +353,6 @@ const ApplicationDetail: React.FC = () => {
   if (!data) {
     return <Card>{copy.notFound}</Card>;
   }
-
-  const insights = data.ai_insights;
-  const intelligence = insights?.ai_intelligence;
   const structured = data.cv_structured_data ?? null;
   const structuredSections = [
     { key: "experience", label: language === "ar" ? "الخبرات" : "Experience" },
@@ -161,12 +364,21 @@ const ApplicationDetail: React.FC = () => {
   ];
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+    <div className="space-y-6">
+      <div className="rounded-[28px] border border-cyan-400/30 bg-[rgba(7,10,15,0.7)] p-6 backdrop-blur-xl shadow-[0_10px_45px_rgba(0,168,232,0.2)]">
+        <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">{copy.whyCandidate}</p>
+        <p className="mt-3 min-h-[90px] text-sm leading-7 text-slate-100">
+          {typedPitch || (generatePitch.isPending ? copy.pitchLoading : generatedPitch || copy.pitchLoading)}
+          {isTypingPitch && <span className="ms-1 inline-block h-4 w-[2px] animate-pulse bg-cyan-300 align-middle" />}
+        </p>
+      </div>
+      <RadarChartCard points={radarPoints} language={language} />
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-6">
         <SectionHeader
           eyebrow={copy.headerEyebrow}
           title={copy.headerTitle}
-          subtitle={`${data.candidate.name} ? ${data.job.title}`}
+          subtitle={`${data.candidate.name} • ${data.job.title}`}
         />
         <Card>
           <div className="flex items-center justify-between">
@@ -425,6 +637,7 @@ const ApplicationDetail: React.FC = () => {
           )}
         </div>
       </Card>
+      </div>
     </div>
   );
 };

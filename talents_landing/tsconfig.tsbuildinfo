@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/glassbutton.tsx","./src/components/hero.tsx","./src/components/layout.tsx","./src/components/navbar.tsx","./src/contexts/languagecontext.tsx","./src/contexts/themecontext.tsx","./src/i18n/dictionary.ts"],"version":"5.9.3"}

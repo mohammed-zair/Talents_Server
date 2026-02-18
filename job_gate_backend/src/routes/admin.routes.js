@@ -20,6 +20,7 @@ router.get("/job-postings", adminController.listAllJobPostings);
 router.get("/job-postings/:id", adminController.getJobPostingDetails);
 router.get("/applications", adminController.listAllApplications);
 router.put("/applications/:id", adminController.updateApplicationStatus);
+router.get("/market-health", adminController.getMarketHealth);
 
 // --- إدارة السير الذاتية (CVs) ---
 router.get("/cvs", adminController.listAllCVs);

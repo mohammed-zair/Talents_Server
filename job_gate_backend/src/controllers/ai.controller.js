@@ -3,6 +3,8 @@ const aiService = require('../services/aiService');
 const { CV, CVStructuredData, CVFeaturesAnalytics, CVAIInsights, JobPosting } = require('../models');
 const { successResponse } = require('../utils/responseHandler');
 const { v4: uuidv4 } = require('uuid');
+const path = require("path");
+const { extractTextFromFile } = require("../utils/cvTextExtractor");
 
 /**
  * @desc تحليل CV نصي باستخدام AI (مع Normalization وRequest ID)
@@ -28,7 +30,16 @@ exports.analyzeCVText = async (req, res) => {
     const ats_score = analysisResult.ats_score ?? analysisResult.score ?? 0;
     const analysis_method = analysisResult.analysis_method || analysisResult.analysisMethod || null;
     const processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
-    const ai_intelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
+    const rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
+    const competency_matrix = analysisResult.competency_matrix || null;
+    const ai_intelligence = rawAIIntelligence
+      ? {
+          ...rawAIIntelligence,
+          ...(competency_matrix ? { competency_matrix } : {}),
+        }
+      : competency_matrix
+        ? { competency_matrix }
+        : null;
     const cleaned_job_description = analysisResult.cleaned_job_description || null;
     const industry_ranking_score = analysisResult.industry_ranking_score ?? null;
     const industry_ranking_label = analysisResult.industry_ranking_label ?? null;
@@ -78,6 +89,7 @@ exports.analyzeCVText = async (req, res) => {
         structured_data: structuredData,
         features,
         ai_intelligence,
+        competency_matrix,
         cleaned_job_description,
         industry_ranking_score,
         industry_ranking_label,
@@ -150,7 +162,16 @@ exports.analyzeCVFile = async (req, res) => {
     const ats_score = analysisResult.ats_score ?? analysisResult.score ?? 0;
     const analysis_method = analysisResult.analysis_method || analysisResult.analysisMethod || 'ai_core';
     const processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
-    const ai_intelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
+    const rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
+    const competency_matrix = analysisResult.competency_matrix || null;
+    const ai_intelligence = rawAIIntelligence
+      ? {
+          ...rawAIIntelligence,
+          ...(competency_matrix ? { competency_matrix } : {}),
+        }
+      : competency_matrix
+        ? { competency_matrix }
+        : null;
     const cleaned_job_description = analysisResult.cleaned_job_description || null;
     const industry_ranking_score = analysisResult.industry_ranking_score ?? null;
     const industry_ranking_label = analysisResult.industry_ranking_label ?? null;
@@ -204,6 +225,7 @@ exports.analyzeCVFile = async (req, res) => {
           features,
           ats_score,
           ai_intelligence,
+          competency_matrix,
           cleaned_job_description,
           industry_ranking_score,
           industry_ranking_label,
@@ -224,6 +246,7 @@ exports.analyzeCVFile = async (req, res) => {
         features,
         ats_score,
         ai_intelligence,
+        competency_matrix,
         cleaned_job_description,
         industry_ranking_score,
         industry_ranking_label,
@@ -540,6 +563,121 @@ exports.getCVAnalysis = async (req, res) => {
     console.error(`[${requestId}] Get CV Analysis Error:`, error);
     return res.status(500).json({
       message: 'فشل في جلب تحليل CV',
+      error: error.message,
+      requestId,
+    });
+  }
+};
+
+/**
+ * @desc Generate smart match pitch for a CV against a job
+ * @route POST /api/ai/cv/generate-pitch
+ * @access Private
+ */
+exports.generateCVMatchPitch = async (req, res) => {
+  const requestId = uuidv4();
+  try {
+    const userId = req.user.user_id;
+    const { cv_id, job_id, language = "en" } = req.body || {};
+
+    if (!cv_id || !job_id) {
+      return res.status(400).json({
+        message: "cv_id and job_id are required",
+        requestId,
+      });
+    }
+
+    const cvRecord = await CV.findOne({
+      where: { cv_id, user_id: userId },
+      include: [{ model: CVStructuredData }],
+    });
+
+    if (!cvRecord) {
+      return res.status(404).json({
+        message: "CV not found or access denied",
+        requestId,
+      });
+    }
+
+    const job = await JobPosting.findByPk(job_id, {
+      attributes: ["job_id", "title", "description", "requirements"],
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        message: "Job posting not found",
+        requestId,
+      });
+    }
+
+    const jobDescription = [job.title, job.description, job.requirements]
+      .filter(Boolean)
+      .join("\n\n")
+      .trim();
+
+    let cvText = "";
+    if (cvRecord.file_url) {
+      try {
+        const rawPath = String(cvRecord.file_url);
+        const backendRoot = path.join(__dirname, "..", "..");
+        const normalized = rawPath.replace(/^\/+/, "");
+        const filePath = path.isAbsolute(rawPath)
+          ? rawPath
+          : path.join(backendRoot, normalized);
+        cvText = await extractTextFromFile(filePath);
+      } catch (fileError) {
+        console.warn("Could not extract CV text from file, using structured data fallback.");
+      }
+    }
+
+    if (!cvText || cvText.trim().length < 20) {
+      const structured = cvRecord.CV_Structured_Data?.data_json || {};
+      cvText = JSON.stringify(structured);
+    }
+
+    const pitchResponse = await aiService.generateMatchPitch(cvText, jobDescription, language);
+    const pitch = pitchResponse?.pitch || "";
+
+    const existing = await CVAIInsights.findOne({
+      where: { cv_id, job_id },
+    });
+
+    if (existing) {
+      const aiIntel = {
+        ...(existing.ai_intelligence || {}),
+        smart_match_pitch: pitch,
+      };
+      await existing.update({
+        ai_intelligence: aiIntel,
+      });
+    } else {
+      await CVAIInsights.create({
+        cv_id,
+        job_id,
+        ai_intelligence: {
+          smart_match_pitch: pitch,
+        },
+        cleaned_job_description: pitchResponse?.cleaned_job_description || null,
+        analysis_method: "smart_match_pitch",
+      });
+    }
+
+    return successResponse(
+      res,
+      {
+        cv_id,
+        job_id,
+        pitch,
+        language,
+        required_skills: pitchResponse?.required_skills || [],
+        requestId,
+      },
+      "Smart match pitch generated successfully."
+    );
+  } catch (error) {
+    console.error(`[${requestId}] Smart match pitch generation error:`, error);
+    return res.status(500).json({
+      message: "Failed to generate smart match pitch",
       error: error.message,
       requestId,
     });

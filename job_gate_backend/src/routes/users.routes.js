@@ -13,8 +13,8 @@ const savedJobsController = require("../controllers/savedJobs.controller");
 // --- الوصول العام (Public Access) ---
 router.get("/job-postings", userController.listJobPostings);  
 router.get("/job-postings/:id", userController.getJobPostingDetails);  
-router.get("/companies", companyController.getAllCompanies);  
-router.get("/companies/:id", companyController.getCompanyById);  
+router.get("/companies", companyController.listApprovedCompanies);  
+router.get("/companies/:id", companyController.getApprovedCompanyDetails);  
 router.post("/company-requests", companyController.submitCompanyRequest);  
 
 // --- الباحث عن عمل (يتطلب مصادقة) ---
@@ -28,6 +28,7 @@ router.post(
 router.get("/applications/user", verifyToken, userController.listUserApplications);  
 router.get("/profile/cv", verifyToken, cvController.listUserCVs);  
 router.put("/profile/cv", verifyToken, uploadCV, cvController.uploadNewCV);
+router.delete("/profile/cv/:id", verifyToken, cvController.deleteUserCV);
 
 // --- Saved Jobs (Job Seeker) ---
 router.post(
@@ -52,7 +53,7 @@ router.delete(
 router.get(
   "/notifications",
   verifyToken,
-  notificationController.listSentPushNotifications
+  notificationController.listUserNotifications
 );  
 router.get(
   "/notifications/:id",
@@ -62,7 +63,7 @@ router.get(
 router.get(
   "/notifications/unread",
   verifyToken,
-  notificationController.listSentPushNotifications
+  notificationController.listUnreadNotifications
 );  
 router.put(
   "/notifications/:id/read",

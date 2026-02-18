@@ -11,6 +11,7 @@ const {
   CVAIInsights,
   CVFeaturesAnalytics,
 } = require("../models");
+const { Op } = require("sequelize");
 const bcrypt = require("bcryptjs");
 const { successResponse } = require("../utils/responseHandler");
 const sendEmail = require("../utils/sendEmail");
@@ -20,6 +21,8 @@ const buildCompanyLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
 const buildCompanyLicenseUrl = (companyId) =>
   `/api/companies/admin/${companyId}/license`;
 const unlinkFile = util.promisify(fs.unlink); // دالة لمسح الملفات (افتراضياً)
+const MARKET_HEALTH_CACHE_TTL_MS = 60 * 60 * 1000;
+let marketHealthCache = { value: null, expiresAt: 0 };
 // ⚙️ دوال إدارة المستخدمين (Admin User Management)
 
 
@@ -900,5 +903,167 @@ exports.deleteCompany = async (req, res) => {
     return res
       .status(500)
       .json({ message: "حدث خطأ أثناء حذف الشركة", error: error.message });
+  }
+};
+
+const normalizeSkillToken = (value = "") =>
+  String(value).trim().toLowerCase().replace(/\s+/g, " ");
+
+const titleSkill = (value = "") =>
+  String(value)
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+const extractSkillCandidates = (text = "") => {
+  const known = [
+    "python", "java", "javascript", "typescript", "react", "node", "node.js", "sql",
+    "mysql", "postgresql", "mongodb", "aws", "azure", "gcp", "docker", "kubernetes",
+    "graphql", "rest", "fastapi", "django", "flask", "spring", "html", "css",
+    "tailwind", "figma", "leadership", "communication", "problem solving",
+  ];
+
+  const lower = String(text || "").toLowerCase();
+  const out = new Set();
+  for (const skill of known) {
+    if (lower.includes(skill)) out.add(normalizeSkillToken(skill));
+  }
+  return Array.from(out);
+};
+
+const monthKey = (dateObj) => {
+  const d = new Date(dateObj);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const monthLabel = (yearMonth) => {
+  const [year, month] = yearMonth.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleString("en-US", { month: "short" });
+};
+
+exports.getMarketHealth = async (req, res) => {
+  try {
+    const forceRefresh = String(req.query.refresh || "").toLowerCase() === "1" ||
+      String(req.query.refresh || "").toLowerCase() === "true";
+
+    if (!forceRefresh && marketHealthCache.value && Date.now() < marketHealthCache.expiresAt) {
+      return successResponse(res, marketHealthCache.value, "Market health (cached)");
+    }
+
+    const now = new Date();
+    const since = new Date(now);
+    since.setMonth(now.getMonth() - 5);
+    since.setDate(1);
+    since.setHours(0, 0, 0, 0);
+
+    const [jobs, applications] = await Promise.all([
+      JobPosting.findAll({
+        attributes: ["job_id", "title", "description", "requirements", "status", "created_at", "updated_at"],
+      }),
+      Application.findAll({
+        where: { submitted_at: { [Op.gte]: since } },
+        attributes: ["application_id", "submitted_at", "cv_id"],
+        include: [
+          {
+            model: CV,
+            attributes: ["cv_id"],
+            include: [{ model: CVFeaturesAnalytics, attributes: ["ats_score"] }],
+          },
+        ],
+      }),
+    ]);
+
+    const skillCounts = new Map();
+    for (const job of jobs) {
+      const text = [job.title, job.description, job.requirements].filter(Boolean).join(" ");
+      const skills = extractSkillCandidates(text);
+      for (const skill of skills) {
+        skillCounts.set(skill, (skillCounts.get(skill) || 0) + 1);
+      }
+    }
+
+    const top_skills = Array.from(skillCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([skill, demand]) => ({ skill: titleSkill(skill), demand }));
+
+    let totalVelocityDays = 0;
+    let velocityCount = 0;
+    for (const job of jobs) {
+      const start = job.created_at ? new Date(job.created_at) : null;
+      if (!start) continue;
+      const end = job.status === "closed" && job.updated_at ? new Date(job.updated_at) : now;
+      const diffDays = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      totalVelocityDays += diffDays;
+      velocityCount += 1;
+    }
+
+    const total_job_velocity_days = velocityCount
+      ? Number((totalVelocityDays / velocityCount).toFixed(2))
+      : 0;
+
+    let atsEligibleCount = 0;
+    let atsMatchCount = 0;
+    let atsScoreSum = 0;
+    const monthTrend = new Map();
+
+    for (let i = 5; i >= 0; i -= 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthTrend.set(monthKey(d), { sum: 0, count: 0 });
+    }
+
+    for (const app of applications) {
+      const atsScore = app?.CV?.CV_Features_Analytics?.ats_score;
+      if (typeof atsScore === "number") {
+        atsEligibleCount += 1;
+        atsScoreSum += atsScore;
+        if (atsScore >= 80) atsMatchCount += 1;
+
+        const key = monthKey(app.submitted_at || now);
+        if (monthTrend.has(key)) {
+          const item = monthTrend.get(key);
+          item.sum += atsScore;
+          item.count += 1;
+        }
+      }
+    }
+
+    const ats_quality_trend = Array.from(monthTrend.entries()).map(([key, value]) => ({
+      month: monthLabel(key),
+      average_ats_score: value.count ? Number((value.sum / value.count).toFixed(2)) : 0,
+    }));
+
+    const match_success_rate = atsEligibleCount
+      ? Number(((atsMatchCount / atsEligibleCount) * 100).toFixed(2))
+      : 0;
+
+    const avg_ats_score_overall = atsEligibleCount
+      ? Number((atsScoreSum / atsEligibleCount).toFixed(2))
+      : 0;
+
+    const payload = {
+      generated_at: now.toISOString(),
+      cache_ttl_seconds: MARKET_HEALTH_CACHE_TTL_MS / 1000,
+      top_skills,
+      ats_quality_trend,
+      kpis: {
+        total_job_velocity_days,
+        match_success_rate,
+        avg_ats_score_overall,
+      },
+    };
+
+    marketHealthCache = {
+      value: payload,
+      expiresAt: Date.now() + MARKET_HEALTH_CACHE_TTL_MS,
+    };
+
+    return successResponse(res, payload, "Market health generated");
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to load market health analytics.",
+      error: error.message,
+    });
   }
 };

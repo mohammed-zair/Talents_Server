@@ -2,7 +2,8 @@
 import os 
 import json 
 import logging 
-from typing import Dict ,Any ,Optional 
+import re
+from typing import Dict ,Any ,Optional, List
 from openai import OpenAI 
 
 logger =logging .getLogger (__name__ )
@@ -261,6 +262,109 @@ class LLMService :
         except Exception as e :
             logger .error (f"AI intelligence generation failed: {e }")
             return {}
+    
+    def extract_required_skills(self, job_description: str) -> List[str]:
+        if not job_description:
+            return []
+
+        known_skills = [
+            "python", "java", "javascript", "typescript", "react", "node", "node.js",
+            "sql", "mysql", "postgresql", "mongodb", "aws", "azure", "gcp",
+            "docker", "kubernetes", "fastapi", "django", "flask", "spring",
+            "html", "css", "tailwind", "rest", "graphql", "git", "linux",
+            "tensorflow", "pytorch", "machine learning", "data analysis",
+            "communication", "leadership", "problem solving", "figma", "ui", "ux"
+        ]
+
+        lower = job_description.lower()
+        found = []
+        for skill in known_skills:
+            pattern = r"\b" + re.escape(skill) + r"\b"
+            if re.search(pattern, lower):
+                found.append(skill)
+
+        if found:
+            return sorted(list(dict.fromkeys(found)))[:20]
+
+        tokens = re.findall(r"[a-zA-Z][a-zA-Z\+\#\.\-]{2,}", job_description.lower())
+        stop_words = {
+            "and", "the", "for", "with", "you", "your", "from", "this", "that",
+            "are", "will", "have", "has", "our", "their", "into", "about", "years",
+            "experience", "skills", "required", "preferred", "ability", "strong",
+            "working", "knowledge", "team", "role"
+        }
+        freq = {}
+        for token in tokens:
+            if token in stop_words:
+                continue
+            freq[token] = freq.get(token, 0) + 1
+        ranked = sorted(freq.items(), key=lambda x: x[1], reverse=True)
+        return [skill for skill, _ in ranked[:10]]
+
+    def build_competency_matrix(self, candidate_skills: List[str], required_skills: List[str]) -> List[Dict[str, Any]]:
+        normalized_candidate = {str(skill).strip().lower() for skill in (candidate_skills or []) if str(skill).strip()}
+        matrix = []
+        for req in required_skills:
+            req_norm = str(req).strip().lower()
+            matched = any(req_norm in cand or cand in req_norm for cand in normalized_candidate)
+            proficiency = 88 if matched else 24
+            matrix.append({
+                "required_skill": req,
+                "candidate_proficiency": proficiency,
+                "job_target": 100,
+                "is_missing": not matched
+            })
+        return matrix
+
+    def generate_smart_match_pitch(self, cv_text: str, job_description: str, language: str = "en") -> str:
+        if not cv_text or not job_description:
+            return ""
+
+        if not self.is_available():
+            return (
+                "This candidate demonstrates a strong overlap with the role requirements, "
+                "bringing relevant hands-on experience, transferable technical skills, and "
+                "clear execution potential for immediate impact."
+            )
+
+        arabic = str(language).lower().startswith("ar")
+        instruction = (
+            "Write the final paragraph in Arabic. Keep it around 150 words."
+            if arabic
+            else "Write the final paragraph in English. Keep it around 150 words."
+        )
+
+        prompt = f"""
+        You are an elite recruiting strategist.
+        Analyze CV and job description overlap and write ONE high-impact elevator pitch.
+        {instruction}
+        The pitch must:
+        - Explain why this exact candidate is a strong fit.
+        - Mention technical alignment, business impact, and growth potential.
+        - Sound confident and executive-ready.
+        Return plain text only.
+
+        CV:
+        {cv_text[:8000]}
+
+        Job Description:
+        {job_description[:4000]}
+        """
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a precise recruiting writer. Return plain text only."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.35,
+                max_tokens=380,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Smart match pitch generation failed: {e}")
+            return ""
         if not self .is_available ():
             return text 
 

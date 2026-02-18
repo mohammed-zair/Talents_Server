@@ -17,7 +17,7 @@ const aiService = require("../services/aiService");
 exports.listApprovedCompanies = async (req, res) => {
   try {
     const companies = await Company.findAll({
-      where: { is_approved: true },
+      where: buildApprovedCompanyWhere(),
       attributes: [
         "company_id",
         "name",
@@ -47,7 +47,7 @@ exports.listApprovedCompanies = async (req, res) => {
 exports.getApprovedCompanyDetails = async (req, res) => {
   try {
     const company = await Company.findOne({
-      where: { company_id: req.params.id, is_approved: true },
+      where: buildApprovedCompanyWhere({ company_id: req.params.id }),
       attributes: [
         "company_id",
         "name",
@@ -81,6 +81,13 @@ const getCompanyApprovalStatus = (company) => {
   if (company.is_approved) return "approved";
   if (company.rejected_at) return "rejected";
   return "pending";
+};
+
+const buildApprovedCompanyWhere = (extra = {}) => {
+  const base = Company.rawAttributes?.status
+    ? { status: "approved" }
+    : { is_approved: true };
+  return { ...base, ...extra };
 };
 
 const buildLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
@@ -1267,10 +1274,18 @@ exports.getCompanyApplicationsByID = async (req, res) => {
               { job_description: jobDescription }
             );
 
-            if (aiResult?.ai_intelligence) {
+            if (aiResult?.ai_intelligence || aiResult?.competency_matrix) {
+              const mergedIntelligence = aiResult?.ai_intelligence
+                ? {
+                    ...aiResult.ai_intelligence,
+                    ...(aiResult.competency_matrix
+                      ? { competency_matrix: aiResult.competency_matrix }
+                      : {}),
+                  }
+                : { competency_matrix: aiResult.competency_matrix };
               if (aiInsights) {
                 await aiInsights.update({
-                  ai_intelligence: aiResult.ai_intelligence,
+                  ai_intelligence: mergedIntelligence,
                   ats_score: aiResult.ats_score ?? null,
                   industry_ranking_score: aiResult.industry_ranking_score ?? null,
                   industry_ranking_label: aiResult.industry_ranking_label ?? null,
@@ -1282,7 +1297,7 @@ exports.getCompanyApplicationsByID = async (req, res) => {
                 aiInsights = await CVAIInsights.create({
                   cv_id: cv.cv_id,
                   job_id: job.job_id,
-                  ai_intelligence: aiResult.ai_intelligence,
+                  ai_intelligence: mergedIntelligence,
                   ats_score: aiResult.ats_score ?? null,
                   industry_ranking_score: aiResult.industry_ranking_score ?? null,
                   industry_ranking_label: aiResult.industry_ranking_label ?? null,

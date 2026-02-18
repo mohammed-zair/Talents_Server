@@ -198,6 +198,14 @@ export const companyApi = {
     const { data } = await api.get(`/companies/company/applications/${id}?refresh=1`);
     return data;
   },
+  generateSmartMatchPitch: async (payload: {
+    cv_id: string;
+    job_id: string;
+    language?: "en" | "ar";
+  }) => {
+    const { data } = await api.post("/ai/cv/generate-pitch", payload);
+    return (data as any)?.data ?? data;
+  },
   updateApplicationStatus: async (id: string, status: string) => {
     const { data } = await api.put(`/companies/company/applications/${id}`, { status });
     return data;

@@ -1,0 +1,120 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #070a0f;
+  --glass: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.16);
+  --text-primary: #f6fbff;
+  --text-muted: rgba(238, 246, 255, 0.68);
+  --accent: #00a8e8;
+  --accent-2: #12b5a6;
+  --mesh-a: rgba(0, 168, 232, 0.22);
+  --mesh-b: rgba(18, 181, 166, 0.16);
+  --mesh-c: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="light"] {
+  --bg: #f7fbff;
+  --glass: rgba(7, 10, 15, 0.05);
+  --border: rgba(7, 10, 15, 0.14);
+  --text-primary: #101828;
+  --text-muted: rgba(16, 24, 40, 0.65);
+  --accent: #007ed6;
+  --accent-2: #0f9b8f;
+  --mesh-a: rgba(0, 126, 214, 0.16);
+  --mesh-b: rgba(15, 155, 143, 0.12);
+  --mesh-c: rgba(7, 10, 15, 0.05);
+}
+
+:root[data-theme="premium"] {
+  --bg: #08070f;
+  --glass: rgba(255, 255, 255, 0.07);
+  --border: rgba(225, 190, 255, 0.35);
+  --text-primary: #fef6ff;
+  --text-muted: rgba(240, 220, 255, 0.72);
+  --accent: #a855f7;
+  --accent-2: #f59e0b;
+  --mesh-a: rgba(45, 11, 90, 0.45);
+  --mesh-b: rgba(184, 134, 11, 0.26);
+  --mesh-c: rgba(255, 255, 255, 0.05);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { min-height: 100%; }
+body { margin: 0; font-family: "Plus Jakarta Sans", "Inter", sans-serif; color: var(--text-primary); background: var(--bg); }
+
+.mesh-bg {
+  background:
+    radial-gradient(circle at 13% 8%, var(--mesh-a), transparent 45%),
+    radial-gradient(circle at 84% 18%, var(--mesh-b), transparent 40%),
+    radial-gradient(circle at 60% 88%, var(--mesh-c), transparent 50%),
+    var(--bg);
+}
+
+.glass-panel,
+.glass-card {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(24px) saturate(155%);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.2);
+}
+.glass-card { border-radius: 18px; }
+
+:root[data-theme="premium"] .glass-card,
+:root[data-theme="premium"] .glass-panel {
+  animation: premium-border 2.6s ease-in-out infinite;
+}
+
+@keyframes premium-border {
+  0%,100% { box-shadow: 0 0 15px rgba(168,85,247,0.3), 0 18px 50px rgba(0,0,0,0.22); }
+  50% { box-shadow: 0 0 24px rgba(245,158,11,0.35), 0 18px 50px rgba(0,0,0,0.24); }
+}
+
+.orb {
+  position: fixed;
+  width: 340px;
+  height: 340px;
+  border-radius: 999px;
+  filter: blur(34px);
+  opacity: 0.35;
+  pointer-events: none;
+}
+.orb-a { top: -70px; left: -80px; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 40%, transparent), transparent 68%); }
+.orb-b { right: -100px; bottom: -90px; background: radial-gradient(circle, color-mix(in srgb, var(--accent-2) 38%, transparent), transparent 68%); }
+
+.field { width: 100%; border: 1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text-primary); padding: 10px 12px; }
+.field::placeholder { color: var(--text-muted); }
+
+.btn-primary {
+  border: 1px solid color-mix(in srgb, var(--accent) 80%, #fff 20%);
+  background: var(--accent);
+  color: #041018;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 700;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 55%, transparent); }
+
+.btn-ghost { border: 1px solid var(--border); background: transparent; color: var(--text-primary); border-radius: 12px; padding: 9px 12px; }
+.badge { border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; font-size: 12px; background: color-mix(in srgb, var(--accent) 18%, transparent); }
+
+.nav-active {
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.card-hover { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent); border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+
+.funnel-bar { display: flex; justify-content: space-between; border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+
+.premium-cta {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 70%, transparent), color-mix(in srgb, var(--accent-2) 70%, transparent));
+  border: 1px solid color-mix(in srgb, var(--accent-2) 35%, #fff 65%);
+}

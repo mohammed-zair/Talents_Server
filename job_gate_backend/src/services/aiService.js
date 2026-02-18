@@ -100,6 +100,18 @@ class AIService {
     }, cvFile, "CV File Analysis");
   }
 
+  async generateMatchPitch(cvText, jobDescription, language = "en") {
+    return this._requestWithRetry(
+      "/cv/generate-pitch",
+      {
+        cv_text: cvText,
+        job_description: jobDescription,
+        language,
+      },
+      "Smart Match Pitch"
+    );
+  }
+
   async startChatbotSession(userId, language = "english", initialData = {}, options = {}) {
     const normalizedUserId = userId != null ? String(userId) : "";
     return this._requestWithRetry("/chatbot/start", {

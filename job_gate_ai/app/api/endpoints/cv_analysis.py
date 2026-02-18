@@ -3,7 +3,7 @@ import os
 import tempfile 
 import traceback 
 from datetime import datetime 
-from typing import Dict ,Optional, Union 
+from typing import Dict ,Optional, Union, List 
 
 from fastapi import APIRouter ,File ,HTTPException ,UploadFile ,Form 
 from fastapi .responses import JSONResponse 
@@ -199,6 +199,11 @@ job_description :Optional [str ]=Form (None )
 
             structured_data = _normalize_structured_data(structured_data)
             cv_structured_data =CVStructuredData (**structured_data )
+            required_skills = llm_service.extract_required_skills(cleaned_job_description)
+            competency_matrix = llm_service.build_competency_matrix(
+                structured_data.get("skills", []),
+                required_skills
+            )
 
 
             try :
@@ -232,6 +237,7 @@ job_description :Optional [str ]=Form (None )
             processing_time =processing_time ,
             error_message =None ,
             ai_intelligence =ai_intelligence ,
+            competency_matrix =competency_matrix ,
             cleaned_job_description =cleaned_job_description ,
             industry_ranking_score =ai_intelligence .get ("industry_ranking_score") if isinstance (ai_intelligence ,dict ) else None ,
             industry_ranking_label =ai_intelligence .get ("industry_ranking_label") if isinstance (ai_intelligence ,dict ) else None 
@@ -275,6 +281,11 @@ class CVTextAnalyzeRequest(BaseModel):
     use_ai: bool = True
     job_description: Optional[str] = None
 
+class GeneratePitchRequest(BaseModel):
+    cv_text: str
+    job_description: str
+    language: Optional[str] = "en"
+
 @router .post ("/analyze-text")
 async def analyze_cv_text (request: CVTextAnalyzeRequest):
     """
@@ -315,6 +326,11 @@ async def analyze_cv_text (request: CVTextAnalyzeRequest):
 
         cleaned_job_description =llm_service .clean_job_description (request.job_description or "") if request.job_description else ""
         ats_result =ats_scorer .calculate_score (structured_data ,cleaned_job_description )
+        required_skills = llm_service.extract_required_skills(cleaned_job_description)
+        competency_matrix = llm_service.build_competency_matrix(
+            structured_data.get("skills", []),
+            required_skills
+        )
 
 
         features =ats_scorer .extract_cv_features (structured_data )
@@ -351,6 +367,7 @@ async def analyze_cv_text (request: CVTextAnalyzeRequest):
         "analysis_method":analysis_method ,
         "processing_time":processing_time ,
         "feedback":ats_result .get ("feedback",[]),
+        "competency_matrix":competency_matrix,
         "text_length":len (cv_text ),
         "ai_intelligence":ai_intelligence ,
         "cleaned_job_description":cleaned_job_description ,
@@ -368,6 +385,42 @@ async def analyze_cv_text (request: CVTextAnalyzeRequest):
         "success":False ,
         "error":str (e )
         }
+        )
+
+@router.post("/generate-pitch")
+async def generate_match_pitch(request: GeneratePitchRequest):
+    try:
+        if not request.cv_text or len(request.cv_text.strip()) < 20:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "cv_text is too short"}
+            )
+
+        if not request.job_description or len(request.job_description.strip()) < 20:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "job_description is too short"}
+            )
+
+        pitch = llm_service.generate_smart_match_pitch(
+            request.cv_text,
+            request.job_description,
+            request.language or "en"
+        )
+
+        cleaned_job_description = llm_service.clean_job_description(request.job_description)
+        required_skills = llm_service.extract_required_skills(cleaned_job_description)
+
+        return {
+            "success": True,
+            "pitch": pitch,
+            "language": request.language or "en",
+            "required_skills": required_skills,
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
         )
 
 @router .get ("/history/{user_id}")

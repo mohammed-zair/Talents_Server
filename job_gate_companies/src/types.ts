@@ -205,9 +205,17 @@ export interface AIInsightsRecord {
     industry_ranking_score?: number;
     industry_ranking_label?: string;
     interview_questions?: string[];
+    smart_match_pitch?: string;
+    competency_matrix?: Array<{
+      required_skill: string;
+      candidate_proficiency: number;
+      job_target?: number;
+      is_missing?: boolean;
+    }>;
   };
   ats_score?: number;
   industry_ranking_score?: number;
   industry_ranking_label?: string;
   cleaned_job_description?: string | null;
+  smart_match_pitch?: string | null;
 }
