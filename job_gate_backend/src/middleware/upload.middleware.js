@@ -1,83 +1,86 @@
-const multer = require("multer");
+﻿const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
- // 1. تحديد مكان التخزين (Storage)
- const storage = multer.diskStorage({
+const uploadDir = path.join(__dirname, "..", "..", "uploads", "cvs");
+
+const ensureUploadDir = () => {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+};
+
+const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // تحديد المجلد الذي سيتم فيه حفظ الملفات
-    // يجب التأكد من وجود المجلد: /uploads/cvs
-    cb(null, path.join(__dirname, "..", "..", "uploads", "cvs"));
+    ensureUploadDir();
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // تحديد اسم الملف: (userId-timestamp.ext)
-    // يُفترض أن req.user تم تعيينه بواسطة authJwt قبله
     const ext = path.extname(file.originalname);
     const userId = req.user ? req.user.user_id : "anonymous";
     cb(null, `${userId}-${Date.now()}${ext}`);
   },
 });
 
- // 2. تطبيق الفلترة (File Filter)
- const fileFilter = (req, file, cb) => {
-  // قبول فقط ملفات PDF و DOCX
-  if (
-    file.mimetype === "application/pdf" ||
-    file.mimetype ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  ) {
+const ALLOWED_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
+const fileFilter = (req, file, cb) => {
+  if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
     cb(null, true);
-  } else {
-    // رفض أنواع الملفات الأخرى
-    cb(
-      new Error("صيغة الملف غير مدعومة. يرجى رفع ملف بصيغة PDF أو DOCX."),
-      false
-    );
+    return;
   }
+
+  cb(new Error("Unsupported CV format. Please upload PDF, DOC, or DOCX."), false);
 };
 
- // 3. إعداد Multer (الكائن الخام)
- const upload = multer({
-  storage: storage,
+const upload = multer({
+  storage,
   limits: {
-    fileSize: 1024 * 1024 * 5, // الحد الأقصى لحجم الملف 5MB
+    fileSize: 1024 * 1024 * 5,
   },
-  fileFilter: fileFilter,
+  fileFilter,
 });
 
-/**
- *   التصدير الرئيسي (uploadCV): دالة Middleware مغلفة لـ CV
- * تُعالج الرفع (single) وتُعالج أخطاء Multer بشكل جيد.
- * يجب استخدامها مباشرةً في المسارات (مثل uploadMiddleware.uploadCV).
- */
 exports.uploadCV = (req, res, next) => {
   const uploadFields = upload.fields([
     { name: "cv_file", maxCount: 1 },
     { name: "file", maxCount: 1 },
+    { name: "cv", maxCount: 1 },
   ]);
 
   uploadFields(req, res, function (err) {
     if (err instanceof multer.MulterError) {
-      // خطأ من Multer (مثل حجم الملف أو نوعه)
-      return res
-        .status(400)
-        .json({ message: "فشل في رفع الملف: " + err.message });
-    } else if (err) {
-      // خطأ غير متوقع (مثل خطأ في الفلترة)
-      return res.status(400).json({ message: err.message });
-    } // لا يوجد خطأ، أكمل إلى الـ Controller
+      const message =
+        err.code === "LIMIT_FILE_SIZE"
+          ? "CV is too large. Maximum allowed size is 5MB."
+          : `File upload failed: ${err.message}`;
+
+      return res.status(400).json({
+        message,
+        error_code: err.code || "UPLOAD_ERROR",
+      });
+    }
+
+    if (err) {
+      return res.status(400).json({
+        message: err.message || "Failed to upload file.",
+        error_code: "INVALID_FILE",
+      });
+    }
 
     const files = req.files || {};
     req.file =
       (files.cv_file && files.cv_file[0]) ||
       (files.file && files.file[0]) ||
+      (files.cv && files.cv[0]) ||
       req.file;
 
     next();
   });
 };
 
-/**
- * تصدير كائن Multer الخام (للاستخدام المرن) - اختياري
- * يمكنك استخدام هذا في المسارات مباشرةً: cvUploader.single('field_name')
- */
 exports.cvUploader = upload;

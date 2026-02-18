@@ -102,6 +102,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth", authRoutes);
 app.use("/api/jop_seeker", jobseekerRoutes);
 app.use("/api/consultant", consaultantRoutes);
+app.use("/api/consultants", consaultantRoutes);
 app.use("/api/company-requests", companyRequestsRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/admin", adminRoutes);

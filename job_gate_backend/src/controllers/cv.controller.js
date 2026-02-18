@@ -73,7 +73,14 @@ exports.uploadNewCV = async (req, res) => {
   }
 
   if (!cvFile) {
-    return res.status(400).json({ message: "CV file is required." });
+    return res.status(400).json({
+      message:
+        "CV file is required. Use multipart/form-data and send file in one of: cv_file, file, or cv.",
+      error_code: "CV_FILE_REQUIRED",
+      expected_fields: ["cv_file", "file", "cv"],
+      max_size_mb: 5,
+      allowed_types: ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    });
   }
 
   const cvUrl = cvFile.path;

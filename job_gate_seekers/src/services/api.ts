@@ -129,20 +129,38 @@ export const seekerApi = {
   },
 
   listConsultants: async () => {
-    const res = await api.get<ApiEnvelope<Consultant[]>>("/consultant");
-    return ensureArray<Consultant>(unwrap<any>(res.data), ["consultants"]);
+    try {
+      const res = await api.get<ApiEnvelope<Consultant[]>>("/consultant");
+      return ensureArray<Consultant>(unwrap<any>(res.data), ["consultants"]);
+    } catch (error: any) {
+      if (error?.response?.status !== 404) throw error;
+      const res = await api.get<ApiEnvelope<Consultant[]>>("/consultants");
+      return ensureArray<Consultant>(unwrap<any>(res.data), ["consultants"]);
+    }
   },
   requestConsultation: async (consultantUserId: number, message: string) => {
-    const res = await api.post(`/consultant/${consultantUserId}/request-consultation`, { message });
-    return unwrap(res.data);
+    try {
+      const res = await api.post(`/consultant/${consultantUserId}/request-consultation`, { message });
+      return unwrap(res.data);
+    } catch (error: any) {
+      if (error?.response?.status !== 404) throw error;
+      const res = await api.post(`/consultants/${consultantUserId}/request-consultation`, { message });
+      return unwrap(res.data);
+    }
   },
   createBooking: async (payload: {
     consultant_user_id: number;
     start_time: string;
     end_time: string;
   }) => {
-    const res = await api.post("/consultant/bookings", payload);
-    return unwrap(res.data);
+    try {
+      const res = await api.post("/consultant/bookings", payload);
+      return unwrap(res.data);
+    } catch (error: any) {
+      if (error?.response?.status !== 404) throw error;
+      const res = await api.post("/consultants/bookings", payload);
+      return unwrap(res.data);
+    }
   },
 
   analyzeCvText: async (payload: { cv_text: string; useAI?: boolean; saveToDb?: boolean; cv_id?: number }) => {

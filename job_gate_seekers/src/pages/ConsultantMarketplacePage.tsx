@@ -2,9 +2,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
+import { getApiErrorMessage } from "../utils/apiError";
 
 const ConsultantMarketplacePage: React.FC = () => {
-  const consultantsQ = useQuery({ queryKey: ["consultants"], queryFn: seekerApi.listConsultants });
+  const consultantsQ = useQuery({ queryKey: ["consultants"], queryFn: seekerApi.listConsultants, retry: false });
   const [selected, setSelected] = useState<number | null>(null);
   const [startTime, setStartTime] = useState("");
   const [message, setMessage] = useState("");
@@ -26,13 +27,16 @@ const ConsultantMarketplacePage: React.FC = () => {
       await seekerApi.createBooking({ consultant_user_id: selected, start_time: start.toISOString(), end_time: end.toISOString() });
     },
     onSuccess: () => setFeedback(t("bookedSuccess")),
-    onError: (e: any) => setFeedback(e?.message || t("bookingFailed")),
+    onError: (e: unknown) => setFeedback(getApiErrorMessage(e, t("bookingFailed"))),
   });
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
       <div className="glass-card p-4">
         <h1 className="mb-3 text-2xl font-bold">{t("consultantMarketplace")}</h1>
+        {consultantsQ.isError && (
+          <p className="mb-3 text-sm text-red-400">{getApiErrorMessage(consultantsQ.error, t("consultantsLoadFailed"))}</p>
+        )}
         <div className="grid gap-3 md:grid-cols-2">
           {consultantItems.map((c: any) => (
             <button

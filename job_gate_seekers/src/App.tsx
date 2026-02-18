@@ -21,6 +21,8 @@ const ConsultantMarketplacePage = lazy(
 );
 const ApplicationsPage = lazy(() => import("./pages/ApplicationsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +65,8 @@ const App: React.FC = () => {
                     />
                     <Route path="/applications" element={<ApplicationsPage />} />
                     <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/notifications" element={<NotificationsPage />} />
                   </Route>
                   <Route path="*" element={<Navigate to="/pulse" replace />} />
                 </Routes>

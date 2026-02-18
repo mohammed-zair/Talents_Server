@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
+import { getApiErrorMessage } from "../utils/apiError";
 
 const weakTerms = ["responsible for", "helped", "worked on", "tasked with"];
 const strongTerms = ["led", "delivered", "optimized", "increased", "built"];
@@ -10,6 +11,9 @@ const CVLabPage: React.FC = () => {
   const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
   const [text, setText] = useState("");
   const [analysis, setAnalysis] = useState<any>(null);
+  const [uploadFeedback, setUploadFeedback] = useState("");
+  const [uploadError, setUploadError] = useState("");
+
   const queryClient = useQueryClient();
   const { t } = useLanguage();
 
@@ -28,11 +32,19 @@ const CVLabPage: React.FC = () => {
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const fd = new FormData();
-      fd.append("cv", file);
+      fd.append("cv_file", file);
       fd.append("cv_title", file.name);
       return seekerApi.uploadCV(fd);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cvs"] }),
+    onSuccess: () => {
+      setUploadError("");
+      setUploadFeedback(t("cvUploadSuccess"));
+      queryClient.invalidateQueries({ queryKey: ["cvs"] });
+    },
+    onError: (error: unknown) => {
+      setUploadFeedback("");
+      setUploadError(getApiErrorMessage(error, t("cvUploadFailed")));
+    },
   });
 
   const deleteMutation = useMutation({
@@ -57,11 +69,23 @@ const CVLabPage: React.FC = () => {
         <div className="mt-3 flex gap-2">
           <label className="btn-ghost cursor-pointer">
             {t("uploadCv")}
-            <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && uploadMutation.mutate(e.target.files[0])} />
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx"
+              className="hidden"
+              onChange={(e) => {
+                setUploadError("");
+                setUploadFeedback("");
+                if (e.target.files?.[0]) uploadMutation.mutate(e.target.files[0]);
+              }}
+            />
           </label>
           {selectedCv && <button className="btn-ghost" onClick={() => deleteMutation.mutate(selectedCv.cv_id)}>{t("deleteCv")}</button>}
           <button className="btn-primary" onClick={() => analyzeMutation.mutate()}>{t("analyze")}</button>
         </div>
+        {uploadMutation.isPending && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("uploading")}</p>}
+        {uploadFeedback && <p className="mt-2 text-sm text-emerald-400">{uploadFeedback}</p>}
+        {uploadError && <p className="mt-2 text-sm text-red-400">{uploadError}</p>}
       </div>
 
       <div className="glass-card p-4">

@@ -2,16 +2,18 @@
 import { Helmet } from "react-helmet-async";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import {
   BadgeCheck,
+  Bell,
   BriefcaseBusiness,
   Building2,
   FileText,
-  Gem,
   LayoutDashboard,
   MessageSquareText,
   MoonStar,
   Search,
+  Settings,
   Sparkles,
   Sun,
   User,
@@ -19,6 +21,7 @@ import {
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { clearSession, getStoredUser } from "../../utils/auth";
+import { seekerApi } from "../../services/api";
 
 const navItems = [
   { to: "/pulse", key: "pulse", icon: LayoutDashboard },
@@ -29,14 +32,27 @@ const navItems = [
   { to: "/consultants", key: "consultants", icon: BadgeCheck },
   { to: "/applications", key: "applications", icon: Sparkles },
   { to: "/profile", key: "profile", icon: User },
+  { to: "/settings", key: "settings", icon: Settings },
 ];
 
 const PageShell: React.FC = () => {
   const { t, language, setLanguage } = useLanguage();
   const { theme, cycleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const navigate = useNavigate();
   const user = useMemo(() => getStoredUser(), []);
+
+  const notificationsQ = useQuery({
+    queryKey: ["notifications"],
+    queryFn: seekerApi.listNotifications,
+  });
+
+  const notificationItems = useMemo(
+    () => (Array.isArray(notificationsQ.data) ? notificationsQ.data : []),
+    [notificationsQ.data]
+  );
+  const unreadCount = notificationItems.filter((n: any) => !n.is_read).length;
 
   return (
     <div className="min-h-screen mesh-bg text-[var(--text-primary)]">
@@ -93,9 +109,57 @@ const PageShell: React.FC = () => {
             <button className="rounded-xl border border-[var(--border)] p-2" onClick={cycleTheme} title={theme}>
               {theme === "light" ? <MoonStar size={16} /> : <Sun size={16} />}
             </button>
-            <button className="premium-cta rounded-xl px-4 py-2 text-sm font-semibold">
-              <Gem size={16} className="inline-block" /> {t("premiumUpgrade")}
-            </button>
+
+            <div className="relative">
+              <button
+                className="relative rounded-xl border border-[var(--border)] p-2"
+                onClick={() => setNotificationsOpen((v) => !v)}
+                title={t("notifications")}
+              >
+                <Bell size={16} />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 rounded-full bg-[var(--accent)] px-1.5 text-[10px] font-bold text-black">
+                    {Math.min(unreadCount, 99)}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-[var(--border)] bg-[var(--bg)]/95 p-2 shadow-xl backdrop-blur">
+                  <p className="px-2 py-1 text-xs text-[var(--text-muted)]">{t("notifications")}</p>
+                  <div className="max-h-72 space-y-1 overflow-auto">
+                    {notificationItems.slice(0, 6).map((n: any) => (
+                      <button
+                        key={n.push_id}
+                        className="w-full rounded-lg border border-transparent px-2 py-2 text-left hover:border-[var(--border)]"
+                        onClick={() => {
+                          setNotificationsOpen(false);
+                          navigate("/notifications");
+                        }}
+                      >
+                        <p className="text-sm font-medium">{n.title}</p>
+                        <p className="line-clamp-2 text-xs text-[var(--text-muted)]">{n.message}</p>
+                      </button>
+                    ))}
+
+                    {notificationItems.length === 0 && (
+                      <p className="px-2 py-2 text-xs text-[var(--text-muted)]">{t("noNotificationsYet")}</p>
+                    )}
+                  </div>
+
+                  <button
+                    className="mt-2 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
+                    onClick={() => {
+                      setNotificationsOpen(false);
+                      navigate("/notifications");
+                    }}
+                  >
+                    {t("showAllNotifications")}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               className="rounded-xl border border-[var(--border)] px-3 py-2"
               onClick={() => {
