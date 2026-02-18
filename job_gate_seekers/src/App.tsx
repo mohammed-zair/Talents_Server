@@ -28,13 +28,15 @@ const queryClient = new QueryClient({
   },
 });
 
+const routerBasename = import.meta.env.VITE_ROUTER_BASENAME || "/";
+
 const App: React.FC = () => {
   return (
     <HelmetProvider>
       <ThemeProvider>
         <LanguageProvider>
           <QueryClientProvider client={queryClient}>
-            <BrowserRouter basename="/job-seekers">
+            <BrowserRouter basename={routerBasename}>
               <Suspense fallback={<RouteLoader />}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/pulse" replace />} />
