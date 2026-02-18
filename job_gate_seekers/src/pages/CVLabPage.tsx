@@ -12,7 +12,14 @@ const CVLabPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const cvsQ = useQuery({ queryKey: ["cvs"], queryFn: seekerApi.listCVs });
-  const selectedCv = useMemo(() => cvsQ.data?.find((cv) => cv.cv_id === selectedCvId) || cvsQ.data?.[0], [cvsQ.data, selectedCvId]);
+  const cvItems = useMemo(
+    () => (Array.isArray(cvsQ.data) ? cvsQ.data : []),
+    [cvsQ.data]
+  );
+  const selectedCv = useMemo(
+    () => cvItems.find((cv) => cv.cv_id === selectedCvId) || cvItems[0],
+    [cvItems, selectedCvId]
+  );
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
@@ -45,7 +52,7 @@ const CVLabPage: React.FC = () => {
       <div className="glass-card p-4">
         <h2 className="mb-3 text-xl font-semibold">CV Preview</h2>
         <div className="space-y-2">
-          {cvsQ.data?.map((cv) => (
+          {cvItems.map((cv) => (
             <button key={cv.cv_id} onClick={() => setSelectedCvId(cv.cv_id)} className={`w-full rounded-xl border p-3 text-left ${selectedCv?.cv_id === cv.cv_id ? "border-[var(--accent)]" : "border-[var(--border)]"}`}>
               {cv.title}
             </button>

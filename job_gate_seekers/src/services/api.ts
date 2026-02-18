@@ -80,7 +80,11 @@ export const seekerApi = {
 
   listCVs: async () => {
     const res = await api.get<ApiEnvelope<CVItem[]>>("/jop_seeker/profile/cv");
-    return unwrap(res.data) || [];
+    const payload = unwrap<any>(res.data);
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.cvs)) return payload.cvs;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
   uploadCV: async (payload: FormData) => {
     const res = await api.put("/jop_seeker/profile/cv", payload, {
