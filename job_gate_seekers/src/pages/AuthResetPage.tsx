@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import AuthLayout from "../components/layout/AuthLayout";
 import { seekerApi } from "../services/api";
+import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
 
 const AuthResetPage: React.FC = () => {
@@ -10,6 +11,7 @@ const AuthResetPage: React.FC = () => {
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const { t } = useLanguage();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,24 +19,24 @@ const AuthResetPage: React.FC = () => {
     setMessage("");
     try {
       await seekerApi.resetPassword({ email, token, newPassword });
-      setMessage("Password reset completed.");
+      setMessage(t("passwordResetDone"));
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, "Failed"));
+      setError(getApiErrorMessage(err, t("authFailed")));
     }
   };
 
   return (
-    <AuthLayout title="Reset Password">
+    <AuthLayout title={t("resetPassword")}>
       <form onSubmit={submit} className="space-y-3">
-        <input className="field" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input className="field" placeholder="Reset Token" value={token} onChange={(e) => setToken(e.target.value)} />
-        <input className="field" placeholder="New Password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+        <input className="field" placeholder={t("email")} value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input className="field" placeholder={t("resetToken")} value={token} onChange={(e) => setToken(e.target.value)} />
+        <input className="field" placeholder={t("newPassword")} type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
         {message && <p className="text-sm text-emerald-400">{message}</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
-        <button className="btn-primary w-full">Reset password</button>
+        <button className="btn-primary w-full">{t("resetPasswordBtn")}</button>
       </form>
       <div className="mt-4 text-sm text-[var(--text-muted)]">
-        <Link to="/auth/login">Back to login</Link>
+        <Link to="/auth/login">{t("backToLogin")}</Link>
       </div>
     </AuthLayout>
   );

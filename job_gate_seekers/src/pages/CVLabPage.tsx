@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
+import { useLanguage } from "../contexts/LanguageContext";
 
 const weakTerms = ["responsible for", "helped", "worked on", "tasked with"];
 const strongTerms = ["led", "delivered", "optimized", "increased", "built"];
@@ -10,20 +11,15 @@ const CVLabPage: React.FC = () => {
   const [text, setText] = useState("");
   const [analysis, setAnalysis] = useState<any>(null);
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
 
   const cvsQ = useQuery({ queryKey: ["cvs"], queryFn: seekerApi.listCVs });
-  const cvItems = useMemo(
-    () => (Array.isArray(cvsQ.data) ? cvsQ.data : []),
-    [cvsQ.data]
-  );
-  const selectedCv = useMemo(
-    () => cvItems.find((cv) => cv.cv_id === selectedCvId) || cvItems[0],
-    [cvItems, selectedCvId]
-  );
+  const cvItems = useMemo(() => (Array.isArray(cvsQ.data) ? cvsQ.data : []), [cvsQ.data]);
+  const selectedCv = useMemo(() => cvItems.find((cv) => cv.cv_id === selectedCvId) || cvItems[0], [cvItems, selectedCvId]);
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedCv) throw new Error("Select CV first");
+      if (!selectedCv) throw new Error(t("selectCvFirst"));
       return seekerApi.getCvAnalysis(selectedCv.cv_id);
     },
     onSuccess: (data) => setAnalysis(data),
@@ -50,7 +46,7 @@ const CVLabPage: React.FC = () => {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="glass-card p-4">
-        <h2 className="mb-3 text-xl font-semibold">CV Preview</h2>
+        <h2 className="mb-3 text-xl font-semibold">{t("cvPreview")}</h2>
         <div className="space-y-2">
           {cvItems.map((cv) => (
             <button key={cv.cv_id} onClick={() => setSelectedCvId(cv.cv_id)} className={`w-full rounded-xl border p-3 text-left ${selectedCv?.cv_id === cv.cv_id ? "border-[var(--accent)]" : "border-[var(--border)]"}`}>
@@ -60,31 +56,29 @@ const CVLabPage: React.FC = () => {
         </div>
         <div className="mt-3 flex gap-2">
           <label className="btn-ghost cursor-pointer">
-            Upload CV
+            {t("uploadCv")}
             <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && uploadMutation.mutate(e.target.files[0])} />
           </label>
-          {selectedCv && <button className="btn-ghost" onClick={() => deleteMutation.mutate(selectedCv.cv_id)}>Delete CV</button>}
-          <button className="btn-primary" onClick={() => analyzeMutation.mutate()}>
-            Analyze
-          </button>
+          {selectedCv && <button className="btn-ghost" onClick={() => deleteMutation.mutate(selectedCv.cv_id)}>{t("deleteCv")}</button>}
+          <button className="btn-primary" onClick={() => analyzeMutation.mutate()}>{t("analyze")}</button>
         </div>
       </div>
 
       <div className="glass-card p-4">
-        <h2 className="mb-3 text-xl font-semibold">AI Recommendations</h2>
-        <textarea className="field min-h-[180px]" value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste bullet points for live phrasing feedback..." />
+        <h2 className="mb-3 text-xl font-semibold">{t("aiRecommendations")}</h2>
+        <textarea className="field min-h-[180px]" value={text} onChange={(e) => setText(e.target.value)} placeholder={t("pasteBulletsPlaceholder")} />
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-red-500/40 p-3 text-sm">
-            <p className="font-semibold text-red-400">Weak Phrasing</p>
-            <p>{weakFound.length ? weakFound.join(", ") : "No weak phrases detected"}</p>
+            <p className="font-semibold text-red-400">{t("weakPhrasing")}</p>
+            <p>{weakFound.length ? weakFound.join(", ") : t("noWeakPhrases")}</p>
           </div>
           <div className="rounded-xl border border-emerald-500/40 p-3 text-sm">
-            <p className="font-semibold text-emerald-400">Strong Impact</p>
-            <p>{strongFound.length ? strongFound.join(", ") : "Add stronger impact verbs"}</p>
+            <p className="font-semibold text-emerald-400">{t("strongImpact")}</p>
+            <p>{strongFound.length ? strongFound.join(", ") : t("addImpactVerbs")}</p>
           </div>
         </div>
         <div className="mt-4 rounded-xl border border-[var(--border)] p-3 text-xs text-[var(--text-muted)]">
-          Template switcher: use AI Consultant export for PDF/DOCX generation.
+          {t("templateSwitcherNote")}
         </div>
         {analysis && <pre className="mt-3 max-h-52 overflow-auto rounded-xl border border-[var(--border)] p-3 text-xs">{JSON.stringify(analysis, null, 2)}</pre>}
       </div>

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/layout/AuthLayout";
 import { seekerApi } from "../services/api";
+import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
 import { setSession } from "../utils/auth";
 
@@ -13,6 +14,7 @@ const AuthRegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,24 +25,24 @@ const AuthRegisterPage: React.FC = () => {
       setSession(res.token, res.user);
       navigate("/pulse", { replace: true });
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, "Registration failed"));
+      setError(getApiErrorMessage(err, t("registrationFailed")));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AuthLayout title="Create Job Seeker Account" subtitle="From registration to applications in one workflow.">
+    <AuthLayout title={t("createJobSeekerAccount")} subtitle={t("registrationWorkflow")}>
       <form onSubmit={submit} className="space-y-3">
-        <input className="field" placeholder="Full name" value={full_name} onChange={(e) => setName(e.target.value)} />
-        <input className="field" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input className="field" placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        <input className="field" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input className="field" placeholder={t("fullName")} value={full_name} onChange={(e) => setName(e.target.value)} />
+        <input className="field" placeholder={t("email")} value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input className="field" placeholder={t("phone")} value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <input className="field" placeholder={t("password")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         {error && <p className="text-sm text-red-400">{error}</p>}
-        <button className="btn-primary w-full" disabled={loading}>{loading ? "..." : "Create account"}</button>
+        <button className="btn-primary w-full" disabled={loading}>{loading ? "..." : t("createAccount")}</button>
       </form>
       <div className="mt-4 text-sm text-[var(--text-muted)]">
-        <Link to="/auth/login">Already have an account?</Link>
+        <Link to="/auth/login">{t("alreadyHaveAccount")}</Link>
       </div>
     </AuthLayout>
   );

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
+import { useLanguage } from "../contexts/LanguageContext";
 import { getStoredUser } from "../utils/auth";
 
 const PulseInsightsCharts = lazy(
@@ -9,6 +10,7 @@ const PulseInsightsCharts = lazy(
 
 const PulsePage: React.FC = () => {
   const user = getStoredUser();
+  const { t } = useLanguage();
   const [appsQ, cvsQ, jobsQ] = useQueries({
     queries: [
       { queryKey: ["apps"], queryFn: seekerApi.listApplications, retry: false },
@@ -50,12 +52,13 @@ const PulsePage: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="glass-card p-6">
-        <p className="text-sm text-[var(--text-muted)]">Good morning, {user?.full_name || "Seeker"}.</p>
-        <h1 className="mt-2 text-2xl font-bold">Your profile is a {atsScore}% Match for {matchRoles} new roles.</h1>
+        <p className="text-sm text-[var(--text-muted)]">{t("goodMorning")}, {user?.full_name || t("seeker")}.</p>
+        <h1 className="mt-2 text-2xl font-bold">{t("profileMatchPrefix")} {atsScore}% {t("profileMatchMiddle")} {matchRoles} {t("profileMatchSuffix")}</h1>
       </div>
 
       <Suspense fallback={<PulseChartsSkeleton />}>
         <PulseInsightsCharts
+          t={t}
           atsScore={atsScore}
           funnel={funnel}
           radarData={radarData}

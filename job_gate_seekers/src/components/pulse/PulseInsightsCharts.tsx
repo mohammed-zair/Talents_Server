@@ -12,6 +12,7 @@ import {
 } from "recharts";
 
 type Props = {
+  t: (key: string) => string;
   atsScore: number;
   funnel: {
     applied: number;
@@ -25,11 +26,11 @@ type Props = {
   }>;
 };
 
-const PulseInsightsCharts: React.FC<Props> = ({ atsScore, funnel, radarData }) => {
+const PulseInsightsCharts: React.FC<Props> = ({ t, atsScore, funnel, radarData }) => {
   return (
     <div className="grid gap-4 xl:grid-cols-3">
       <div className="glass-card p-4">
-        <h2 className="mb-2 font-semibold">ATS Health</h2>
+        <h2 className="mb-2 font-semibold">{t("atsHealth")}</h2>
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart
@@ -45,30 +46,30 @@ const PulseInsightsCharts: React.FC<Props> = ({ atsScore, funnel, radarData }) =
           </ResponsiveContainer>
         </div>
         <p className="text-center text-sm text-[var(--text-muted)]">
-          Current CV strength: {atsScore}/100
+          {t("currentCvStrength")}: {atsScore}/100
         </p>
       </div>
 
       <div className="glass-card p-4">
-        <h2 className="mb-2 font-semibold">Application Funnel</h2>
+        <h2 className="mb-2 font-semibold">{t("applicationFunnel")}</h2>
         <div className="space-y-3">
           <div className="funnel-bar">
-            <span>Applied</span>
+            <span>{t("applied")}</span>
             <b>{funnel.applied}</b>
           </div>
           <div className="funnel-bar">
-            <span>Interview</span>
+            <span>{t("interview")}</span>
             <b>{funnel.interview}</b>
           </div>
           <div className="funnel-bar">
-            <span>Offer</span>
+            <span>{t("offer")}</span>
             <b>{funnel.offer}</b>
           </div>
         </div>
       </div>
 
       <div className="glass-card p-4">
-        <h2 className="mb-2 font-semibold">Skill Radar</h2>
+        <h2 className="mb-2 font-semibold">{t("skillRadar")}</h2>
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart data={radarData}>
@@ -76,14 +77,14 @@ const PulseInsightsCharts: React.FC<Props> = ({ atsScore, funnel, radarData }) =
               <PolarAngleAxis dataKey="skill" />
               <PolarRadiusAxis angle={30} domain={[0, 100]} />
               <Radar
-                name="Seeker"
+                name={t("seeker")}
                 dataKey="seeker"
                 stroke="var(--accent)"
                 fill="var(--accent)"
                 fillOpacity={0.35}
               />
               <Radar
-                name="Market"
+                name={t("marketLabel")}
                 dataKey="market"
                 stroke="var(--accent-2)"
                 fill="var(--accent-2)"

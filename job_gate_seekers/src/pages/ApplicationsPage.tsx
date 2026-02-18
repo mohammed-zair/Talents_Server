@@ -1,6 +1,7 @@
-import React, { useMemo } from "react";
+﻿import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
+import { useLanguage } from "../contexts/LanguageContext";
 
 const ApplicationsPage: React.FC = () => {
   const appsQ = useQuery({
@@ -9,19 +10,20 @@ const ApplicationsPage: React.FC = () => {
     retry: false,
   });
   const appItems = useMemo(() => (Array.isArray(appsQ.data) ? appsQ.data : []), [appsQ.data]);
+  const { t } = useLanguage();
 
   return (
     <div className="space-y-4">
       <div className="glass-card p-5">
-        <h1 className="text-2xl font-bold">Applications</h1>
+        <h1 className="text-2xl font-bold">{t("applicationsTitle")}</h1>
       </div>
       <div className="grid gap-3">
         {appItems.map((a: any) => (
           <div key={a.application_id} className="glass-card p-4">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="font-semibold">{a.JobPosting?.title || `Application #${a.application_id}`}</p>
-                <p className="text-sm text-[var(--text-muted)]">{a.JobPosting?.Company?.name || "Company"}</p>
+                <p className="font-semibold">{a.JobPosting?.title || `${t("applicationFallback")} #${a.application_id}`}</p>
+                <p className="text-sm text-[var(--text-muted)]">{a.JobPosting?.Company?.name || t("company")}</p>
               </div>
               <span className="badge">{a.status}</span>
             </div>

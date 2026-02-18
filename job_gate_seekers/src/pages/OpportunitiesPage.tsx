@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -6,7 +6,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 const PAGE_SIZE = 8;
 
 const OpportunitiesPage: React.FC = () => {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const queryClient = useQueryClient();
   const [actionMsg, setActionMsg] = useState("");
 
@@ -29,7 +29,7 @@ const OpportunitiesPage: React.FC = () => {
   const quickApply = useMutation({
     mutationFn: async (job: any) => {
       const cv = cvsQ.data?.[0];
-      if (!cv) throw new Error("Upload CV first in CV Lab");
+      if (!cv) throw new Error(t("uploadCvFirst"));
       await seekerApi.generatePitch({ cv_id: cv.cv_id, job_id: job.job_id, language });
       const fd = new FormData();
       fd.append("job_id", String(job.job_id));
@@ -38,10 +38,10 @@ const OpportunitiesPage: React.FC = () => {
       return true;
     },
     onSuccess: () => {
-      setActionMsg("Quick apply submitted with Smart Pitch.");
+      setActionMsg(t("quickApplySuccess"));
       queryClient.invalidateQueries({ queryKey: ["apps"] });
     },
-    onError: (e: any) => setActionMsg(e?.message || "Quick apply failed"),
+    onError: (e: any) => setActionMsg(e?.message || t("quickApplyFailed")),
   });
 
   const jobs = useMemo(() => jobsQ.data?.pages.flatMap((p) => p.items) || [], [jobsQ.data]);
@@ -49,8 +49,8 @@ const OpportunitiesPage: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="glass-card p-5">
-        <h1 className="text-2xl font-bold">Opportunity Map</h1>
-        <p className="text-sm text-[var(--text-muted)]">Infinite smart cards with Match Intensity and Quick Apply.</p>
+        <h1 className="text-2xl font-bold">{t("opportunitiesTitle")}</h1>
+        <p className="text-sm text-[var(--text-muted)]">{t("opportunitiesSubtitle")}</p>
       </div>
 
       {actionMsg && <div className="glass-card p-3 text-sm">{actionMsg}</div>}
@@ -62,14 +62,14 @@ const OpportunitiesPage: React.FC = () => {
             <div key={job.job_id} className="glass-card card-hover p-4">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-semibold">{job.title}</h3>
-                <span className="badge">Match {match}%</span>
+                <span className="badge">{t("match")} {match}%</span>
               </div>
-              <p className="text-sm text-[var(--text-muted)]">{job.Company?.name || "Company"} • {job.location || "Remote"}</p>
+              <p className="text-sm text-[var(--text-muted)]">{job.Company?.name || t("company")} | {job.location || t("remote")}</p>
               <div className="mt-4 flex gap-2">
                 <button className="btn-primary" onClick={() => quickApply.mutate(job)} disabled={quickApply.isPending}>
-                  Quick Apply
+                  {t("quickApply")}
                 </button>
-                <button className="btn-ghost" onClick={() => seekerApi.saveJob(job.job_id)}>Save</button>
+                <button className="btn-ghost" onClick={() => seekerApi.saveJob(job.job_id)}>{t("save")}</button>
               </div>
             </div>
           );
@@ -78,7 +78,7 @@ const OpportunitiesPage: React.FC = () => {
 
       {jobsQ.hasNextPage && (
         <div className="text-center">
-          <button className="btn-ghost" onClick={() => jobsQ.fetchNextPage()}>Load More</button>
+          <button className="btn-ghost" onClick={() => jobsQ.fetchNextPage()}>{t("loadMore")}</button>
         </div>
       )}
     </div>
