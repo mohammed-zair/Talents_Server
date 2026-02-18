@@ -116,7 +116,11 @@ export const seekerApi = {
 
   listCompanies: async () => {
     const res = await api.get<ApiEnvelope<Company[]>>("/jop_seeker/companies");
-    return unwrap(res.data) || [];
+    const payload = unwrap<any>(res.data);
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.companies)) return payload.companies;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   },
   getCompanyDetails: async (id: number) => {
     const res = await api.get<ApiEnvelope<Company>>(`/jop_seeker/companies/${id}`);

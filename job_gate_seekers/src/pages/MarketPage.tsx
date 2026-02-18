@@ -1,9 +1,13 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
 
 const MarketPage: React.FC = () => {
   const companiesQ = useQuery({ queryKey: ["companies"], queryFn: seekerApi.listCompanies });
+  const companyItems = useMemo(
+    () => (Array.isArray(companiesQ.data) ? companiesQ.data : []),
+    [companiesQ.data]
+  );
 
   return (
     <div className="space-y-4">
@@ -12,7 +16,7 @@ const MarketPage: React.FC = () => {
         <p className="text-sm text-[var(--text-muted)]">Approved-only company discovery with culture signal preview.</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {(companiesQ.data || []).map((c: any) => {
+        {companyItems.map((c: any) => {
           const culture = 65 + ((c.name?.length || 1) % 30);
           return (
             <div key={c.company_id} className="glass-card card-hover p-4">
