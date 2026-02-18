@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/layout/AuthLayout";
 import { seekerApi } from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 import { setSession } from "../utils/auth";
 
 const AuthLoginPage: React.FC = () => {
@@ -19,8 +20,8 @@ const AuthLoginPage: React.FC = () => {
       const res = await seekerApi.login({ email, password });
       setSession(res.token, res.user);
       navigate("/pulse", { replace: true });
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Login failed");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, "Login failed"));
     } finally {
       setLoading(false);
     }

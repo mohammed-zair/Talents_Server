@@ -42,16 +42,59 @@ const corsOrigins = String(process.env.CORS_ORIGIN || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (corsOrigins.length === 0) return callback(null, true);
-      return callback(null, corsOrigins.includes(origin));
-    },
-    credentials: true,
-  })
+const defaultAllowedOrigins = [
+  "https://talents-we-trust.tech",
+  "https://admin.talents-we-trust.tech",
+  "https://companies.talents-we-trust.tech",
+  "https://job-seekers.talents-we-trust.tech",
+];
+
+const configuredOrigins = Array.from(
+  new Set([...defaultAllowedOrigins, ...corsOrigins])
 );
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (configuredOrigins.includes("*")) return true;
+  if (configuredOrigins.includes(origin)) return true;
+
+  try {
+    const requestUrl = new URL(origin);
+    const host = requestUrl.hostname;
+
+    // Support wildcard entries like *.talents-we-trust.tech
+    const wildcardMatch = configuredOrigins.some((entry) => {
+      if (!entry.startsWith("*.")) return false;
+      const baseHost = entry.slice(2).toLowerCase();
+      return host === baseHost || host.endsWith(`.${baseHost}`);
+    });
+    if (wildcardMatch) return true;
+
+    // Always allow local development origins.
+    if (host === "localhost" || host === "127.0.0.1") return true;
+  } catch (_) {
+    return false;
+  }
+
+  return false;
+};
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+
+    const error = new Error(`CORS origin denied: ${origin || "unknown origin"}`);
+    error.name = "CorsOriginDeniedError";
+    return callback(error);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -91,6 +134,14 @@ app.use((req, res) => {
 
 // Error Handler
 app.use((err, req, res, next) => {
+  if (err?.name === "CorsOriginDeniedError" || String(err?.message || "").includes("CORS origin denied")) {
+    return res.status(403).json({
+      message: "CORS policy blocked this origin.",
+      origin: req.headers.origin || null,
+      allowed_origins: configuredOrigins,
+    });
+  }
+
   console.error("Server Error:", err);
   res.status(500).json({
     message: "Internal server error.",

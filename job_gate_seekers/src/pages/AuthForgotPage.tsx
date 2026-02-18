@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import AuthLayout from "../components/layout/AuthLayout";
 import { seekerApi } from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 
 const AuthForgotPage: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -15,8 +16,8 @@ const AuthForgotPage: React.FC = () => {
     try {
       await seekerApi.forgotPassword({ email });
       setMessage("If the email exists, a reset link has been sent.");
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed");
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, "Failed"));
     }
   };
 
