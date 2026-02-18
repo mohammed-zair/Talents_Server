@@ -148,8 +148,19 @@ app.use((err, req, res, next) => {
   });
 });
 
-const DB_SYNC_FORCE = process.env.DB_SYNC_FORCE === "true";
-const DB_SYNC_ALTER = process.env.DB_SYNC_ALTER === "true";
+const isProduction = process.env.NODE_ENV === "production";
+const requestedForce = process.env.DB_SYNC_FORCE === "true";
+const requestedAlter = process.env.DB_SYNC_ALTER === "true";
+
+// Guard production from destructive/unstable sync behavior.
+const DB_SYNC_FORCE = isProduction ? false : requestedForce;
+const DB_SYNC_ALTER = isProduction ? false : requestedAlter;
+
+if (isProduction && (requestedForce || requestedAlter)) {
+  console.warn(
+    "DB sync force/alter requested in production; overriding to false for safety."
+  );
+}
 
 const ensureUserTypeEnum = async () => {
   const queryInterface = sequelize.getQueryInterface();
