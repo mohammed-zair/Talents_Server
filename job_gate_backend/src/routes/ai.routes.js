@@ -24,6 +24,12 @@ router.post(
   aiController.analyzeCVFile
 );
 
+// Analyze existing uploaded CV by id
+router.post("/cv/analyze/:cvId",
+  verifyToken,
+  aiController.analyzeExistingCV
+);
+
 // Ø¨Ø¯Ø¡ Ù…Ø­Ø§Ø¯Ø«Ø© chatbot
 router.post("/chatbot/start", 
   verifyToken, 
