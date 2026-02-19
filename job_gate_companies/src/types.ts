@@ -46,6 +46,7 @@ export interface JobPosting {
   industry?: string;
   description?: string;
   requirements?: string;
+  jobImageUrl?: string | null;
   status: "open" | "closed" | "paused";
   applicants: number;
   createdAt: string;

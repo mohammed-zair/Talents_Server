@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { FilePlus2, Pencil, Trash2 } from "lucide-react";
+import { Briefcase, FilePlus2, Pencil, Trash2 } from "lucide-react";
+import Cropper from "react-easy-crop";
 import SectionHeader from "../components/shared/SectionHeader";
 import Card from "../components/shared/Card";
 import ToggleSwitch from "../components/shared/ToggleSwitch";
@@ -21,6 +22,46 @@ const createQuestionId = () => {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const createImage = (url: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", (error) => reject(error));
+    image.setAttribute("crossOrigin", "anonymous");
+    image.src = url;
+  });
+
+const getCroppedFile = async (
+  imageSrc: string,
+  crop: { width: number; height: number; x: number; y: number },
+  fileName: string
+) => {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas context unavailable");
+
+  canvas.width = crop.width;
+  canvas.height = crop.height;
+
+  ctx.drawImage(
+    image,
+    crop.x,
+    crop.y,
+    crop.width,
+    crop.height,
+    0,
+    0,
+    crop.width,
+    crop.height
+  );
+
+  const blob: Blob = await new Promise((resolve) =>
+    canvas.toBlob((b) => resolve(b as Blob), "image/jpeg", 0.92)
+  );
+  return new File([blob], fileName, { type: "image/jpeg" });
 };
 
 const JobsCommandGrid: React.FC = () => {
@@ -47,6 +88,20 @@ const JobsCommandGrid: React.FC = () => {
     salaryMin: "",
     salaryMax: "",
   });
+  const [jobImageFile, setJobImageFile] = useState<File | null>(null);
+  const [jobImagePreview, setJobImagePreview] = useState<string | null>(null);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropTarget, setCropTarget] = useState<"create" | "edit" | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [cropAreaPixels, setCropAreaPixels] = useState<{
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const draftStorageKey = "twt-job-form-draft";
 
   useEffect(() => {
@@ -78,38 +133,75 @@ const JobsCommandGrid: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (!jobImageFile) {
+      setJobImagePreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(jobImageFile);
+    setJobImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [jobImageFile]);
+
+  useEffect(() => {
+    if (!editImageFile) return;
+    const url = URL.createObjectURL(editImageFile);
+    setEditImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [editImageFile]);
+
+  const onCropComplete = useCallback((_: any, croppedPixels: any) => {
+    setCropAreaPixels(croppedPixels);
+  }, []);
+
+  const openCropper = useCallback((file: File, target: "create" | "edit") => {
+    const url = URL.createObjectURL(file);
+    setCropSrc(url);
+    setCropTarget(target);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCropAreaPixels(null);
+  }, []);
+
+  useEffect(() => {
+    if (!cropSrc) return;
+    return () => URL.revokeObjectURL(cropSrc);
+  }, [cropSrc]);
+
   const toggleJob = useMutation({
     mutationFn: companyApi.toggleJobPosting,
     onSuccess: () => {
-      toast.success(language === "ar" ? "تم تحديث حالة الوظيفة" : "Job toggled successfully");
+      toast.success(language === "ar" ? "?? ????? ???? ???????" : "Job toggled successfully");
       queryClient.invalidateQueries({ queryKey: ["company-jobs"] });
     },
     onError: () =>
-      toast.error(language === "ar" ? "تعذر تحديث الحالة" : "Failed to toggle job"),
+      toast.error(language === "ar" ? "???? ????? ??????" : "Failed to toggle job"),
   });
 
   const deleteJob = useMutation({
     mutationFn: companyApi.deleteJobPosting,
     onSuccess: () => {
-      toast.success(language === "ar" ? "تم حذف الوظيفة" : "Job deleted");
+      toast.success(language === "ar" ? "?? ??? ???????" : "Job deleted");
       queryClient.invalidateQueries({ queryKey: ["company-jobs"] });
       setDeleteTarget(null);
       setDeleteConfirm("");
     },
     onError: () =>
-      toast.error(language === "ar" ? "تعذر حذف الوظيفة" : "Failed to delete job"),
+      toast.error(language === "ar" ? "???? ??? ???????" : "Failed to delete job"),
   });
 
   const updateJob = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<JobPosting> }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: FormData }) =>
       companyApi.updateJobPosting(id, payload),
     onSuccess: () => {
-      toast.success(language === "ar" ? "تم تحديث الوظيفة" : "Job updated");
+      toast.success(language === "ar" ? "?? ????? ???????" : "Job updated");
       queryClient.invalidateQueries({ queryKey: ["company-jobs"] });
       setEditJob(null);
+      setEditImageFile(null);
+      setEditImagePreview(null);
     },
     onError: () =>
-      toast.error(language === "ar" ? "تعذر تحديث الوظيفة" : "Failed to update job"),
+      toast.error(language === "ar" ? "???? ????? ???????" : "Failed to update job"),
   });
 
   const recalculateInsights = useMutation({
@@ -117,14 +209,14 @@ const JobsCommandGrid: React.FC = () => {
     onSuccess: () => {
       toast.success(
         language === "ar"
-          ? "تم بدء تحديث النتائج"
+          ? "?? ??? ????? ???????"
           : "AI insights refresh started"
       );
     },
     onError: () =>
       toast.error(
         language === "ar"
-          ? "تعذر تحديث النتائج"
+          ? "???? ????? ???????"
           : "Failed to refresh AI insights"
       ),
   });
@@ -133,7 +225,7 @@ const JobsCommandGrid: React.FC = () => {
     mutationFn: (payload: FormData) => companyApi.createJobPosting(payload),
     onSuccess: () => {
       toast.success(
-        language === "ar" ? "تم نشر الوظيفة والنموذج" : "Job + form published"
+        language === "ar" ? "?? ??? ??????? ????????" : "Job + form published"
       );
       setJobForm(emptyJobForm);
       setRequireCv(true);
@@ -146,13 +238,15 @@ const JobsCommandGrid: React.FC = () => {
         salaryMin: "",
         salaryMax: "",
       });
+      setJobImageFile(null);
+      setJobImagePreview(null);
       if (typeof window !== "undefined") {
         window.localStorage.removeItem(draftStorageKey);
       }
       queryClient.invalidateQueries({ queryKey: ["company-jobs"] });
     },
     onError: () =>
-      toast.error(language === "ar" ? "تعذر نشر الوظيفة" : "Failed to publish job"),
+      toast.error(language === "ar" ? "???? ??? ???????" : "Failed to publish job"),
   });
 
   const bulkToggle = () => {
@@ -220,6 +314,35 @@ const JobsCommandGrid: React.FC = () => {
     }));
   };
 
+  const handleImagePick = (file: File | null, target: "create" | "edit") => {
+    if (!file) return;
+    openCropper(file, target);
+  };
+
+  const handleCropConfirm = async () => {
+    if (!cropSrc || !cropAreaPixels || !cropTarget) return;
+    try {
+      const croppedFile = await getCroppedFile(cropSrc, cropAreaPixels, "job-image.jpg");
+      if (cropTarget === "create") {
+        setJobImageFile(croppedFile);
+      } else {
+        setEditImageFile(croppedFile);
+      }
+    } catch (error) {
+      console.error("Failed to crop image", error);
+    } finally {
+      setCropSrc(null);
+      setCropTarget(null);
+      setCropAreaPixels(null);
+    }
+  };
+
+  const handleCropCancel = () => {
+    setCropSrc(null);
+    setCropTarget(null);
+    setCropAreaPixels(null);
+  };
+
   const handleOptionRemove = (qIndex: number, oIndex: number) => {
     setJobForm((prev) => ({
       ...prev,
@@ -252,6 +375,9 @@ const JobsCommandGrid: React.FC = () => {
       jobLocationLabel: "Location",
       jobSalaryMinLabel: "Min salary (optional)",
       jobSalaryMaxLabel: "Max salary (optional)",
+      jobImageLabel: "Job image (optional)",
+      jobImageHint: "Square image looks best.",
+      jobImageDrop: "Drag & drop or click to upload",
       requireCv: "Require CV upload",
       addText: "Add Text Question",
       addMulti: "Add Multiple Choice",
@@ -280,6 +406,9 @@ const JobsCommandGrid: React.FC = () => {
       jobLocationLabel: "الموقع",
       jobSalaryMinLabel: "أدنى راتب (اختياري)",
       jobSalaryMaxLabel: "أعلى راتب (اختياري)",
+      jobImageLabel: "صورة الوظيفة (اختياري)",
+      jobImageHint: "الصورة المربعة تظهر بشكل أفضل.",
+      jobImageDrop: "اسحب وأسقط أو اضغط للرفع",
       requireCv: "يتطلب رفع السيرة",
       addText: "إضافة سؤال نصي",
       addMulti: "إضافة اختيار متعدد",
@@ -344,13 +473,26 @@ const JobsCommandGrid: React.FC = () => {
                         )
                       }
                     />
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">
-                        {job.title}
-                      </p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {job.department} · {job.location}
-                      </p>
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]">
+                        {job.jobImageUrl ? (
+                          <img
+                            src={job.jobImageUrl}
+                            alt={job.title}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Briefcase size={20} className="text-[var(--text-muted)]" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">
+                          {job.title}
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {job.department} · {job.location}
+                        </p>
+                      </div>
                     </div>
                   </label>
                   <ToggleSwitch
@@ -362,7 +504,7 @@ const JobsCommandGrid: React.FC = () => {
                   <span>
                     {job.applicants} {copy.applicants}
                   </span>
-                  <span>{language === "ar" ? "تم الإنشاء" : "Created"} {job.createdAt}</span>
+                  <span>{language === "ar" ? "?? ???????" : "Created"} {job.createdAt}</span>
                 </div>
                 <div className="mt-4 flex gap-2">
                   <Button
@@ -432,7 +574,7 @@ const JobsCommandGrid: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-xs text-[var(--text-muted)]" htmlFor="job-industry">
-                  {language === "ar" ? "الصناعة" : "Industry"}
+                  {language === "ar" ? "???????" : "Industry"}
                 </label>
                 <input
                   id="job-industry"
@@ -441,7 +583,7 @@ const JobsCommandGrid: React.FC = () => {
                     setJobDraft((prev) => ({ ...prev, industry: event.target.value }))
                   }
                   name="jobIndustry"
-                  aria-label={language === "ar" ? "الصناعة" : "Industry"}
+                  aria-label={language === "ar" ? "???????" : "Industry"}
                   className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 />
               </div>
@@ -508,6 +650,36 @@ const JobsCommandGrid: React.FC = () => {
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="job-image">
+                  {copy.jobImageLabel}
+                </label>
+                <div
+                  className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-6 text-center"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleImagePick(event.dataTransfer.files?.[0] || null, "create");
+                  }}
+                >
+                  <input
+                    id="job-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => handleImagePick(event.target.files?.[0] || null, "create")}
+                    className="hidden"
+                  />
+                  <label htmlFor="job-image" className="cursor-pointer text-xs text-[var(--text-muted)]">
+                    {copy.jobImageDrop}
+                  </label>
+                  <span className="text-[10px] text-[var(--text-muted)]">{copy.jobImageHint}</span>
+                </div>
+                {jobImagePreview && (
+                  <div className="mt-2 h-28 w-28 overflow-hidden rounded-2xl border border-[var(--panel-border)]">
+                    <img src={jobImagePreview} alt="Job" className="h-full w-full object-cover" />
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2 md:col-span-2">
                 <label className="text-xs text-[var(--text-muted)]" htmlFor="form-require-cv">
                   {copy.requireCv}
                 </label>
@@ -541,11 +713,11 @@ const JobsCommandGrid: React.FC = () => {
                       onClick={() => handleQuestionRemove(index)}
                       className="rounded-lg border border-[var(--panel-border)] px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                     >
-                      {language === "ar" ? "حذف" : "Remove"}
+                      {language === "ar" ? "???" : "Remove"}
                     </button>
                   </div>
                   <p className="mt-2 text-xs text-[var(--text-muted)]">
-                    {language === "ar" ? "النوع" : "Type"}: {question.type}
+                    {language === "ar" ? "?????" : "Type"}: {question.type}
                   </p>
                   {question.type === "multi" && (
                     <div className="mt-3 space-y-2">
@@ -558,7 +730,7 @@ const JobsCommandGrid: React.FC = () => {
                             }
                             className="w-full rounded-lg border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)] outline-none"
                             placeholder={
-                              language === "ar" ? "خيار" : `Option ${oIndex + 1}`
+                              language === "ar" ? "????" : `Option ${oIndex + 1}`
                             }
                           />
                           <button
@@ -571,7 +743,7 @@ const JobsCommandGrid: React.FC = () => {
                         </div>
                       ))}
                       <Button variant="outline" onClick={() => handleOptionAdd(index)}>
-                        {language === "ar" ? "إضافة خيار" : "Add Option"}
+                        {language === "ar" ? "????? ????" : "Add Option"}
                       </Button>
                     </div>
                   )}
@@ -626,6 +798,9 @@ const JobsCommandGrid: React.FC = () => {
                 if (jobDraft.salaryMax.trim()) {
                   payload.append("salary_max", jobDraft.salaryMax.trim());
                 }
+                if (jobImageFile) {
+                  payload.append("job_image", jobImageFile);
+                }
                 payload.append("form_type", "internal_form");
                 payload.append("require_cv", String(requireCv));
                 payload.append(
@@ -648,15 +823,63 @@ const JobsCommandGrid: React.FC = () => {
         </div>
       </Card>
 
+      {cropSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+          <div className="glass-card w-full max-w-xl rounded-3xl border p-6">
+            <h3 className="heading-serif text-xl text-[var(--text-primary)]">
+              {language === "ar" ? "قص الصورة" : "Crop image"}
+            </h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
+              {language === "ar"
+                ? "اضبط المربع ليغطي أهم جزء."
+                : "Adjust the square to focus on the key area."}
+            </p>
+            <div className="relative mt-4 h-72 w-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-black/40">
+              <Cropper
+                image={cropSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <span className="text-xs text-[var(--text-muted)]">
+                {language === "ar" ? "تكبير" : "Zoom"}
+              </span>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.05}
+                value={zoom}
+                onChange={(event) => setZoom(Number(event.target.value))}
+                className="w-full"
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="ghost" onClick={handleCropCancel}>
+                {language === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button onClick={handleCropConfirm}>
+                {language === "ar" ? "اعتماد الصورة" : "Use image"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6">
           <div className="glass-card w-full max-w-md rounded-3xl border border-red-300 p-6 shadow-[0_0_40px_rgba(248,113,113,0.4)]">
             <h3 className="heading-serif text-xl text-[var(--text-primary)]">
-              {language === "ar" ? "حذف الوظيفة؟" : "Delete Job Posting?"}
+              {language === "ar" ? "??? ????????" : "Delete Job Posting?"}
             </h3>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
               {language === "ar"
-                ? "للتأكيد اكتب DELETE ثم اضغط حذف."
+                ? "??????? ???? DELETE ?? ???? ???."
                 : "Type DELETE to confirm, then delete the job."}
             </p>
             <input
@@ -672,14 +895,14 @@ const JobsCommandGrid: React.FC = () => {
                   setDeleteConfirm("");
                 }}
               >
-                {language === "ar" ? "إلغاء" : "Cancel"}
+                {language === "ar" ? "?????" : "Cancel"}
               </Button>
               <Button
                 onClick={() => deleteTarget && deleteJob.mutate(deleteTarget)}
                 disabled={deleteConfirm !== "DELETE"}
                 className="bg-red-500 text-white hover:bg-red-600"
               >
-                {language === "ar" ? "حذف الوظيفة" : "Delete Job"}
+                {language === "ar" ? "??? ???????" : "Delete Job"}
               </Button>
             </div>
           </div>
@@ -690,15 +913,15 @@ const JobsCommandGrid: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6">
           <div className="glass-card w-full max-w-lg rounded-3xl border p-6">
             <h3 className="heading-serif text-xl text-[var(--text-primary)]">
-              {language === "ar" ? "تحديث تفاصيل الوظيفة" : "Update Job Details"}
+              {language === "ar" ? "????? ?????? ???????" : "Update Job Details"}
             </h3>
             <div className="mt-4 space-y-3">
               <input
                 value={editForm.title ?? ""}
                 onChange={(event) => setEditForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder={language === "ar" ? "عنوان الوظيفة" : "Job title"}
+                placeholder={language === "ar" ? "????? ???????" : "Job title"}
                 name="editJobTitle"
-                aria-label={language === "ar" ? "عنوان الوظيفة" : "Job title"}
+                aria-label={language === "ar" ? "????? ???????" : "Job title"}
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
               />
               <input
@@ -706,9 +929,9 @@ const JobsCommandGrid: React.FC = () => {
                 onChange={(event) =>
                   setEditForm((prev) => ({ ...prev, department: event.target.value }))
                 }
-                placeholder={language === "ar" ? "القسم" : "Department"}
+                placeholder={language === "ar" ? "?????" : "Department"}
                 name="editDepartment"
-                aria-label={language === "ar" ? "القسم" : "Department"}
+                aria-label={language === "ar" ? "?????" : "Department"}
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
               />
               <input
@@ -716,23 +939,64 @@ const JobsCommandGrid: React.FC = () => {
                 onChange={(event) =>
                   setEditForm((prev) => ({ ...prev, industry: event.target.value }))
                 }
-                placeholder={language === "ar" ? "الصناعة" : "Industry"}
+                placeholder={language === "ar" ? "???????" : "Industry"}
                 name="editIndustry"
-                aria-label={language === "ar" ? "الصناعة" : "Industry"}
+                aria-label={language === "ar" ? "???????" : "Industry"}
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
               />
               <input
                 value={editForm.location ?? ""}
                 onChange={(event) => setEditForm((prev) => ({ ...prev, location: event.target.value }))}
-                placeholder={language === "ar" ? "الموقع" : "Location"}
+                placeholder={language === "ar" ? "??????" : "Location"}
                 name="editLocation"
-                aria-label={language === "ar" ? "الموقع" : "Location"}
+                aria-label={language === "ar" ? "??????" : "Location"}
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
               />
+              <div className="space-y-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="edit-job-image">
+                  {copy.jobImageLabel}
+                </label>
+                <div
+                  className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-6 text-center"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleImagePick(event.dataTransfer.files?.[0] || null, "edit");
+                  }}
+                >
+                  <input
+                    id="edit-job-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => handleImagePick(event.target.files?.[0] || null, "edit")}
+                    className="hidden"
+                  />
+                  <label htmlFor="edit-job-image" className="cursor-pointer text-xs text-[var(--text-muted)]">
+                    {copy.jobImageDrop}
+                  </label>
+                  <span className="text-[10px] text-[var(--text-muted)]">{copy.jobImageHint}</span>
+                </div>
+                {(editImagePreview || editJob?.jobImageUrl) && (
+                  <div className="h-28 w-28 overflow-hidden rounded-2xl border border-[var(--panel-border)]">
+                    <img
+                      src={editImagePreview || editJob?.jobImageUrl || ""}
+                      alt={editJob?.title || "Job"}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setEditJob(null)}>
-                {language === "ar" ? "إلغاء" : "Cancel"}
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setEditJob(null);
+                  setEditImageFile(null);
+                  setEditImagePreview(null);
+                }}
+              >
+                {language === "ar" ? "?????" : "Cancel"}
               </Button>
               <Button
                 variant="outline"
@@ -741,18 +1005,24 @@ const JobsCommandGrid: React.FC = () => {
               >
                 {recalculateInsights.isPending
                   ? language === "ar"
-                    ? "جاري التحديث..."
+                    ? "???? ???????..."
                     : "Refreshing..."
                   : language === "ar"
-                    ? "إعادة حساب النتائج"
+                    ? "????? ???? ???????"
                     : "Recalculate AI Insights"}
               </Button>
               <Button
-                onClick={() =>
-                  updateJob.mutate({ id: editJob.id, payload: editForm })
-                }
+                onClick={() => {
+                  const payload = new FormData();
+                  if (editForm.title?.trim()) payload.append("title", String(editForm.title).trim());
+                  if (editForm.department?.trim()) payload.append("department", String(editForm.department).trim());
+                  if (editForm.industry?.trim()) payload.append("industry", String(editForm.industry).trim());
+                  if (editForm.location?.trim()) payload.append("location", String(editForm.location).trim());
+                  if (editImageFile) payload.append("job_image", editImageFile);
+                  updateJob.mutate({ id: editJob.id, payload });
+                }}
               >
-                {language === "ar" ? "حفظ التغييرات" : "Save Changes"}
+                {language === "ar" ? "??? ?????????" : "Save Changes"}
               </Button>
             </div>
           </div>
@@ -763,3 +1033,5 @@ const JobsCommandGrid: React.FC = () => {
 };
 
 export default JobsCommandGrid;
+
+

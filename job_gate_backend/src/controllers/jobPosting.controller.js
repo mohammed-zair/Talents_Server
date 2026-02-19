@@ -284,7 +284,8 @@ exports.updateJobPosting = async (req, res) => {
       'salary_min',
       'salary_max',
       'location',
-      'external_form_url'
+      'external_form_url',
+      'job_image_url'
     ];
     
     const filteredUpdates = {};
@@ -293,6 +294,18 @@ exports.updateJobPosting = async (req, res) => {
         filteredUpdates[field] = updateData[field];
       }
     });
+
+    if (req.file) {
+      const jobImageUrl = `/uploads/jobs/${req.file.filename}`;
+      if (jobPosting.job_image_url) {
+        const existingPath = String(jobPosting.job_image_url || "").replace(/^\/+/, "");
+        const fullPath = path.join(__dirname, "..", "..", existingPath);
+        if (fs.existsSync(fullPath)) {
+          fs.unlink(fullPath, () => {});
+        }
+      }
+      filteredUpdates.job_image_url = jobImageUrl;
+    }
 
     await jobPosting.update(filteredUpdates);
 

@@ -12,6 +12,7 @@ import { clearToken } from "../auth";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000/api";
+const ASSET_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, "");
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -85,6 +86,9 @@ export const companyApi = {
       industry: job.industry ?? "",
       description: job.description ?? "",
       requirements: job.requirements ?? "",
+      jobImageUrl: job.job_image_url
+        ? `${ASSET_BASE_URL}${job.job_image_url}`
+        : job.jobImageUrl ?? null,
       status: job.status ?? "open",
       applicants: Array.isArray(job.Applications)
         ? job.Applications.length
@@ -233,8 +237,10 @@ export const companyApi = {
     const { data } = await api.put("/companies/company/change-password", payload);
     return data;
   },
-  updateJobPosting: async (id: string, payload: Partial<JobPosting>) => {
-    const { data } = await api.put(`/companies/company/job-postings/${id}`, payload);
+  updateJobPosting: async (id: string, payload: FormData) => {
+    const { data } = await api.put(`/companies/company/job-postings/${id}`, payload, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return data;
   },
   recalculateJobInsights: async (id: string) => {

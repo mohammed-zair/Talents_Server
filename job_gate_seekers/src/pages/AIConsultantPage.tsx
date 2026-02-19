@@ -1,5 +1,6 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+﻿﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Briefcase, Loader2, Mic, RefreshCw, Sparkles } from "lucide-react";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
@@ -50,8 +51,12 @@ const AIConsultantPage: React.FC = () => {
   const [showSessions, setShowSessions] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [titleError, setTitleError] = useState("");
+  const [titleSuccess, setTitleSuccess] = useState("");
+  const [sessionSuccess, setSessionSuccess] = useState("");
+  const [exportFormat, setExportFormat] = useState<"pdf" | "docx" | null>(null);
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(SESSION_KEY);
@@ -65,6 +70,31 @@ const AIConsultantPage: React.FC = () => {
       setTitleDraft("");
     }
   }, [sessionId]);
+
+  useEffect(() => {
+    if (sessionId) {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [message]);
+
+  useEffect(() => {
+    if (!titleSuccess) return;
+    const timer = window.setTimeout(() => setTitleSuccess(""), 2000);
+    return () => window.clearTimeout(timer);
+  }, [titleSuccess]);
+
+  useEffect(() => {
+    if (!sessionSuccess) return;
+    const timer = window.setTimeout(() => setSessionSuccess(""), 2500);
+    return () => window.clearTimeout(timer);
+  }, [sessionSuccess]);
 
   const sessionsQ = useQuery({ queryKey: ["chat-sessions"], queryFn: seekerApi.listChatSessions });
   const sessionItems = useMemo(() => (Array.isArray(sessionsQ.data) ? sessionsQ.data : []), [sessionsQ.data]);
@@ -115,6 +145,7 @@ const AIConsultantPage: React.FC = () => {
       setMessages([]);
       setChatError("");
       queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+      setTimeout(() => inputRef.current?.focus(), 50);
     },
     onError: (error: unknown) => {
       setChatError(getApiErrorMessage(error, t("startFailed")));
@@ -141,6 +172,7 @@ const AIConsultantPage: React.FC = () => {
     mutationFn: (title: string) => seekerApi.updateChatSession(sessionId, { title }),
     onSuccess: () => {
       setTitleError("");
+      setTitleSuccess(t("titleSaved"));
       queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
       queryClient.invalidateQueries({ queryKey: ["chat-insights", sessionId] });
     },
@@ -153,6 +185,7 @@ const AIConsultantPage: React.FC = () => {
     mutationFn: (id: string) => seekerApi.deleteChatSession(id),
     onSuccess: (_data, id) => {
       setTitleError("");
+      setSessionSuccess(t("sessionDeleted"));
       if (sessionId === id) {
         setSessionId("");
         setMessages([]);
@@ -175,8 +208,10 @@ const AIConsultantPage: React.FC = () => {
       link.download = `cv-${sessionId}.${format}`;
       link.click();
       window.URL.revokeObjectURL(url);
+      setExportFormat(null);
     },
     onError: (error: unknown) => {
+      setExportFormat(null);
       setChatError(getApiErrorMessage(error, t("exportFailed")));
     },
   });
@@ -189,6 +224,15 @@ const AIConsultantPage: React.FC = () => {
     finalSummaryRaw && typeof finalSummaryRaw === "string" ? { summary: finalSummaryRaw } : finalSummaryRaw;
   const improvements = Array.isArray(finalSummary?.improvements) ? finalSummary?.improvements : [];
   const requirements = finalSummary?.job_requirements || "";
+
+  const scoreHint =
+    scoreValue === null
+      ? ""
+      : scoreValue >= 85
+        ? t("scoreHintExcellent")
+        : scoreValue >= 70
+          ? t("scoreHintGood")
+          : t("scoreHintImprove");
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1.1fr_2fr_2fr]">
@@ -242,30 +286,46 @@ const AIConsultantPage: React.FC = () => {
               </button>
             </div>
             {titleError && <p className="mt-2 text-xs text-red-300">{titleError}</p>}
+            {titleSuccess && <p className="mt-2 text-xs text-emerald-300">{titleSuccess}</p>}
           </div>
         )}
 
         {sessionsQ.isError && <p className="text-sm text-red-300">{t("sessionsLoadFailed")}</p>}
         {sessionsQ.isLoading && <p className="text-sm text-[var(--text-muted)]">{t("loading")}</p>}
         {!sessionsQ.isLoading && sessionItems.length === 0 && (
-          <p className="text-sm text-[var(--text-muted)]">{t("noSessionsYet")}</p>
+          <div className="rounded-xl border border-[var(--border)] p-4 text-sm text-[var(--text-muted)]">
+            <div className="mb-2 flex items-center gap-2 text-[var(--text-primary)]">
+              <Sparkles size={16} />
+              {t("noSessionsYet")}
+            </div>
+            <div>{t("chatEmpty")}</div>
+          </div>
         )}
 
-        <div className={`space-y-2 ${showSessions ? "block" : "hidden"} lg:block`}>
+        {sessionSuccess && <p className="mb-2 text-xs text-emerald-300">{sessionSuccess}</p>}
+
+        <div className={`space-y-2 ${showSessions ? "block" : "hidden"} lg:block max-h-[calc(100vh-18rem)] overflow-auto pr-1`}>
           {sessionItems.map((s: any) => {
             const id = String(s.session_id || s.id || "");
             const label = formatSessionLabel(s, t);
             const last = s?.last_message || s?.lastMessage || "";
             const title = getSessionTitle(s) || t("untitledSession");
+            const mode = s?.mode || s?.initial_data?.mode || s?.metadata?.mode;
+            const ModeIcon = mode === "mock_interview" ? Mic : Briefcase;
             return (
               <button
                 key={id}
                 className={`w-full rounded-xl border p-3 text-left ${
-                  id === sessionId ? "border-[var(--accent)]" : "border-[var(--border)]"
+                  id === sessionId
+                    ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                    : "border-[var(--border)] hover:border-[var(--accent)]/50"
                 }`}
                 onClick={() => setSessionId(id)}
               >
-                <div className="font-medium">{title}</div>
+                <div className="flex items-center gap-2 font-medium">
+                  <ModeIcon size={14} />
+                  <span>{title}</span>
+                </div>
                 <div className="mt-1 text-xs text-[var(--text-muted)]">{label}</div>
                 {last ? <div className="mt-1 text-xs text-[var(--text-muted)]">{t("lastMessage")}: {last}</div> : null}
               </button>
@@ -291,6 +351,7 @@ const AIConsultantPage: React.FC = () => {
           role="log"
           aria-live="polite"
           aria-relevant="additions"
+          aria-atomic="false"
         >
           {messages.map((m, idx) => (
             <div
@@ -302,6 +363,18 @@ const AIConsultantPage: React.FC = () => {
               {m.text}
             </div>
           ))}
+          {chatMutation.isPending && (
+            <div className="max-w-[60%] rounded-xl bg-[var(--glass)] p-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span>{t("typing")}</span>
+                <span className="inline-flex gap-1">
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--text-muted)] [animation-delay:-0.2s]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--text-muted)] [animation-delay:-0.1s]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--text-muted)]" />
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-3">
@@ -309,13 +382,22 @@ const AIConsultantPage: React.FC = () => {
             {t("messageLabel")}
           </label>
           <div className="flex gap-2">
-            <input
+            <textarea
               id="ai-message"
-              className="field"
+              className="field min-h-[44px] max-h-40 resize-none"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={t("askPlaceholder")}
               disabled={!sessionId}
+              ref={inputRef}
+              rows={1}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!sessionId || !message || chatMutation.isPending) return;
+                  chatMutation.mutate();
+                }
+              }}
             />
             <button
               className="btn-primary"
@@ -330,21 +412,33 @@ const AIConsultantPage: React.FC = () => {
       </div>
 
       <div className="glass-card p-4">
-        <div className="mb-3 flex gap-2">
+        <div className="mb-3 flex gap-2 overflow-auto" role="tablist" aria-label={t("aiConsultant")}>
           <button
-            className={`btn-ghost ${activeTab === "preview" ? "nav-active" : ""}`}
+            role="tab"
+            aria-selected={activeTab === "preview"}
+            className={`btn-ghost border-b-2 ${
+              activeTab === "preview" ? "nav-active border-[var(--accent)]" : "border-transparent"
+            }`}
             onClick={() => setActiveTab("preview")}
           >
             {t("previewPanel")}
           </button>
           <button
-            className={`btn-ghost ${activeTab === "insights" ? "nav-active" : ""}`}
+            role="tab"
+            aria-selected={activeTab === "insights"}
+            className={`btn-ghost border-b-2 ${
+              activeTab === "insights" ? "nav-active border-[var(--accent)]" : "border-transparent"
+            }`}
             onClick={() => setActiveTab("insights")}
           >
             {t("insightsPanel")}
           </button>
           <button
-            className={`btn-ghost ${activeTab === "export" ? "nav-active" : ""}`}
+            role="tab"
+            aria-selected={activeTab === "export"}
+            className={`btn-ghost border-b-2 ${
+              activeTab === "export" ? "nav-active border-[var(--accent)]" : "border-transparent"
+            }`}
             onClick={() => setActiveTab("export")}
           >
             {t("exportPanel")}
@@ -353,6 +447,17 @@ const AIConsultantPage: React.FC = () => {
 
         {activeTab === "preview" && (
           <div className="rounded-xl border border-[var(--border)] p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-xs text-[var(--text-muted)]">{t("previewPanel")}</div>
+              <button
+                className="btn-ghost flex items-center gap-2 text-xs"
+                onClick={() => previewQ.refetch()}
+                disabled={!sessionId || previewQ.isLoading}
+              >
+                <RefreshCw size={14} />
+                {t("refreshPreview")}
+              </button>
+            </div>
             {!sessionId && <p className="text-sm text-[var(--text-muted)]">{t("selectSessionHint")}</p>}
             {sessionId && previewQ.isLoading && <p className="text-sm text-[var(--text-muted)]">{t("previewLoading")}</p>}
             {sessionId && previewQ.isError && <p className="text-sm text-red-300">{t("previewFailed")}</p>}
@@ -362,7 +467,7 @@ const AIConsultantPage: React.FC = () => {
             {sessionId && previewQ.data && (
               <iframe
                 title="cv-preview"
-                className="h-[60vh] w-full rounded-lg border border-[var(--border)] bg-white"
+                className="h-[60vh] min-h-[300px] w-full rounded-lg border border-[var(--border)] bg-white"
                 srcDoc={previewQ.data}
               />
             )}
@@ -372,13 +477,23 @@ const AIConsultantPage: React.FC = () => {
         {activeTab === "insights" && (
           <div className="rounded-xl border border-[var(--border)] p-3">
             {!sessionId && <p className="text-sm text-[var(--text-muted)]">{t("selectSessionHint")}</p>}
-            {sessionId && insightsQ.isLoading && <p className="text-sm text-[var(--text-muted)]">{t("insightsLoading")}</p>}
+            {sessionId && insightsQ.isLoading && (
+              <div className="space-y-3">
+                <div className="h-6 w-28 animate-pulse rounded-full bg-[var(--border)]" />
+                <div className="h-24 animate-pulse rounded-xl bg-[var(--border)]/70" />
+                <div className="h-20 animate-pulse rounded-xl bg-[var(--border)]/70" />
+              </div>
+            )}
             {sessionId && insightsQ.isError && <p className="text-sm text-red-300">{t("insightsFailed")}</p>}
             {sessionId && !insightsQ.isLoading && !insightsQ.isError && (
               <div className="space-y-3">
-                <div className="text-xs text-[var(--text-muted)]">
-                  {insights?.is_complete ? t("insightsStatusComplete") : t("insightsStatusInProgress")}
-                  {insights?.current_step ? ` · ${insights.current_step}` : ""}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className={`rounded-full px-2 py-1 ${insights?.is_complete ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>
+                    {insights?.is_complete ? t("insightsStatusComplete") : t("insightsStatusInProgress")}
+                  </span>
+                  {insights?.current_step ? (
+                    <span className="text-[var(--text-muted)]">· {insights.current_step}</span>
+                  ) : null}
                 </div>
 
                 {scoreValue === null && !finalSummary && checklist.length === 0 && (
@@ -388,7 +503,10 @@ const AIConsultantPage: React.FC = () => {
                 {scoreValue !== null && (
                   <div className="rounded-xl border border-[var(--border)] p-3">
                     <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsScore")}</div>
-                    <div className="mt-2 text-3xl font-semibold">{scoreValue}</div>
+                    <div className="mt-2 flex items-end justify-between gap-2">
+                      <div className="text-3xl font-semibold">{scoreValue}</div>
+                      {scoreHint && <div className="text-xs text-[var(--text-muted)]">{scoreHint}</div>}
+                    </div>
                     <div className="mt-2 h-2 w-full rounded-full bg-[var(--border)]">
                       <div
                         className="h-2 rounded-full bg-[var(--accent)]"
@@ -442,16 +560,28 @@ const AIConsultantPage: React.FC = () => {
           <div className="space-y-2">
             <button
               className="btn-primary w-full"
-              onClick={() => exportMutation.mutate("pdf")}
+              onClick={() => {
+                setExportFormat("pdf");
+                exportMutation.mutate("pdf");
+              }}
               disabled={!sessionId || !previewAvailable || exportMutation.isPending}
             >
+              {exportMutation.isPending && exportFormat === "pdf" && (
+                <Loader2 size={16} className="mr-2 inline animate-spin" />
+              )}
               {t("exportPdf")}
             </button>
             <button
               className="btn-ghost w-full"
-              onClick={() => exportMutation.mutate("docx")}
+              onClick={() => {
+                setExportFormat("docx");
+                exportMutation.mutate("docx");
+              }}
               disabled={!sessionId || !previewAvailable || exportMutation.isPending}
             >
+              {exportMutation.isPending && exportFormat === "docx" && (
+                <Loader2 size={16} className="mr-2 inline animate-spin" />
+              )}
               {t("exportDocx")}
             </button>
             {!previewAvailable && sessionId && (

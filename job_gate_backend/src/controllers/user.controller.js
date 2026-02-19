@@ -351,11 +351,13 @@ exports.listJobPostings = async (req, res) => {
     const attributes = [
       "job_id",
       "title",
+      "description",
       "location",
       "industry",
       "salary_min",
       "salary_max",
       "form_type",
+      "job_image_url",
       "created_at",
     ];
 
@@ -431,6 +433,7 @@ exports.getJobPostingDetails = async (req, res) => {
         "salary_min",
         "salary_max",
         "form_type",
+        "job_image_url",
         "created_at",
       ],
       include: [

@@ -1,11 +1,17 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+﻿﻿﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
+import { Bookmark, Briefcase, Sparkles } from "lucide-react";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
 
 const PAGE_SIZE = 8;
+
+const getPlaceholderScore = (job: any) => {
+  const seed = Number(job?.job_id ?? 0);
+  return 45 + (seed * 13) % 56;
+};
 
 type FormField = {
   field_id: number;
@@ -30,6 +36,8 @@ const OpportunitiesPage: React.FC = () => {
   const [formSuccess, setFormSuccess] = useState("");
   const location = useLocation();
   const selectedCompanyId = (location.state as any)?.companyId;
+  const requestedJobId = (location.state as any)?.jobId;
+  const openedJobId = useRef<number | null>(null);
 
   const cvsQ = useQuery({ queryKey: ["cvs"], queryFn: seekerApi.listCVs });
   const savedJobsQ = useQuery({ queryKey: ["saved-jobs"], queryFn: seekerApi.getSavedJobs });
@@ -101,6 +109,16 @@ const OpportunitiesPage: React.FC = () => {
   const jobs = useMemo(() => {
     return jobsQ.data?.pages.flatMap((p) => p.items) || [];
   }, [jobsQ.data]);
+
+  useEffect(() => {
+    if (!requestedJobId) return;
+    if (openedJobId.current === requestedJobId) return;
+    const found = jobs.find((job: any) => job.job_id === requestedJobId);
+    if (found) {
+      setActiveJob(found);
+      openedJobId.current = requestedJobId;
+    }
+  }, [jobs, requestedJobId]);
 
   const savedIds = useMemo(() => {
     const list = Array.isArray(savedJobsQ.data) ? savedJobsQ.data : [];
@@ -232,25 +250,60 @@ const OpportunitiesPage: React.FC = () => {
           {jobs.map((job: any) => {
             const isSaved = savedIds.has(job.job_id);
             const isApplied = appliedIds.has(job.job_id);
+            const score = getPlaceholderScore(job);
+            const baseLabel = score >= 90 ? t("highlyMatched") : score >= 70 ? t("forYou") : "";
+            const badgeClass =
+              score >= 90 ? "bg-emerald-500/20 text-emerald-200" : "bg-sky-500/20 text-sky-200";
+            const imageUrl = resolveAssetUrl(job.job_image_url);
+
+            const badgeLabel = baseLabel ? `${baseLabel} · ${t("aiComingSoon")}` : "";
+
             return (
-              <div key={job.job_id} className="glass-card card-hover p-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="font-semibold">{job.title}</h3>
-                  <span className="badge">{t("matchUnavailable")}</span>
+              <div key={job.job_id} className="glass-card card-hover overflow-hidden rounded-3xl min-h-[420px]">
+                <div className="relative">
+                  {imageUrl ? (
+                    <img src={imageUrl} alt={job.title} className="h-44 w-full object-cover" />
+                  ) : (
+                    <div className="flex h-44 items-center justify-center bg-[var(--glass)]">
+                      <Briefcase size={32} className="text-[var(--text-muted)]" />
+                    </div>
+                  )}
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                  {badgeLabel && (
+                    <span className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}>
+                      <Sparkles size={12} />
+                      {badgeLabel}
+                    </span>
+                  )}
                 </div>
-                <p className="text-sm text-[var(--text-muted)]">{job.Company?.name || t("company")} | {job.location || t("remote")}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    className="btn-primary"
-                    onClick={() => setActiveJob(job)}
-                    disabled={isApplied}
-                  >
-                    {isApplied ? t("applied") : t("apply")}
-                  </button>
-                  <button className="btn-ghost" onClick={() => setActiveJob(job)}>{t("viewDetails")}</button>
-                  <button className="btn-ghost" onClick={() => saveMutation.mutate(job.job_id)}>
-                    {isSaved ? t("saved") : t("save")}
-                  </button>
+                <div className="flex h-full flex-col p-4">
+                  <h3 className="text-lg font-semibold">{job.title}</h3>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {job.Company?.name || t("company")} · {job.location || t("remote")}
+                  </p>
+                  <p className="mt-2 text-sm text-[var(--text-muted)] line-clamp-2">
+                    {job.description || t("noDescriptionYet")}
+                  </p>
+                  <div className="mt-auto flex items-center gap-2 pt-4">
+                    <button
+                      className="btn-primary"
+                      onClick={() => setActiveJob(job)}
+                      disabled={isApplied}
+                    >
+                      {isApplied ? t("applied") : t("apply")}
+                    </button>
+                    <button
+                      className="btn-ghost"
+                      onClick={() => saveMutation.mutate(job.job_id)}
+                      aria-label={isSaved ? t("saved") : t("save")}
+                    >
+                      <Bookmark
+                        size={18}
+                        className={isSaved ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}
+                        fill={isSaved ? "currentColor" : "none"}
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -267,7 +320,7 @@ const OpportunitiesPage: React.FC = () => {
       )}
 
       {activeJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
           <div className="glass-card w-full max-w-3xl p-5">
             <div className="flex items-start justify-between gap-4">
               <div>

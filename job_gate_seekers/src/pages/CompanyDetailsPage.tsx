@@ -1,6 +1,7 @@
-﻿import React from "react";
-import { useQuery } from "@tanstack/react-query";
+﻿﻿﻿﻿﻿﻿﻿﻿﻿import React, { useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "react-router-dom";
+import { Bookmark, Briefcase, Sparkles } from "lucide-react";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
@@ -13,16 +14,48 @@ const initials = (name: string) => {
   return `${first}${last}`.toUpperCase();
 };
 
+const getPlaceholderScore = (job: any) => {
+  const seed = Number(job?.job_id ?? 0);
+  return 45 + (seed * 13) % 56;
+};
+
+const resolveAssetUrl = (url?: string | null) => {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  const base = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/?api\/?$/, "");
+  const normalized = url.startsWith("/") ? url : `/${url}`;
+  return `${base}${normalized}`;
+};
+
 const CompanyDetailsPage: React.FC = () => {
   const { companyId } = useParams();
   const { t } = useLanguage();
   const location = useLocation();
   const backState = (location.state as any)?.marketSearch;
 
+  const queryClient = useQueryClient();
+
   const companyQ = useQuery({
     queryKey: ["company", companyId],
     queryFn: () => seekerApi.getCompanyDetails(Number(companyId)),
     enabled: !!companyId,
+  });
+
+  const savedJobsQ = useQuery({ queryKey: ["saved-jobs"], queryFn: seekerApi.getSavedJobs });
+  const savedIds = useMemo(() => {
+    const list = Array.isArray(savedJobsQ.data) ? savedJobsQ.data : [];
+    return new Set(list.map((j: any) => j.job_id || j.JobPosting?.job_id));
+  }, [savedJobsQ.data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      if (savedIds.has(jobId)) {
+        await seekerApi.removeSavedJob(jobId);
+      } else {
+        await seekerApi.saveJob(jobId);
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["saved-jobs"] }),
   });
 
   const company = companyQ.data as any;
@@ -120,13 +153,67 @@ const CompanyDetailsPage: React.FC = () => {
             </Link>
           </div>
           {Array.isArray(jobs) && jobs.length > 0 ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {jobs.map((job: any) => (
-                <div key={job.job_id || job.id} className="rounded-xl border border-[var(--border)] p-3">
-                  <div className="font-semibold">{job.title || t("applicationFallback")}</div>
-                  <div className="text-xs text-[var(--text-muted)]">{job.location || t("remote")}</div>
-                </div>
-              ))}
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {jobs.map((job: any) => {
+                const score = getPlaceholderScore(job);
+                const baseLabel = score >= 90 ? t("highlyMatched") : score >= 70 ? t("forYou") : "";
+                const badgeClass =
+                  score >= 90 ? "bg-emerald-500/20 text-emerald-200" : "bg-sky-500/20 text-sky-200";
+                const isSaved = savedIds.has(job.job_id);
+                const imageUrl = resolveAssetUrl(job.job_image_url);
+
+                const badgeLabel = baseLabel ? `${baseLabel} · ${t("aiComingSoon")}` : "";
+
+                return (
+                  <div key={job.job_id || job.id} className="glass-card card-hover overflow-hidden rounded-3xl min-h-[420px]">
+                    <div className="relative">
+                      {imageUrl ? (
+                        <img src={imageUrl} alt={job.title} className="h-40 w-full object-cover" />
+                      ) : (
+                        <div className="flex h-40 items-center justify-center bg-[var(--glass)]">
+                          <Briefcase size={28} className="text-[var(--text-muted)]" />
+                        </div>
+                      )}
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                      {badgeLabel && (
+                        <span className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}>
+                          <Sparkles size={12} />
+                          {badgeLabel}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex h-full flex-col p-4">
+                      <div className="text-lg font-semibold">{job.title || t("applicationFallback")}</div>
+                      <div className="text-xs text-[var(--text-muted)]">
+                        {company?.name || t("company")} · {job.location || t("remote")}
+                      </div>
+                      <p className="mt-2 text-sm text-[var(--text-muted)] line-clamp-2">
+                        {job.description || t("noDescriptionYet")}
+                      </p>
+                      <div className="mt-auto flex items-center gap-2 pt-4">
+                        <Link
+                          className="btn-primary"
+                          to="/opportunities"
+                          state={{ companyId: company.company_id, jobId: job.job_id }}
+                        >
+                          {t("apply")}
+                        </Link>
+                        <button
+                          className="btn-ghost"
+                          onClick={() => saveMutation.mutate(job.job_id)}
+                          aria-label={isSaved ? t("saved") : t("save")}
+                        >
+                          <Bookmark
+                            size={18}
+                            className={isSaved ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}
+                            fill={isSaved ? "currentColor" : "none"}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <p className="mt-3 text-sm text-[var(--text-muted)]">{t("noJobsYet")}</p>

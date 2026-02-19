@@ -204,6 +204,7 @@ router.put(
   verifyCompanyAccess,
   verifyCompany,
   verifyCompanyApproved,
+  uploadJobImage.single("job_image"),
   jobPostingController.updateJobPosting
 );
 router.post(

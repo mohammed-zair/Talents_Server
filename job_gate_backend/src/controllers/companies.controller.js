@@ -58,6 +58,20 @@ exports.getApprovedCompanyDetails = async (req, res) => {
         "createdAt",
         "updatedAt",
       ],
+      include: [
+        {
+          model: JobPosting,
+          where: { status: "open" },
+          required: false,
+          attributes: [
+            "job_id",
+            "title",
+            "location",
+            "description",
+            "job_image_url",
+          ],
+        },
+      ],
     });
 
     if (!company) {

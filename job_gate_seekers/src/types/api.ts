@@ -24,6 +24,7 @@ export type JobPosting = {
   industry?: string;
   salary_min?: number;
   salary_max?: number;
+  job_image_url?: string | null;
   form_type?: "internal_form" | "external_link";
   external_form_url?: string;
   created_at?: string;
