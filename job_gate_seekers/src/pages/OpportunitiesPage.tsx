@@ -8,6 +8,13 @@ import { getApiErrorMessage } from "../utils/apiError";
 
 const PAGE_SIZE = 8;
 
+const resolveAssetUrl = (url?: string | null) => {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  const base = import.meta.env.VITE_ASSET_BASE_URL || import.meta.env.VITE_API_URL || "";
+  return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 const getPlaceholderScore = (job: any) => {
   const seed = Number(job?.job_id ?? 0);
   return 45 + (seed * 13) % 56;
