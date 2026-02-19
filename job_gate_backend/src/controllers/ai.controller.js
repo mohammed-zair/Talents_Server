@@ -608,7 +608,7 @@ exports.getCVAnalysis = async (req, res) => {
       });
     }
 
-    const cvRecord = await CV.findOne({ where: { cv_id: cvId, user_id } });
+    const cvRecord = await CV.findOne({ where: { cv_id: cvId, user_id: userId } });
 
     if (!cvRecord) {
       return res.status(404).json({
