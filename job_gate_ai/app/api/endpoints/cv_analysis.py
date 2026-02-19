@@ -224,7 +224,14 @@ job_description :Optional [str ]=Form (None )
                 print (f"Database save error (non-critical): {db_error}")
 
 
-            ai_intelligence =llm_service .generate_ai_intelligence (raw_text ,cleaned_job_description ) if use_ai else {}
+            ai_intelligence =llm_service .generate_ai_intelligence (raw_text ,cleaned_job_description ) if use_ai else {}
+            try :
+                if isinstance (ai_intelligence ,dict ):
+                    print (f"[CV Analysis] AI intelligence keys: {list (ai_intelligence .keys ())}")
+                else :
+                    print (f"[CV Analysis] AI intelligence type: {type (ai_intelligence )}")
+            except Exception as log_error :
+                print (f"[CV Analysis] AI intelligence log failed: {log_error }")
 
             return CVAnalysisResponse (
             success =True ,
@@ -352,7 +359,14 @@ async def analyze_cv_text (request: CVTextAnalyzeRequest):
         except Exception as db_error :
             print (f"Database save error: {db_error}")
 
-        ai_intelligence =llm_service .generate_ai_intelligence (cv_text ,cleaned_job_description ) if use_ai else {}
+        ai_intelligence =llm_service .generate_ai_intelligence (cv_text ,cleaned_job_description ) if use_ai else {}
+        try :
+            if isinstance (ai_intelligence ,dict ):
+                print (f"[CV Text Analysis] AI intelligence keys: {list (ai_intelligence .keys ())}")
+            else :
+                print (f"[CV Text Analysis] AI intelligence type: {type (ai_intelligence )}")
+        except Exception as log_error :
+            print (f"[CV Text Analysis] AI intelligence log failed: {log_error }")
 
         return {
         "success":True ,
