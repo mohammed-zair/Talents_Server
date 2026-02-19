@@ -418,6 +418,14 @@ exports.analyzeExistingCV = async (req, res) => {
     };
 
     const analysisResult = await aiService.analyzeCVFile(userId, fileObj, useAI);
+    try {
+      console.log(
+        `[${requestId}] AI raw result`,
+        JSON.stringify(analysisResult).slice(0, 2000)
+      );
+    } catch (logError) {
+      console.warn(`[${requestId}] Failed to log AI result`, logError?.message || logError);
+    }
 
     if (analysisResult?.success === false || analysisResult?.analysis_method === "error") {
       return res.status(502).json({
