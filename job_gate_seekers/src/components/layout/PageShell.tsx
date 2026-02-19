@@ -10,6 +10,7 @@ import {
   Building2,
   FileText,
   LayoutDashboard,
+  Mail,
   MessageSquareText,
   MoonStar,
   Search,
@@ -33,6 +34,7 @@ const navItems = [
   { to: "/applications", key: "applications", icon: Sparkles },
   { to: "/profile", key: "profile", icon: User },
   { to: "/settings", key: "settings", icon: Settings },
+  { to: "/contact", key: "contact", icon: Mail },
 ];
 
 const PageShell: React.FC = () => {
@@ -99,7 +101,7 @@ const PageShell: React.FC = () => {
         </aside>
 
         <div className="flex flex-1 flex-col">
-          <header className="glass-panel m-4 flex items-center gap-3 rounded-2xl p-3">
+          <header className="glass-panel relative z-30 m-4 flex items-center gap-3 rounded-2xl p-3">
             <div className="relative flex-1">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
               <input className="w-full rounded-xl border border-[var(--border)] bg-transparent py-2 pl-9 pr-3 outline-none" placeholder={t("searchPlaceholder")} />
@@ -125,7 +127,7 @@ const PageShell: React.FC = () => {
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-[var(--border)] bg-[var(--bg)]/95 p-2 shadow-xl backdrop-blur">
+                <div className="absolute right-0 z-50 mt-2 w-80 rounded-xl border border-[var(--border)] bg-[var(--bg)]/95 p-2 shadow-xl backdrop-blur">
                   <p className="px-2 py-1 text-xs text-[var(--text-muted)]">{t("notifications")}</p>
                   <div className="max-h-72 space-y-1 overflow-auto">
                     {notificationItems.slice(0, 6).map((n: any) => (
@@ -171,7 +173,7 @@ const PageShell: React.FC = () => {
             </button>
           </header>
 
-          <main className="px-4 pb-4">
+          <main className="relative z-10 px-4 pb-4">
             <div className="mb-3 text-sm text-[var(--text-muted)]">{user ? `${user.full_name} • ${user.email}` : ""}</div>
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
               <Outlet />

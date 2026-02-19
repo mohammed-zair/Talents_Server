@@ -146,3 +146,44 @@ body { margin: 0; font-family: "Plus Jakarta Sans", "Inter", sans-serif; color: 
   background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 70%, transparent), color-mix(in srgb, var(--accent-2) 70%, transparent));
   border: 1px solid color-mix(in srgb, var(--accent-2) 35%, #fff 65%);
 }
+
+.btn-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.28) 50%, transparent 80%);
+  transform: translateX(-120%);
+  animation: btn-sweep 1.2s ease-in-out infinite;
+}
+
+.loading-orbit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loading-orbit i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.35;
+  animation: orbit-pulse 1s ease-in-out infinite;
+}
+
+.loading-orbit i:nth-child(2) { animation-delay: 0.15s; }
+.loading-orbit i:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes btn-sweep {
+  to { transform: translateX(120%); }
+}
+
+@keyframes orbit-pulse {
+  0%, 100% { transform: translateY(0); opacity: 0.35; }
+  50% { transform: translateY(-2px); opacity: 1; }
+}

@@ -341,34 +341,62 @@ exports.listCompanies = async (req, res) => {
  */
 exports.listJobPostings = async (req, res) => {
   try {
-    const jobPostings = await JobPosting.findAll({
-      // نستخدم 'published' لتوحيد الحالة مع النموذج الثاني
-      where: { status: "open" },
-      attributes: [
-        "job_id",
-        "title",
-        "location",
-        "industry",
+    const page = Math.max(parseInt(req.query.page || "0", 10), 0);
+    const limit = Math.max(parseInt(req.query.limit || "0", 10), 0);
+    const companyId = req.query.company_id || req.query.companyId;
 
-        "salary_min", // من النموذج الثاني
-        "salary_max", // من النموذج الثاني
-        "form_type",
-        "created_at",
-      ],
-      include: [
-        {
-          model: Company,
-          attributes: ["company_id", "name", "logo_mimetype"],
-        },
-      ],
+    const where = { status: "open" };
+    if (companyId) where.company_id = companyId;
+
+    const attributes = [
+      "job_id",
+      "title",
+      "location",
+      "industry",
+      "salary_min",
+      "salary_max",
+      "form_type",
+      "created_at",
+    ];
+
+    const include = [
+      {
+        model: Company,
+        attributes: ["company_id", "name", "logo_mimetype"],
+      },
+    ];
+
+    if (limit > 0) {
+      const offset = page * limit;
+      const { rows, count } = await JobPosting.findAndCountAll({
+        where,
+        attributes,
+        include,
+        order: [["created_at", "DESC"]],
+        limit,
+        offset,
+      });
+
+      const items = rows.map((posting) => {
+        const data = posting.toJSON ? posting.toJSON() : { ...posting };
+        if (data.Company) data.Company = withCompanyLogoUrl(data.Company);
+        return data;
+      });
+
+      const pages = limit ? Math.ceil(count / limit) : 1;
+      return successResponse(res, { items, page, limit, total: count, pages });
+    }
+
+    const jobPostings = await JobPosting.findAll({
+      where,
+      attributes,
+      include,
       order: [["created_at", "DESC"]],
     });
 
     const payload = jobPostings.map((posting) => {
       const data = posting.toJSON ? posting.toJSON() : { ...posting };
-      if (data.Company) {
-        data.Company = withCompanyLogoUrl(data.Company);
-      }
+      if (data.Company) data.Company = withCompanyLogoUrl(data.Company);
       return data;
     });
 
@@ -472,6 +500,7 @@ exports.getJobApplicationForm = async (req, res) => {
                 "description",
                 "is_required",
                 "input_type",
+                "options",
               ],
             },
           ],

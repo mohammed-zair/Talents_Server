@@ -149,6 +149,9 @@ class ChatbotSession (Base ):
     completed_at =Column (DateTime ,nullable =True )
 
     def to_dict (self ):
+        session_title = None 
+        if isinstance (self .job_posting_meta ,dict ):
+            session_title = self .job_posting_meta .get ("session_title")
         return {
         "session_id":self .session_id ,
         "user_id":self .user_id ,
@@ -156,6 +159,7 @@ class ChatbotSession (Base ):
         "output_language":self .output_language ,
         "current_step":self .current_step ,
         "is_complete":bool (self .is_complete ),
+        "session_title":session_title,
         "created_at":self .created_at .isoformat () if self .created_at else None ,
         "updated_at":self .updated_at .isoformat () if self .updated_at else None ,
         "completed_at":self .completed_at .isoformat () if self .completed_at else None ,

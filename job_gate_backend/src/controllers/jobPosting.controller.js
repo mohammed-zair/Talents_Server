@@ -6,6 +6,81 @@ const aiService = require("../services/aiService");
 const fs = require("fs");
 const path = require("path");
 
+const ALLOWED_FORM_INPUT_TYPES = new Set([
+  "text",
+  "number",
+  "email",
+  "file",
+  "select",
+  "textarea",
+  "checkbox",
+  "radio",
+]);
+
+const normalizeFormOptions = (raw) => {
+  if (raw === undefined || raw === null) return [];
+  if (Array.isArray(raw)) {
+    return raw
+      .map((opt) => String(opt).trim())
+      .filter((opt) => opt.length > 0);
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((opt) => String(opt).trim())
+          .filter((opt) => opt.length > 0);
+      }
+    } catch (_) {
+      // fall through to single string
+    }
+    return [trimmed];
+  }
+  return [String(raw).trim()].filter((opt) => opt.length > 0);
+};
+
+const normalizeFormFields = (fields) => {
+  if (!Array.isArray(fields)) {
+    return { error: "Form fields must be an array." };
+  }
+
+  const normalized = [];
+
+  for (const field of fields) {
+    if (!field || typeof field !== "object") {
+      return { error: "Each form field must be an object." };
+    }
+
+    const title = String(field.title || "").trim();
+    if (!title) {
+      return { error: "Field title is required." };
+    }
+
+    const inputType = String(field.input_type || "").trim().toLowerCase();
+    if (!ALLOWED_FORM_INPUT_TYPES.has(inputType)) {
+      return { error: `Invalid input_type: ${inputType}` };
+    }
+
+    const rawOptions = field.options ?? field.choices;
+    const options = normalizeFormOptions(rawOptions);
+    if (["select", "checkbox", "radio"].includes(inputType) && options.length === 0) {
+      return { error: `Options are required for ${inputType} fields.` };
+    }
+
+    normalized.push({
+      title,
+      description: field.description ? String(field.description) : null,
+      is_required: Boolean(field.is_required),
+      input_type: inputType,
+      options,
+    });
+  }
+
+  return { fields: normalized };
+};
 /**
  * @desc [Company] إنشاء إعلان توظيف جديد (مع صورة)
  * @route POST /api/companies/company/job-postings
@@ -106,6 +181,11 @@ exports.createJobPosting = async (req, res) => {
     );
 
     if (form_type === "internal_form") {
+      const validation = normalizeFormFields(parsedFormFields);
+      if (validation.error) {
+        await t.rollback();
+        return res.status(400).json({ message: validation.error });
+      }
       const jobForm = await JobForm.create(
         {
           job_id: jobPosting.job_id,
@@ -114,9 +194,13 @@ exports.createJobPosting = async (req, res) => {
         { transaction: t }
       );
 
-      if (parsedFormFields.length > 0) {
-        const formFieldsData = parsedFormFields.map((field) => ({
-          ...field,
+      if (validation.fields.length > 0) {
+        const formFieldsData = validation.fields.map((field) => ({
+          title: field.title,
+          description: field.description,
+          is_required: field.is_required,
+          input_type: field.input_type,
+          options: field.options,
           form_id: jobForm.form_id,
         }));
         await JobFormField.bulkCreate(formFieldsData, {
@@ -389,16 +473,26 @@ exports.createJobForm = async (req, res) => {
     }
 
     // إنشاء النموذج
+    const validation = normalizeFormFields(fields);
+    if (validation.error) {
+      await t.rollback();
+      return res.status(400).json({ message: validation.error });
+    }
+
     const jobForm = await JobForm.create({
       job_id,
       require_cv
     }, { transaction: t });
 
     // إنشاء حقول النموذج
-    if (fields.length > 0) {
-      const formFieldsData = fields.map(field => ({
-        ...field,
-        form_id: jobForm.form_id
+    if (validation.fields.length > 0) {
+      const formFieldsData = validation.fields.map((field) => ({
+        title: field.title,
+        description: field.description,
+        is_required: field.is_required,
+        input_type: field.input_type,
+        options: field.options,
+        form_id: jobForm.form_id,
       }));
       await JobFormField.bulkCreate(formFieldsData, { transaction: t });
     }
@@ -460,6 +554,12 @@ exports.updateJobForm = async (req, res) => {
 
     const jobForm = jobPosting.JobForm;
 
+      const validation = normalizeFormFields(fields);
+      if (validation.error) {
+        await t.rollback();
+        return res.status(400).json({ message: validation.error });
+      }
+
     // تحديث require_cv
     await jobForm.update({ require_cv }, { transaction: t });
 
@@ -470,9 +570,13 @@ exports.updateJobForm = async (req, res) => {
     });
 
     // إنشاء الحقول الجديدة
-    if (Array.isArray(fields) && fields.length > 0) {
-      const newFields = fields.map((field) => ({
-        ...field,
+    if (validation.fields.length > 0) {
+      const newFields = validation.fields.map((field) => ({
+        title: field.title,
+        description: field.description,
+        is_required: field.is_required,
+        input_type: field.input_type,
+        options: field.options,
         form_id: jobForm.form_id,
       }));
 
@@ -524,8 +628,7 @@ exports.deleteJobForm = async (req, res) => {
     }
 
     const jobForm = jobPosting.JobForm;
-
-    // حذف الحقول
+// حذف الحقول
     await JobFormField.destroy({
       where: { form_id: jobForm.form_id },
       transaction: t,

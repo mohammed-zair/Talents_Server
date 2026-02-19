@@ -63,9 +63,24 @@ export const seekerApi = {
   resetPassword: async (data: { email: string; token: string; newPassword: string }) =>
     api.post("/auth/reset-password", data),
 
-  getJobs: async () => {
-    const res = await api.get<ApiEnvelope<JobPosting[]>>("/jop_seeker/job-postings");
-    return ensureArray<JobPosting>(unwrap<any>(res.data), ["jobs"]);
+  getJobs: async (params?: { page?: number; limit?: number; companyId?: number | string }) => {
+    const query: Record<string, any> = {};
+    if (typeof params?.page === "number") query.page = params.page;
+    if (typeof params?.limit === "number") query.limit = params.limit;
+    if (params?.companyId) query.company_id = params.companyId;
+    const res = await api.get<ApiEnvelope<any>>("/jop_seeker/job-postings", { params: query });
+    const data = unwrap<any>(res.data);
+    if (Array.isArray(data)) {
+      return { items: data as JobPosting[], page: 0, limit: data.length, total: data.length, pages: 1 };
+    }
+    const items = ensureArray<JobPosting>(data, ["items", "jobs"]);
+    return {
+      items,
+      page: Number(data?.page ?? 0),
+      limit: Number(data?.limit ?? items.length),
+      total: Number(data?.total ?? items.length),
+      pages: Number(data?.pages ?? 1),
+    };
   },
   getJobDetails: async (id: string) => {
     const res = await api.get<ApiEnvelope<JobPosting>>(`/jop_seeker/job-postings/${id}`);
@@ -212,6 +227,23 @@ export const seekerApi = {
   },
   getChatSession: async (sessionId: string) => {
     const res = await api.get(`/ai/chatbot/session/${sessionId}`);
+    return unwrap(res.data);
+  },
+  getChatPreview: async (sessionId: string, language?: string) => {
+    const params = language ? `?language=${encodeURIComponent(language)}` : "";
+    const res = await api.get(`/ai/chatbot/preview/${sessionId}${params}`, { responseType: "text" });
+    return res.data as string;
+  },
+  getChatInsights: async (sessionId: string) => {
+    const res = await api.get(`/ai/chatbot/insights/${sessionId}`);
+    return unwrap(res.data);
+  },
+  updateChatSession: async (sessionId: string, payload: { title?: string }) => {
+    const res = await api.patch(`/ai/chatbot/session/${sessionId}`, payload);
+    return unwrap(res.data);
+  },
+  deleteChatSession: async (sessionId: string) => {
+    const res = await api.delete(`/ai/chatbot/session/${sessionId}`);
     return unwrap(res.data);
   },
   exportChatDocument: async (payload: {

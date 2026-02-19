@@ -42,6 +42,18 @@ router.get("/chatbot/session/:sessionId",
   aiController.getChatbotSession
 );
 
+// Update chatbot session (title, metadata)
+router.patch("/chatbot/session/:sessionId",
+  verifyToken,
+  aiController.updateChatbotSession
+);
+
+// Delete chatbot session
+router.delete("/chatbot/session/:sessionId",
+  verifyToken,
+  aiController.deleteChatbotSession
+);
+
 // List chatbot sessions
 router.get("/chatbot/sessions",
   verifyToken,
@@ -58,6 +70,12 @@ router.post("/chatbot/export",
 router.get("/chatbot/preview/:sessionId",
   verifyToken,
   aiController.previewChatbotDocument
+);
+
+// Chatbot insights (score + summary)
+router.get("/chatbot/insights/:sessionId",
+  verifyToken,
+  aiController.getChatbotInsights
 );
 
 // الحصول على تحليل CV محفوظ

@@ -393,6 +393,74 @@ exports.listChatbotSessions = async (req, res) => {
 };
 
 /**
+ * @desc Update chatbot session metadata (e.g., title)
+ * @route PATCH /api/ai/chatbot/session/:sessionId
+ * @access Private
+ */
+exports.updateChatbotSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { title } = req.body || {};
+    const userId = req.user.user_id;
+
+    if (!sessionId) {
+      return res.status(400).json({ message: "Session ID is required" });
+    }
+
+    const result = await aiService.updateChatbotSession(sessionId, userId, { title });
+    return successResponse(res, result, "Chatbot session updated");
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to update chatbot session",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc Delete chatbot session
+ * @route DELETE /api/ai/chatbot/session/:sessionId
+ * @access Private
+ */
+exports.deleteChatbotSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const userId = req.user.user_id;
+
+    if (!sessionId) {
+      return res.status(400).json({ message: "Session ID is required" });
+    }
+
+    const result = await aiService.deleteChatbotSession(sessionId, userId);
+    return successResponse(res, result, "Chatbot session deleted");
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to delete chatbot session",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc Get chatbot insights (score + summary)
+ * @route GET /api/ai/chatbot/insights/:sessionId
+ * @access Private
+ */
+exports.getChatbotInsights = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const userId = req.user.user_id;
+    const result = await aiService.getChatbotInsights(sessionId, userId);
+    return successResponse(res, result, "Chatbot insights fetched");
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to get chatbot insights",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * @desc Export chatbot CV document
  * @route POST /api/ai/chatbot/export
  * @access Private
@@ -530,50 +598,97 @@ exports.getCVAnalysis = async (req, res) => {
   const requestId = uuidv4();
   console.log(`[${requestId}] Get CV Analysis`);
   try {
-    const { cvId } = req.params;
+    const cvId = parseInt(req.params.cvId, 10);
     const userId = req.user.user_id;
 
-    const cvRecord = await CV.findOne({
-      where: { cv_id: cvId, user_id },
-      include: [
-        { model: CVStructuredData },
-        { model: CVFeaturesAnalytics }
-      ]
-    });
+    if (!Number.isFinite(cvId) || cvId <= 0) {
+      return res.status(400).json({
+        message: "Invalid CV ID",
+        requestId,
+      });
+    }
+
+    const cvRecord = await CV.findOne({ where: { cv_id: cvId, user_id } });
 
     if (!cvRecord) {
       return res.status(404).json({
-        message: 'CV غير موجود أو ليس لديك صلاحية الوصول',
+        message: "CV not found or access denied",
         requestId,
       });
+    }
+
+    let structuredData = {};
+    let featuresAnalytics = {};
+    let aiInsights = null;
+    let partial = false;
+    const warnings = [];
+
+    try {
+      const structured = await CVStructuredData.findOne({ where: { cv_id: cvId } });
+      structuredData = structured?.data_json || {};
+    } catch (innerError) {
+      partial = true;
+      warnings.push("structured_data_unavailable");
+      console.warn(
+        `[${requestId}] structured_data fetch failed for cv_id=${cvId}:`,
+        innerError.message
+      );
+    }
+
+    try {
+      const analytics = await CVFeaturesAnalytics.findOne({ where: { cv_id: cvId } });
+      featuresAnalytics = analytics ? analytics.toJSON() : {};
+    } catch (innerError) {
+      partial = true;
+      warnings.push("features_analytics_unavailable");
+      console.warn(
+        `[${requestId}] features_analytics fetch failed for cv_id=${cvId}:`,
+        innerError.message
+      );
+    }
+
+    try {
+      const insight = await CVAIInsights.findOne({
+        where: { cv_id: cvId, job_id: null },
+        order: [["insight_id", "DESC"]],
+      });
+      aiInsights = insight ? insight.toJSON() : null;
+    } catch (innerError) {
+      partial = true;
+      warnings.push("ai_insights_unavailable");
+      console.warn(
+        `[${requestId}] ai_insights fetch failed for cv_id=${cvId}:`,
+        innerError.message
+      );
     }
 
     const result = {
       cv_id: cvRecord.cv_id,
       title: cvRecord.title,
       created_at: cvRecord.created_at,
-      structured_data: cvRecord.CV_Structured_Data?.data_json || {},
-      features_analytics: cvRecord.CV_Features_Analytics || {},
+      structured_data: structuredData,
+      features_analytics: featuresAnalytics,
+      ai_insights: aiInsights,
+      partial,
+      warnings,
       requestId,
     };
 
     console.log(`[${requestId}] CV Analysis fetched for user ${userId}`);
-    return successResponse(res, result, 'تم جلب تحليل CV بنجاح');
+    return successResponse(
+      res,
+      result,
+      partial ? "CV analysis loaded partially" : "CV analysis loaded successfully"
+    );
   } catch (error) {
     console.error(`[${requestId}] Get CV Analysis Error:`, error);
     return res.status(500).json({
-      message: 'فشل في جلب تحليل CV',
+      message: "Failed to fetch CV analysis",
       error: error.message,
       requestId,
     });
   }
 };
-
-/**
- * @desc Generate smart match pitch for a CV against a job
- * @route POST /api/ai/cv/generate-pitch
- * @access Private
- */
 exports.generateCVMatchPitch = async (req, res) => {
   const requestId = uuidv4();
   try {

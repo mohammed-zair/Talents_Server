@@ -141,6 +141,23 @@ class AIService {
     return this._requestWithRetry(`/chatbot/sessions?user_id=${encodeURIComponent(userId)}`, null, "Chatbot Sessions", "get");
   }
 
+  async updateChatbotSession(sessionId, userId, updates = {}) {
+    return this._requestWithRetry(`/chatbot/session/${encodeURIComponent(sessionId)}`, {
+      user_id: String(userId),
+      ...updates,
+    }, "Chatbot Session Update", "patch");
+  }
+
+  async deleteChatbotSession(sessionId, userId) {
+    const url = `/chatbot/session/${encodeURIComponent(sessionId)}?user_id=${encodeURIComponent(String(userId))}`;
+    return this._requestWithRetry(url, null, "Chatbot Session Delete", "delete");
+  }
+
+  async getChatbotInsights(sessionId, userId) {
+    const url = `/chatbot/insights/${encodeURIComponent(sessionId)}?user_id=${encodeURIComponent(String(userId))}`;
+    return this._requestWithRetry(url, null, "Chatbot Insights", "get");
+  }
+
   async exportChatbotDocument(sessionId, format = "pdf", language = undefined) {
     const payload = {
       session_id: sessionId,
@@ -197,10 +214,17 @@ class AIService {
 
     while (attempt <= this.maxRetries) {
       try {
-        const response =
-          method.toLowerCase() === "get"
-            ? await this.aiClient.get(endpoint)
-            : await this.aiClient.post(endpoint, payload);
+        const verb = method.toLowerCase();
+        let response;
+        if (verb === "get") {
+          response = await this.aiClient.get(endpoint);
+        } else if (verb === "patch") {
+          response = await this.aiClient.patch(endpoint, payload);
+        } else if (verb === "delete") {
+          response = await this.aiClient.delete(endpoint, { data: payload || {} });
+        } else {
+          response = await this.aiClient.post(endpoint, payload);
+        }
 
         return response.data;
       } catch (error) {

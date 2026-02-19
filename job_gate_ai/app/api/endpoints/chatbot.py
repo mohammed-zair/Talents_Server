@@ -43,6 +43,11 @@ class ChatbotExportRequest(BaseModel):
     language: Optional[str] = None
 
 
+class ChatbotSessionUpdateRequest(BaseModel):
+    user_id: str
+    title: Optional[str] = None
+
+
 def _normalize_language(language: str) -> str:
     value = (language or "english").strip().lower()
     if value in ["ar", "arabic"]:
@@ -405,6 +410,14 @@ def _load_session(session_id: str) -> Optional[Dict[str, Any]]:
     }
 
 
+def _ensure_job_meta(session: Dict[str, Any]) -> Dict[str, Any]:
+    meta = session.get("job_posting_meta")
+    if not isinstance(meta, dict):
+        meta = {}
+    session["job_posting_meta"] = meta
+    return meta
+
+
 def _save_session(session: Dict[str, Any]) -> None:
     updates = {
         "language": session.get("language", "english"),
@@ -592,12 +605,65 @@ async def get_chatbot_session(session_id: str):
     }
 
 
+@router.patch("/session/{session_id}")
+async def update_chatbot_session(session_id: str, request: ChatbotSessionUpdateRequest):
+    session = _load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("user_id") != request.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    meta = _ensure_job_meta(session)
+    if request.title is not None:
+        meta["session_title"] = request.title.strip()
+
+    _save_session(session)
+    return {
+        "success": True,
+        "session_id": session_id,
+        "session_title": meta.get("session_title"),
+    }
+
+
+@router.delete("/session/{session_id}")
+async def delete_chatbot_session(session_id: str, user_id: str = Query(..., min_length=1)):
+    session = _load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    ok = db.delete_chatbot_session(session_id)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to delete session")
+    return {"success": True, "session_id": session_id}
+
+
 @router.get("/sessions")
 async def list_chatbot_sessions(user_id: str = Query(..., min_length=1)):
     records = db.list_chatbot_sessions(user_id, limit=50)
     return {
         "success": True,
         "sessions": [record.to_dict() for record in records],
+    }
+
+
+@router.get("/insights/{session_id}")
+async def get_chatbot_insights(session_id: str, user_id: str = Query(..., min_length=1)):
+    session = _load_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    return {
+        "success": True,
+        "session_id": session_id,
+        "is_complete": session.get("is_complete"),
+        "current_step": session.get("current_step"),
+        "score": session.get("score_data", {}),
+        "final_summary": session.get("final_summary"),
+        "session_title": (session.get("job_posting_meta") or {}).get("session_title"),
     }
 
 

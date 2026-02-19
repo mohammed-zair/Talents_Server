@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from "react";
+﻿import React, { Suspense, lazy } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
@@ -16,6 +16,7 @@ const OpportunitiesPage = lazy(() => import("./pages/OpportunitiesPage"));
 const CVLabPage = lazy(() => import("./pages/CVLabPage"));
 const AIConsultantPage = lazy(() => import("./pages/AIConsultantPage"));
 const MarketPage = lazy(() => import("./pages/MarketPage"));
+const CompanyDetailsPage = lazy(() => import("./pages/CompanyDetailsPage"));
 const ConsultantMarketplacePage = lazy(
   () => import("./pages/ConsultantMarketplacePage")
 );
@@ -23,6 +24,7 @@ const ApplicationsPage = lazy(() => import("./pages/ApplicationsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+const ContactPage = lazy(() => import("./pages/ContactPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +61,7 @@ const App: React.FC = () => {
                     <Route path="/cv-lab" element={<CVLabPage />} />
                     <Route path="/ai-consultant" element={<AIConsultantPage />} />
                     <Route path="/market" element={<MarketPage />} />
+                    <Route path="/market/:companyId" element={<CompanyDetailsPage />} />
                     <Route
                       path="/consultants"
                       element={<ConsultantMarketplacePage />}
@@ -67,6 +70,7 @@ const App: React.FC = () => {
                     <Route path="/profile" element={<ProfilePage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
+                    <Route path="/contact" element={<ContactPage />} />
                   </Route>
                   <Route path="*" element={<Navigate to="/pulse" replace />} />
                 </Routes>

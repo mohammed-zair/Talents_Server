@@ -39,9 +39,17 @@ const JobFormField = sequelize.define("JobFormField", {
       "email",
       "file",
       "select",
-      "textarea"
+      "textarea",
+      "checkbox",
+      "radio"
     ),
     allowNull: false,
+  },
+
+  options: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: [],
   },
 });
 

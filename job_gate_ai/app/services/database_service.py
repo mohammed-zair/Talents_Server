@@ -268,3 +268,16 @@ class DatabaseService :
         except Exception as e :
             print (f"Error updating chatbot session: {e }")
             return False 
+
+    def delete_chatbot_session (self ,session_id :str )->bool :
+        try :
+            with self .get_session ()as session :
+                record =session .query (ChatbotSession ).filter_by (session_id =session_id ).first ()
+                if not record :
+                    return False 
+                session .delete (record )
+                session .flush ()
+                return True 
+        except Exception as e :
+            print (f"Error deleting chatbot session: {e }")
+            return False 
