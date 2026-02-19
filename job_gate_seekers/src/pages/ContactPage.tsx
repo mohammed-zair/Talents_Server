@@ -100,7 +100,7 @@ const ContactPage: React.FC = () => {
                 );
               })}
             </div>
-            <p className="mt-3 text-xs text-[var(--text-muted)]">{t("contactSocialNote")}</p>
+            {/* <p className="mt-3 text-xs text-[var(--text-muted)]">{t("contactSocialNote")}</p> */}
           </div>
         </div>
       </div>
