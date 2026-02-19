@@ -501,11 +501,7 @@ exports.analyzeExistingCV = async (req, res) => {
 
     let aiInsights = null;
     if (ai_intelligence) {
-      const insightRecord = await CVAIInsights.findOne({
-        where: { cv_id: cvId, job_id: null },
-        order: [["insight_id", "DESC"]],
-      });
-      const insightPayload = {
+      const created = await CVAIInsights.create({
         cv_id: cvId,
         job_id: null,
         ai_intelligence,
@@ -514,14 +510,8 @@ exports.analyzeExistingCV = async (req, res) => {
         industry_ranking_label,
         cleaned_job_description,
         analysis_method,
-      };
-      if (insightRecord) {
-        await insightRecord.update(insightPayload);
-        aiInsights = insightRecord.toJSON ? insightRecord.toJSON() : insightRecord;
-      } else {
-        const created = await CVAIInsights.create(insightPayload);
-        aiInsights = created.toJSON ? created.toJSON() : created;
-      }
+      });
+      aiInsights = created.toJSON ? created.toJSON() : created;
     }
 
     console.log(`[${requestId}] Existing CV analysis completed for user ${userId}`);
@@ -861,6 +851,67 @@ exports.getCVAnalysis = async (req, res) => {
     console.error(`[${requestId}] Get CV Analysis Error:`, error);
     return res.status(500).json({
       message: "Failed to fetch CV analysis",
+      error: error.message,
+      requestId,
+    });
+  }
+};
+
+/**
+ * @desc Get CV analysis history (AI insights only)
+ * @route GET /api/ai/cv/analysis/:cvId/history
+ * @access Private
+ */
+exports.getCVAnalysisHistory = async (req, res) => {
+  const requestId = uuidv4();
+  console.log(`[${requestId}] Get CV Analysis History`);
+  try {
+    const cvId = parseInt(req.params.cvId, 10);
+    const userId = req.user.user_id;
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "20", 10), 1), 50);
+
+    if (!Number.isFinite(cvId) || cvId <= 0) {
+      return res.status(400).json({
+        message: "Invalid CV ID",
+        requestId,
+      });
+    }
+
+    const cvRecord = await CV.findOne({ where: { cv_id: cvId, user_id: userId } });
+    if (!cvRecord) {
+      return res.status(404).json({
+        message: "CV not found or access denied",
+        requestId,
+      });
+    }
+
+    const insights = await CVAIInsights.findAll({
+      where: { cv_id: cvId, job_id: null },
+      order: [["insight_id", "DESC"]],
+      limit,
+    });
+
+    const history = insights.map((item) => {
+      const payload = item.toJSON ? item.toJSON() : item;
+      if (payload?.ai_intelligence) {
+        payload.ai_intelligence = normalizeAiIntelligence(payload.ai_intelligence);
+      }
+      return payload;
+    });
+
+    return successResponse(
+      res,
+      {
+        cv_id: cvId,
+        history,
+        requestId,
+      },
+      "CV analysis history loaded"
+    );
+  } catch (error) {
+    console.error(`[${requestId}] Get CV Analysis History Error:`, error);
+    return res.status(500).json({
+      message: "Failed to fetch CV analysis history",
       error: error.message,
       requestId,
     });

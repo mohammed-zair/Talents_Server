@@ -1,15 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
-
-const weakTerms = ["responsible for", "helped", "worked on", "tasked with"];
-const strongTerms = ["led", "delivered", "optimized", "increased", "built"];
-
-const escapeRegex = (input: string) => input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const buildWordBoundaryRegex = (term: string) =>
-  new RegExp(`\\b${escapeRegex(term).replace(/\\s+/g, "\\\\s+")}\\b`, "i");
 
 const toList = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -33,12 +26,12 @@ const getCvPublicHref = (fileUrl?: string) => {
 const CVLabPage: React.FC = () => {
   const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
   const [cvTitle, setCvTitle] = useState("");
-  const [text, setText] = useState("");
   const [analysis, setAnalysis] = useState<any>(null);
   const [analysisInfo, setAnalysisInfo] = useState("");
   const [analysisError, setAnalysisError] = useState("");
   const [uploadFeedback, setUploadFeedback] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const [selectedInsightId, setSelectedInsightId] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
   const { t } = useLanguage();
@@ -49,6 +42,12 @@ const CVLabPage: React.FC = () => {
     () => cvItems.find((cv) => cv.cv_id === selectedCvId) || cvItems[0],
     [cvItems, selectedCvId]
   );
+  const historyQ = useQuery({
+    queryKey: ["cv-analysis-history", selectedCv?.cv_id],
+    queryFn: () => seekerApi.getCvAnalysisHistory(selectedCv?.cv_id ?? 0),
+    enabled: !!selectedCv?.cv_id,
+  });
+  const historyItems = useMemo(() => (Array.isArray(historyQ.data) ? historyQ.data : []), [historyQ.data]);
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
@@ -109,11 +108,22 @@ const CVLabPage: React.FC = () => {
     },
   });
 
-  const weakFound = weakTerms.filter((w) => buildWordBoundaryRegex(w).test(text));
-  const strongFound = strongTerms.filter((s) => buildWordBoundaryRegex(s).test(text));
   const selectedCvHref = getCvPublicHref(selectedCv?.file_url);
 
-  const analysisInsights = analysis?.ai_insights?.ai_intelligence || analysis?.ai_intelligence || {};
+  useEffect(() => {
+    if (!historyItems.length) {
+      setSelectedInsightId(null);
+      return;
+    }
+    if (!selectedInsightId || !historyItems.some((item) => item?.insight_id === selectedInsightId)) {
+      setSelectedInsightId(historyItems[0]?.insight_id ?? null);
+    }
+  }, [historyItems, selectedInsightId]);
+
+  const activeInsight =
+    historyItems.find((item) => item?.insight_id === selectedInsightId) || historyItems[0] || null;
+  const analysisInsights =
+    activeInsight?.ai_intelligence || analysis?.ai_insights?.ai_intelligence || analysis?.ai_intelligence || {};
   const strategic = analysisInsights?.strategic_analysis || {};
   const strengthItems = toList(analysisInsights?.strengths || strategic?.strengths);
   const weaknessItems = toList(analysisInsights?.weaknesses || strategic?.weaknesses);
@@ -121,8 +131,16 @@ const CVLabPage: React.FC = () => {
     analysisInsights?.recommendations || analysisInsights?.ats_optimization_tips
   );
   const keySkills = toList(analysis?.features_analytics?.key_skills);
-  const atsScore = analysis?.features_analytics?.ats_score;
+  const atsScore = activeInsight?.ats_score ?? analysis?.features_analytics?.ats_score;
+  const industryScore = activeInsight?.industry_ranking_score;
+  const industryLabel = activeInsight?.industry_ranking_label;
   const experience = analysis?.features_analytics?.total_years_experience;
+  const aiSummary =
+    analysisInsights?.summary ||
+    analysisInsights?.contextual_summary ||
+    analysisInsights?.professional_summary ||
+    strategic?.summary ||
+    "";
 
   const hasAnalysisCards =
     Number.isFinite(atsScore) ||
@@ -246,24 +264,43 @@ const CVLabPage: React.FC = () => {
       </div>
 
       <div className="glass-card p-4">
-        <h2 className="mb-3 text-xl font-semibold">{t("aiRecommendations")}</h2>
-        <p className="mb-3 text-xs text-[var(--text-muted)]">{t("cvLabRightHint")}</p>
+        <h2 className="mb-3 text-xl font-semibold">{t("aiAnalysis")}</h2>
 
-        <textarea
-          className="field min-h-[180px]"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={t("pasteBulletsPlaceholder")}
-        />
-
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-red-500/40 p-3 text-sm">
-            <p className="font-semibold text-red-300">{t("weakPhrasing")}</p>
-            <p>{weakFound.length ? weakFound.join(", ") : t("noWeakPhrases")}</p>
+        <div className="mt-3 rounded-xl border border-[var(--border)] p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm font-semibold">{t("analysisHistory")}</p>
+            {historyQ.isLoading && <span className="text-xs text-[var(--text-muted)]">{t("loading")}</span>}
           </div>
-          <div className="rounded-xl border border-emerald-500/40 p-3 text-sm">
-            <p className="font-semibold text-emerald-300">{t("strongImpact")}</p>
-            <p>{strongFound.length ? strongFound.join(", ") : t("addImpactVerbs")}</p>
+          {historyQ.isError && (
+            <p className="text-xs text-red-300">{t("analysisHistoryFailed")}</p>
+          )}
+          {!historyQ.isLoading && historyItems.length === 0 && (
+            <p className="text-xs text-[var(--text-muted)]">{t("analysisHistoryEmpty")}</p>
+          )}
+          <div className="space-y-2">
+            {historyItems.map((item: any, index: number) => {
+              const isActive = item?.insight_id === selectedInsightId;
+              const createdAt = item?.created_at ? new Date(item.created_at).toLocaleString() : "";
+              const method = item?.analysis_method ? String(item.analysis_method) : t("analysisRun");
+              const label = createdAt ? `${method} - ${createdAt}` : method;
+              return (
+                <button
+                  key={item?.insight_id ?? index}
+                  type="button"
+                  onClick={() => setSelectedInsightId(item?.insight_id ?? null)}
+                  className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
+                    isActive
+                      ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                      : "border-[var(--border)] hover:border-[var(--accent)]/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{label}</span>
+                    {index === 0 && <span className="text-[var(--text-muted)]">{t("analysisLatest")}</span>}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -286,6 +323,29 @@ const CVLabPage: React.FC = () => {
                   </div>
                 </div>
 
+                {(Number.isFinite(industryScore) || industryLabel) && (
+                  <div className="rounded-xl border border-[var(--border)] p-3">
+                    <p className="text-xs text-[var(--text-muted)]">{t("industryRanking")}</p>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <p className="text-lg font-semibold">
+                        {Number.isFinite(industryScore) ? Math.round(industryScore) : "-"}
+                      </p>
+                      {industryLabel && (
+                        <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-xs">
+                          {industryLabel}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {aiSummary && (
+                  <div className="rounded-xl border border-[var(--border)] p-3">
+                    <p className="mb-2 text-sm font-semibold">{t("aiSummary")}</p>
+                    <p className="text-sm text-[var(--text-muted)]">{aiSummary}</p>
+                  </div>
+                )}
+
                 {keySkills.length > 0 && (
                   <div className="rounded-xl border border-[var(--border)] p-3">
                     <p className="mb-2 text-sm font-semibold">{t("keySkills")}</p>
@@ -300,37 +360,94 @@ const CVLabPage: React.FC = () => {
                 )}
 
                 {strengthItems.length > 0 && (
-                  <div className="rounded-xl border border-emerald-500/35 p-3">
-                    <p className="mb-2 text-sm font-semibold text-emerald-300">{t("strengths")}</p>
-                    <ul className="list-disc space-y-1 pl-5 text-sm">
-                      {strengthItems.slice(0, 6).map((item) => (
-                        <li key={item}>{item}</li>
+                  <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/5 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-emerald-300">{t("strengths")}</p>
+                      <span className="rounded-full border border-emerald-500/40 px-2 py-0.5 text-xs text-emerald-300">
+                        {strengthItems.length}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {strengthItems.slice(0, 8).map((item, idx) => (
+                        <div
+                          key={`${item}-${idx}`}
+                          className="rounded-lg border border-emerald-500/20 bg-[var(--glass)] p-2 text-sm"
+                        >
+                          <span className="mr-2 text-xs text-emerald-200">{String(idx + 1).padStart(2, "0")}.</span>
+                          {item}
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
 
                 {weaknessItems.length > 0 && (
-                  <div className="rounded-xl border border-red-500/35 p-3">
-                    <p className="mb-2 text-sm font-semibold text-red-300">{t("weaknesses")}</p>
-                    <ul className="list-disc space-y-1 pl-5 text-sm">
-                      {weaknessItems.slice(0, 6).map((item) => (
-                        <li key={item}>{item}</li>
+                  <div className="rounded-xl border border-red-500/35 bg-red-500/5 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-red-300">{t("weaknesses")}</p>
+                      <span className="rounded-full border border-red-500/40 px-2 py-0.5 text-xs text-red-300">
+                        {weaknessItems.length}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {weaknessItems.slice(0, 8).map((item, idx) => (
+                        <div
+                          key={`${item}-${idx}`}
+                          className="rounded-lg border border-red-500/20 bg-[var(--glass)] p-2 text-sm"
+                        >
+                          <span className="mr-2 text-xs text-red-200">{String(idx + 1).padStart(2, "0")}.</span>
+                          {item}
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
 
                 {recommendationItems.length > 0 && (
                   <div className="rounded-xl border border-[var(--border)] p-3">
-                    <p className="mb-2 text-sm font-semibold">{t("recommendations")}</p>
-                    <ul className="list-disc space-y-1 pl-5 text-sm">
-                      {recommendationItems.slice(0, 8).map((item) => (
-                        <li key={item}>{item}</li>
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-sm font-semibold">{t("recommendations")}</p>
+                      <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
+                        {recommendationItems.length}
+                      </span>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {recommendationItems.slice(0, 10).map((item, idx) => (
+                        <div
+                          key={`${item}-${idx}`}
+                          className="rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2 text-sm"
+                        >
+                          <span className="mr-2 text-xs text-[var(--text-muted)]">{String(idx + 1).padStart(2, "0")}.</span>
+                          {item}
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 )}
+
+                <details className="rounded-xl border border-[var(--border)] p-3">
+                  <summary className="cursor-pointer text-sm font-semibold">{t("fullAiResponse")}</summary>
+                  <div className="mt-3 space-y-3 text-xs">
+                    <div>
+                      <p className="mb-1 text-[var(--text-muted)]">{t("aiIntelligence")}</p>
+                      <pre className="max-h-64 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2">
+                        {JSON.stringify(analysisInsights, null, 2)}
+                      </pre>
+                    </div>
+                    <div>
+                      <p className="mb-1 text-[var(--text-muted)]">{t("featuresAnalytics")}</p>
+                      <pre className="max-h-64 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2">
+                        {JSON.stringify(analysis?.features_analytics || {}, null, 2)}
+                      </pre>
+                    </div>
+                    <div>
+                      <p className="mb-1 text-[var(--text-muted)]">{t("structuredData")}</p>
+                      <pre className="max-h-64 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2">
+                        {JSON.stringify(analysis?.structured_data || {}, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                </details>
               </>
             ) : (
               <pre className="max-h-52 overflow-auto rounded-xl border border-[var(--border)] p-3 text-xs">

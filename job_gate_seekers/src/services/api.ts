@@ -196,6 +196,10 @@ export const seekerApi = {
     const res = await api.get(`/ai/cv/analysis/${cvId}`);
     return unwrap(res.data);
   },
+  getCvAnalysisHistory: async (cvId: number, params?: { limit?: number }) => {
+    const res = await api.get(`/ai/cv/analysis/${cvId}/history`, { params });
+    return ensureArray<any>(unwrap<any>(res.data), ["history", "items"]);
+  },
   getUserAiCvs: async () => {
     const res = await api.get("/ai/user/cvs");
     return ensureArray<any>(unwrap<any>(res.data), ["cvs"]);

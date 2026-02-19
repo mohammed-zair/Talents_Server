@@ -89,6 +89,12 @@ router.get("/cv/analysis/:cvId",
   verifyToken, 
   aiController.getCVAnalysis
 );
+// Ø§Ù„Ø­ØµÙˆÙ„ Ø¹Ù„Ù‰ Ø³Ø¬Ù„ ØªØ­Ù„ÙŠÙ„ات CV
+router.get(
+  "/cv/analysis/:cvId/history",
+  verifyToken,
+  aiController.getCVAnalysisHistory
+);
 
 router.post(
   "/cv/generate-pitch",
