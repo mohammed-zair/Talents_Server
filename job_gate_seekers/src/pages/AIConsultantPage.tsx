@@ -1,6 +1,21 @@
-﻿﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Briefcase, Loader2, Mic, RefreshCw, Sparkles } from "lucide-react";
+import {
+  Briefcase,
+  ChevronRight,
+  Download,
+  Eye,
+  Lightbulb,
+  Loader2,
+  Menu,
+  Mic,
+  MoreVertical,
+  RefreshCw,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
@@ -49,11 +64,14 @@ const AIConsultantPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"preview" | "insights" | "export">("preview");
   const [chatError, setChatError] = useState("");
   const [showSessions, setShowSessions] = useState(false);
+  const [showRightPanel, setShowRightPanel] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [titleError, setTitleError] = useState("");
   const [titleSuccess, setTitleSuccess] = useState("");
   const [sessionSuccess, setSessionSuccess] = useState("");
   const [exportFormat, setExportFormat] = useState<"pdf" | "docx" | null>(null);
+  const [sessionSearch, setSessionSearch] = useState("");
+  const [menuSessionId, setMenuSessionId] = useState<string | null>(null);
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -96,8 +114,38 @@ const AIConsultantPage: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [sessionSuccess]);
 
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTypingField =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (event.key === "/" && !isTypingField) {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+      if (event.key === "Escape") {
+        setShowSessions(false);
+        setShowRightPanel(false);
+        setMenuSessionId(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   const sessionsQ = useQuery({ queryKey: ["chat-sessions"], queryFn: seekerApi.listChatSessions });
   const sessionItems = useMemo(() => (Array.isArray(sessionsQ.data) ? sessionsQ.data : []), [sessionsQ.data]);
+  const filteredSessions = useMemo(() => {
+    if (!sessionSearch.trim()) return sessionItems;
+    const needle = sessionSearch.trim().toLowerCase();
+    return sessionItems.filter((s: any) => {
+      const title = getSessionTitle(s) || "";
+      const last = s?.last_message || s?.lastMessage || "";
+      return `${title} ${last}`.toLowerCase().includes(needle);
+    });
+  }, [sessionItems, sessionSearch]);
   const selectedSession = useMemo(
     () => sessionItems.find((s: any) => String(s.session_id || s.id || "") === sessionId),
     [sessionItems, sessionId]
@@ -235,108 +283,184 @@ const AIConsultantPage: React.FC = () => {
           : t("scoreHintImprove");
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.1fr_2fr_2fr]">
-      <div className="glass-card p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{t("sessions")}</h2>
-          <button className="btn-ghost lg:hidden" onClick={() => setShowSessions((s) => !s)}>
-            {showSessions ? t("hideSessions") : t("showSessions")}
-          </button>
-        </div>
-        <p className="mb-3 text-xs text-[var(--text-muted)]">{t("aiConsultantIntro")}</p>
-
-        <div className="mb-3 flex flex-wrap gap-2">
-          <button className="btn-primary" onClick={() => startMutation.mutate(false)} disabled={startMutation.isPending}>
-            {t("startCareerAdvisor")}
-          </button>
-          <button className="btn-primary" onClick={() => startMutation.mutate(true)} disabled={startMutation.isPending}>
-            {t("startMockInterview")}
-          </button>
-        </div>
-
-        {sessionId && (
-          <div className="mb-3 rounded-xl border border-[var(--border)] p-3">
-            <label className="text-xs text-[var(--text-muted)]" htmlFor="session-title">
-              {t("sessionTitle")}
-            </label>
-            <input
-              id="session-title"
-              className="field mt-2"
-              value={titleDraft}
-              placeholder={t("titlePlaceholder")}
-              onChange={(e) => setTitleDraft(e.target.value)}
-            />
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                className="btn-ghost"
-                onClick={() => renameMutation.mutate(titleDraft.trim())}
-                disabled={renameMutation.isPending}
-              >
-                {t("saveTitle")}
-              </button>
-              <button
-                className="btn-ghost text-red-300"
-                onClick={() => {
-                  if (!window.confirm(t("confirmDeleteSession"))) return;
-                  deleteMutation.mutate(sessionId);
-                }}
-                disabled={deleteMutation.isPending}
-              >
-                {t("deleteSession")}
-              </button>
-            </div>
-            {titleError && <p className="mt-2 text-xs text-red-300">{titleError}</p>}
-            {titleSuccess && <p className="mt-2 text-xs text-emerald-300">{titleSuccess}</p>}
+    <div className="relative flex h-[calc(100vh-6rem)] gap-4">
+      <aside
+        className={`fixed inset-y-0 left-0 z-20 w-80 transform border-r border-[var(--border)] bg-[var(--glass)] transition-transform duration-300 lg:static lg:translate-x-0 ${
+          showSessions ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex h-full flex-col p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">{t("sessions")}</h2>
+            <button className="btn-ghost lg:hidden" onClick={() => setShowSessions(false)} aria-label={t("hideSessions")}>
+              <X size={18} />
+            </button>
           </div>
-        )}
+          <p className="mb-3 text-xs text-[var(--text-muted)]">{t("aiConsultantIntro")}</p>
 
-        {sessionsQ.isError && <p className="text-sm text-red-300">{t("sessionsLoadFailed")}</p>}
-        {sessionsQ.isLoading && <p className="text-sm text-[var(--text-muted)]">{t("loading")}</p>}
-        {!sessionsQ.isLoading && sessionItems.length === 0 && (
-          <div className="rounded-xl border border-[var(--border)] p-4 text-sm text-[var(--text-muted)]">
-            <div className="mb-2 flex items-center gap-2 text-[var(--text-primary)]">
-              <Sparkles size={16} />
-              {t("noSessionsYet")}
-            </div>
-            <div>{t("chatEmpty")}</div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <button className="btn-primary" onClick={() => startMutation.mutate(false)} disabled={startMutation.isPending}>
+              {t("startCareerAdvisor")}
+            </button>
+            <button className="btn-primary" onClick={() => startMutation.mutate(true)} disabled={startMutation.isPending}>
+              {t("startMockInterview")}
+            </button>
           </div>
-        )}
 
-        {sessionSuccess && <p className="mb-2 text-xs text-emerald-300">{sessionSuccess}</p>}
+          {sessionId && (
+            <div className="mb-3 rounded-xl border border-[var(--border)] p-3">
+              <label className="text-xs text-[var(--text-muted)]" htmlFor="session-title">
+                {t("sessionTitle")}
+              </label>
+              <input
+                id="session-title"
+                className="field mt-2"
+                value={titleDraft}
+                placeholder={t("titlePlaceholder")}
+                onChange={(e) => setTitleDraft(e.target.value)}
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  className="btn-ghost"
+                  onClick={() => renameMutation.mutate(titleDraft.trim())}
+                  disabled={renameMutation.isPending}
+                >
+                  {t("saveTitle")}
+                </button>
+                <button
+                  className="btn-ghost text-red-300"
+                  onClick={() => {
+                    if (!window.confirm(t("confirmDeleteSession"))) return;
+                    deleteMutation.mutate(sessionId);
+                  }}
+                  disabled={deleteMutation.isPending}
+                >
+                  {t("deleteSession")}
+                </button>
+              </div>
+              {titleError && <p className="mt-2 text-xs text-red-300">{titleError}</p>}
+              {titleSuccess && <p className="mt-2 text-xs text-emerald-300">{titleSuccess}</p>}
+            </div>
+          )}
 
-        <div className={`space-y-2 ${showSessions ? "block" : "hidden"} lg:block max-h-[calc(100vh-18rem)] overflow-auto pr-1`}>
-          {sessionItems.map((s: any) => {
-            const id = String(s.session_id || s.id || "");
-            const label = formatSessionLabel(s, t);
-            const last = s?.last_message || s?.lastMessage || "";
-            const title = getSessionTitle(s) || t("untitledSession");
-            const mode = s?.mode || s?.initial_data?.mode || s?.metadata?.mode;
-            const ModeIcon = mode === "mock_interview" ? Mic : Briefcase;
-            return (
-              <button
-                key={id}
-                className={`w-full rounded-xl border p-3 text-left ${
-                  id === sessionId
-                    ? "border-[var(--accent)] bg-[var(--accent)]/10"
-                    : "border-[var(--border)] hover:border-[var(--accent)]/50"
-                }`}
-                onClick={() => setSessionId(id)}
-              >
-                <div className="flex items-center gap-2 font-medium">
-                  <ModeIcon size={14} />
-                  <span>{title}</span>
+          <input
+            className="field mb-3"
+            value={sessionSearch}
+            onChange={(e) => setSessionSearch(e.target.value)}
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
+          />
+
+          {sessionsQ.isError && <p className="text-sm text-red-300">{t("sessionsLoadFailed")}</p>}
+          {sessionsQ.isLoading && <p className="text-sm text-[var(--text-muted)]">{t("loading")}</p>}
+          {!sessionsQ.isLoading && filteredSessions.length === 0 && (
+            <div className="rounded-xl border border-[var(--border)] p-4 text-sm text-[var(--text-muted)]">
+              <div className="mb-2 flex items-center gap-2 text-[var(--text-primary)]">
+                <Sparkles size={16} />
+                {t("noSessionsYet")}
+              </div>
+              <div>{t("chatEmpty")}</div>
+            </div>
+          )}
+
+          {sessionSuccess && <p className="mb-2 text-xs text-emerald-300">{sessionSuccess}</p>}
+
+          <div className="space-y-2 overflow-auto pr-1">
+            {filteredSessions.map((s: any) => {
+              const id = String(s.session_id || s.id || "");
+              const label = formatSessionLabel(s, t);
+              const last = s?.last_message || s?.lastMessage || "";
+              const title = getSessionTitle(s) || t("untitledSession");
+              const mode = s?.mode || s?.initial_data?.mode || s?.metadata?.mode;
+              const ModeIcon = mode === "mock_interview" ? Mic : Briefcase;
+              return (
+                <div key={id} className="relative">
+                  <button
+                    className={`w-full rounded-xl border p-3 text-left transition ${
+                      id === sessionId
+                        ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                        : "border-[var(--border)] hover:border-[var(--accent)]/50"
+                    }`}
+                    onClick={() => setSessionId(id)}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 font-medium">
+                        <ModeIcon size={14} />
+                        <span>{title}</span>
+                      </div>
+                      <button
+                        className="btn-ghost p-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuSessionId((prev) => (prev === id ? null : id));
+                        }}
+                        aria-label="Session menu"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                    </div>
+                    <div className="mt-1 text-xs text-[var(--text-muted)]">{label}</div>
+                    {last ? (
+                      <div className="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">
+                        {t("lastMessage")}: {last}
+                      </div>
+                    ) : null}
+                  </button>
+                  {menuSessionId === id && (
+                    <div className="absolute right-2 top-12 z-10 w-36 rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2 text-xs">
+                      <button
+                        className="w-full rounded-md px-2 py-1 text-left hover:bg-[var(--glass)]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const nextTitle = window.prompt(t("sessionTitle"), title);
+                          if (nextTitle && nextTitle.trim()) {
+                            setSessionId(id);
+                            setTitleDraft(nextTitle.trim());
+                            renameMutation.mutate(nextTitle.trim());
+                          }
+                          setMenuSessionId(null);
+                        }}
+                      >
+                        {t("saveTitle")}
+                      </button>
+                      <button
+                        className="mt-1 w-full rounded-md px-2 py-1 text-left text-red-300 hover:bg-[var(--glass)]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!window.confirm(t("confirmDeleteSession"))) return;
+                          deleteMutation.mutate(id);
+                          setMenuSessionId(null);
+                        }}
+                      >
+                        {t("deleteSession")}
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="mt-1 text-xs text-[var(--text-muted)]">{label}</div>
-                {last ? <div className="mt-1 text-xs text-[var(--text-muted)]">{t("lastMessage")}: {last}</div> : null}
-              </button>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      </aside>
 
-      <div className="glass-card flex h-[78vh] flex-col p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{t("chatPanel")}</h2>
+      <main className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--glass)] p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex gap-2">
+            <button
+              className="btn-ghost lg:hidden"
+              onClick={() => setShowSessions(true)}
+              aria-label={t("showSessions")}
+            >
+              <Menu size={18} />
+            </button>
+            <button
+              className="btn-ghost lg:hidden"
+              onClick={() => setShowRightPanel(true)}
+              aria-label={t("insightsPanel")}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
           {sessionId ? <span className="text-xs text-[var(--text-muted)]">{sessionId}</span> : null}
         </div>
 
@@ -347,44 +471,74 @@ const AIConsultantPage: React.FC = () => {
         )}
 
         <div
-          className="flex-1 space-y-2 overflow-auto rounded-xl border border-[var(--border)] p-3"
+          className="flex-1 space-y-4 overflow-auto rounded-xl border border-[var(--border)] p-3"
           role="log"
           aria-live="polite"
           aria-relevant="additions"
           aria-atomic="false"
         >
-          {messages.map((m, idx) => (
-            <div
-              key={idx}
-              className={`max-w-[80%] whitespace-pre-wrap rounded-xl p-3 text-sm ${
-                m.role === "user" ? "ml-auto bg-[var(--accent)] text-black" : "bg-[var(--glass)]"
-              }`}
-            >
-              {m.text}
-            </div>
-          ))}
+          {messages.map((m, idx) => {
+            const isUser = m.role === "user";
+            const showAvatar = idx === 0 || messages[idx - 1]?.role !== m.role;
+            return (
+              <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+                {!isUser && showAvatar && (
+                  <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold text-black">
+                    AI
+                  </div>
+                )}
+                <div
+                  className={`relative max-w-[80%] rounded-2xl p-3 text-sm transition animate-fade-in ${
+                    isUser
+                      ? "rounded-br-none bg-[var(--accent)] text-black"
+                      : "rounded-bl-none bg-[var(--glass)]"
+                  }`}
+                >
+                  <div className="whitespace-pre-wrap">{m.text}</div>
+                  {showAvatar && (
+                    <span className="mt-1 block text-right text-[10px] text-[var(--text-muted)]">
+                      {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                  <span
+                    aria-hidden="true"
+                    className={`absolute bottom-2 h-3 w-3 rotate-45 ${
+                      isUser ? "-right-1 bg-[var(--accent)]" : "-left-1 bg-[var(--glass)]"
+                    }`}
+                  />
+                </div>
+                {isUser && showAvatar && (
+                  <div className="ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold text-black">
+                    You
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {chatMutation.isPending && (
-            <div className="max-w-[60%] rounded-xl bg-[var(--glass)] p-3 text-sm">
-              <div className="flex items-center gap-2">
-                <span>{t("typing")}</span>
-                <span className="inline-flex gap-1">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--text-muted)] [animation-delay:-0.2s]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--text-muted)] [animation-delay:-0.1s]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--text-muted)]" />
-                </span>
+            <div className="flex justify-start">
+              <div className="rounded-2xl rounded-bl-none bg-[var(--glass)] p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <span>{t("typing")}</span>
+                  <span className="inline-flex gap-1">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--text-muted)] [animation-delay:-0.2s]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--text-muted)] [animation-delay:-0.1s]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--text-muted)]" />
+                  </span>
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="mt-3">
+        <div className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--glass)] p-2">
           <label className="sr-only" htmlFor="ai-message">
             {t("messageLabel")}
           </label>
-          <div className="flex gap-2">
+          <div className="flex items-end gap-2">
             <textarea
               id="ai-message"
-              className="field min-h-[44px] max-h-40 resize-none"
+              className="min-h-[44px] max-h-40 flex-1 resize-none bg-transparent p-2 text-sm outline-none"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={t("askPlaceholder")}
@@ -400,198 +554,235 @@ const AIConsultantPage: React.FC = () => {
               }}
             />
             <button
-              className="btn-primary"
+              className="btn-primary flex h-10 w-10 items-center justify-center rounded-full p-0"
               onClick={() => chatMutation.mutate()}
               disabled={!sessionId || !message || chatMutation.isPending}
+              aria-label={t("send")}
             >
-              {t("send")}
+              <Send size={18} />
             </button>
           </div>
-          {chatError && <p className="mt-2 text-sm text-red-300">{chatError}</p>}
+          {chatError && <p className="mt-2 px-2 text-xs text-red-300">{chatError}</p>}
         </div>
-      </div>
+      </main>
 
-      <div className="glass-card p-4">
-        <div className="mb-3 flex gap-2 overflow-auto" role="tablist" aria-label={t("aiConsultant")}>
-          <button
-            role="tab"
-            aria-selected={activeTab === "preview"}
-            className={`btn-ghost border-b-2 ${
-              activeTab === "preview" ? "nav-active border-[var(--accent)]" : "border-transparent"
-            }`}
-            onClick={() => setActiveTab("preview")}
-          >
-            {t("previewPanel")}
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === "insights"}
-            className={`btn-ghost border-b-2 ${
-              activeTab === "insights" ? "nav-active border-[var(--accent)]" : "border-transparent"
-            }`}
-            onClick={() => setActiveTab("insights")}
-          >
-            {t("insightsPanel")}
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === "export"}
-            className={`btn-ghost border-b-2 ${
-              activeTab === "export" ? "nav-active border-[var(--accent)]" : "border-transparent"
-            }`}
-            onClick={() => setActiveTab("export")}
-          >
-            {t("exportPanel")}
-          </button>
-        </div>
-
-        {activeTab === "preview" && (
-          <div className="rounded-xl border border-[var(--border)] p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs text-[var(--text-muted)]">{t("previewPanel")}</div>
-              <button
-                className="btn-ghost flex items-center gap-2 text-xs"
-                onClick={() => previewQ.refetch()}
-                disabled={!sessionId || previewQ.isLoading}
-              >
-                <RefreshCw size={14} />
-                {t("refreshPreview")}
-              </button>
-            </div>
-            {!sessionId && <p className="text-sm text-[var(--text-muted)]">{t("selectSessionHint")}</p>}
-            {sessionId && previewQ.isLoading && <p className="text-sm text-[var(--text-muted)]">{t("previewLoading")}</p>}
-            {sessionId && previewQ.isError && <p className="text-sm text-red-300">{t("previewFailed")}</p>}
-            {sessionId && !previewQ.isLoading && !previewQ.isError && !previewAvailable && (
-              <p className="text-sm text-[var(--text-muted)]">{t("previewEmpty")}</p>
-            )}
-            {sessionId && previewQ.data && (
-              <iframe
-                title="cv-preview"
-                className="h-[60vh] min-h-[300px] w-full rounded-lg border border-[var(--border)] bg-white"
-                srcDoc={previewQ.data}
-              />
-            )}
+      <aside
+        className={`fixed inset-x-0 bottom-0 z-20 h-[80vh] transform rounded-t-2xl border border-[var(--border)] bg-[var(--glass)] p-4 transition-transform duration-300 lg:static lg:h-auto lg:w-[26rem] lg:translate-y-0 lg:rounded-2xl ${
+          showRightPanel ? "translate-y-0" : "translate-y-full lg:translate-y-0"
+        }`}
+      >
+        <div className="flex h-full flex-col">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">{t("insightsPanel")}</h2>
+            <button className="btn-ghost lg:hidden" onClick={() => setShowRightPanel(false)}>
+              <X size={18} />
+            </button>
           </div>
-        )}
 
-        {activeTab === "insights" && (
-          <div className="rounded-xl border border-[var(--border)] p-3">
-            {!sessionId && <p className="text-sm text-[var(--text-muted)]">{t("selectSessionHint")}</p>}
-            {sessionId && insightsQ.isLoading && (
-              <div className="space-y-3">
-                <div className="h-6 w-28 animate-pulse rounded-full bg-[var(--border)]" />
-                <div className="h-24 animate-pulse rounded-xl bg-[var(--border)]/70" />
-                <div className="h-20 animate-pulse rounded-xl bg-[var(--border)]/70" />
-              </div>
-            )}
-            {sessionId && insightsQ.isError && <p className="text-sm text-red-300">{t("insightsFailed")}</p>}
-            {sessionId && !insightsQ.isLoading && !insightsQ.isError && (
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className={`rounded-full px-2 py-1 ${insights?.is_complete ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>
-                    {insights?.is_complete ? t("insightsStatusComplete") : t("insightsStatusInProgress")}
-                  </span>
-                  {insights?.current_step ? (
-                    <span className="text-[var(--text-muted)]">· {insights.current_step}</span>
-                  ) : null}
+          <div className="mb-4 flex gap-2" role="tablist" aria-label={t("aiConsultant")}>
+            <button
+              role="tab"
+              aria-selected={activeTab === "preview"}
+              className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
+                activeTab === "preview"
+                  ? "bg-[var(--accent)] text-black"
+                  : "text-[var(--text-muted)] hover:bg-[var(--glass)]"
+              }`}
+              onClick={() => setActiveTab("preview")}
+            >
+              <Eye className="mr-1 inline h-4 w-4" />
+              {t("previewPanel")}
+            </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === "insights"}
+              className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
+                activeTab === "insights"
+                  ? "bg-[var(--accent)] text-black"
+                  : "text-[var(--text-muted)] hover:bg-[var(--glass)]"
+              }`}
+              onClick={() => setActiveTab("insights")}
+            >
+              <Lightbulb className="mr-1 inline h-4 w-4" />
+              {t("insightsPanel")}
+            </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === "export"}
+              className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
+                activeTab === "export"
+                  ? "bg-[var(--accent)] text-black"
+                  : "text-[var(--text-muted)] hover:bg-[var(--glass)]"
+              }`}
+              onClick={() => setActiveTab("export")}
+            >
+              <Download className="mr-1 inline h-4 w-4" />
+              {t("exportPanel")}
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-auto">
+            {activeTab === "preview" && (
+              <div className="rounded-xl border border-[var(--border)] p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-xs text-[var(--text-muted)]">{t("previewPanel")}</div>
+                  <button
+                    className="btn-ghost flex items-center gap-2 text-xs"
+                    onClick={() => previewQ.refetch()}
+                    disabled={!sessionId || previewQ.isLoading}
+                  >
+                    <RefreshCw size={14} />
+                    {t("refreshPreview")}
+                  </button>
                 </div>
-
-                {scoreValue === null && !finalSummary && checklist.length === 0 && (
-                  <p className="text-sm text-[var(--text-muted)]">{t("insightsEmpty")}</p>
+                {!sessionId && <p className="text-sm text-[var(--text-muted)]">{t("selectSessionHint")}</p>}
+                {sessionId && previewQ.isLoading && <p className="text-sm text-[var(--text-muted)]">{t("previewLoading")}</p>}
+                {sessionId && previewQ.isError && <p className="text-sm text-red-300">{t("previewFailed")}</p>}
+                {sessionId && !previewQ.isLoading && !previewQ.isError && !previewAvailable && (
+                  <p className="text-sm text-[var(--text-muted)]">{t("previewEmpty")}</p>
                 )}
+                {sessionId && previewQ.data && (
+                  <iframe
+                    title="cv-preview"
+                    className="h-[60vh] min-h-[300px] w-full rounded-lg border border-[var(--border)] bg-white"
+                    srcDoc={previewQ.data}
+                  />
+                )}
+              </div>
+            )}
 
-                {scoreValue !== null && (
-                  <div className="rounded-xl border border-[var(--border)] p-3">
-                    <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsScore")}</div>
-                    <div className="mt-2 flex items-end justify-between gap-2">
-                      <div className="text-3xl font-semibold">{scoreValue}</div>
-                      {scoreHint && <div className="text-xs text-[var(--text-muted)]">{scoreHint}</div>}
+            {activeTab === "insights" && (
+              <div className="rounded-xl border border-[var(--border)] p-3">
+                {!sessionId && <p className="text-sm text-[var(--text-muted)]">{t("selectSessionHint")}</p>}
+                {sessionId && insightsQ.isLoading && (
+                  <div className="space-y-3">
+                    <div className="h-6 w-28 animate-pulse rounded-full bg-[var(--border)]" />
+                    <div className="h-24 animate-pulse rounded-xl bg-[var(--border)]/70" />
+                    <div className="h-20 animate-pulse rounded-xl bg-[var(--border)]/70" />
+                  </div>
+                )}
+                {sessionId && insightsQ.isError && <p className="text-sm text-red-300">{t("insightsFailed")}</p>}
+                {sessionId && !insightsQ.isLoading && !insightsQ.isError && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className={`rounded-full px-2 py-1 ${insights?.is_complete ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>
+                        {insights?.is_complete ? t("insightsStatusComplete") : t("insightsStatusInProgress")}
+                      </span>
+                      {insights?.current_step ? (
+                        <span className="text-[var(--text-muted)]">· {insights.current_step}</span>
+                      ) : null}
                     </div>
-                    <div className="mt-2 h-2 w-full rounded-full bg-[var(--border)]">
-                      <div
-                        className="h-2 rounded-full bg-[var(--accent)]"
-                        style={{ width: `${Math.min(100, Math.max(0, scoreValue))}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
 
-                {checklist.length > 0 && (
-                  <div className="rounded-xl border border-[var(--border)] p-3">
-                    <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsChecklist")}</div>
-                    <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
-                      {checklist.map((item, idx) => (
-                        <li key={idx}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                    {scoreValue === null && !finalSummary && checklist.length === 0 && (
+                      <p className="text-sm text-[var(--text-muted)]">{t("insightsEmpty")}</p>
+                    )}
 
-                {finalSummary?.summary && (
-                  <div className="rounded-xl border border-[var(--border)] p-3">
-                    <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsSummary")}</div>
-                    <p className="mt-2 text-sm">{finalSummary.summary}</p>
-                  </div>
-                )}
+                    {scoreValue !== null && (
+                      <div className="rounded-xl border border-[var(--border)] p-3">
+                        <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsScore")}</div>
+                        <div className="mt-2 flex items-end justify-between gap-2">
+                          <div className="text-3xl font-semibold">{scoreValue}</div>
+                          {scoreHint && <div className="text-xs text-[var(--text-muted)]">{scoreHint}</div>}
+                        </div>
+                        <div className="mt-2 h-2 w-full rounded-full bg-[var(--border)]">
+                          <div
+                            className="h-2 rounded-full bg-[var(--accent)]"
+                            style={{ width: `${Math.min(100, Math.max(0, scoreValue))}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-                {improvements.length > 0 && (
-                  <div className="rounded-xl border border-[var(--border)] p-3">
-                    <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsImprovements")}</div>
-                    <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
-                      {improvements.map((item: string, idx: number) => (
-                        <li key={idx}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                    {checklist.length > 0 && (
+                      <div className="rounded-xl border border-[var(--border)] p-3">
+                        <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsChecklist")}</div>
+                        <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
+                          {checklist.map((item, idx) => (
+                            <li key={idx}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                {requirements && (
-                  <div className="rounded-xl border border-[var(--border)] p-3">
-                    <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsRequirements")}</div>
-                    <p className="mt-2 text-sm whitespace-pre-wrap">{requirements}</p>
+                    {finalSummary?.summary && (
+                      <div className="rounded-xl border border-[var(--border)] p-3">
+                        <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsSummary")}</div>
+                        <p className="mt-2 text-sm">{finalSummary.summary}</p>
+                      </div>
+                    )}
+
+                    {improvements.length > 0 && (
+                      <div className="rounded-xl border border-[var(--border)] p-3">
+                        <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsImprovements")}</div>
+                        <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
+                          {improvements.map((item: string, idx: number) => (
+                            <li key={idx}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {requirements && (
+                      <div className="rounded-xl border border-[var(--border)] p-3">
+                        <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsRequirements")}</div>
+                        <p className="mt-2 text-sm whitespace-pre-wrap">{requirements}</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
-          </div>
-        )}
 
-        {activeTab === "export" && (
-          <div className="space-y-2">
-            <button
-              className="btn-primary w-full"
-              onClick={() => {
-                setExportFormat("pdf");
-                exportMutation.mutate("pdf");
-              }}
-              disabled={!sessionId || !previewAvailable || exportMutation.isPending}
-            >
-              {exportMutation.isPending && exportFormat === "pdf" && (
-                <Loader2 size={16} className="mr-2 inline animate-spin" />
-              )}
-              {t("exportPdf")}
-            </button>
-            <button
-              className="btn-ghost w-full"
-              onClick={() => {
-                setExportFormat("docx");
-                exportMutation.mutate("docx");
-              }}
-              disabled={!sessionId || !previewAvailable || exportMutation.isPending}
-            >
-              {exportMutation.isPending && exportFormat === "docx" && (
-                <Loader2 size={16} className="mr-2 inline animate-spin" />
-              )}
-              {t("exportDocx")}
-            </button>
-            {!previewAvailable && sessionId && (
-              <p className="text-xs text-[var(--text-muted)]">{t("exportDisabledHint")}</p>
+            {activeTab === "export" && (
+              <div className="space-y-2">
+                <button
+                  className="btn-primary w-full"
+                  onClick={() => {
+                    setExportFormat("pdf");
+                    exportMutation.mutate("pdf");
+                  }}
+                  disabled={!sessionId || !previewAvailable || exportMutation.isPending}
+                >
+                  {exportMutation.isPending && exportFormat === "pdf" && (
+                    <Loader2 size={16} className="mr-2 inline animate-spin" />
+                  )}
+                  {t("exportPdf")}
+                </button>
+                <button
+                  className="btn-ghost w-full"
+                  onClick={() => {
+                    setExportFormat("docx");
+                    exportMutation.mutate("docx");
+                  }}
+                  disabled={!sessionId || !previewAvailable || exportMutation.isPending}
+                >
+                  {exportMutation.isPending && exportFormat === "docx" && (
+                    <Loader2 size={16} className="mr-2 inline animate-spin" />
+                  )}
+                  {t("exportDocx")}
+                </button>
+                {!previewAvailable && sessionId && (
+                  <p className="text-xs text-[var(--text-muted)]">{t("exportDisabledHint")}</p>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      </aside>
+
+      {(showSessions || showRightPanel) && (
+        <div
+          className="fixed inset-0 z-10 bg-black/50 lg:hidden"
+          onClick={() => {
+            setShowSessions(false);
+            setShowRightPanel(false);
+            setMenuSessionId(null);
+          }}
+        />
+      )}
     </div>
   );
 };
 
 export default AIConsultantPage;
+

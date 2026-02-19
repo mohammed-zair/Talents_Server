@@ -9,6 +9,15 @@ const toList = (value: unknown): string[] => {
   return value.filter(Boolean).map((v) => String(v));
 };
 
+const parseJsonMaybe = (value: unknown) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
 const getCvPublicHref = (fileUrl?: string) => {
   if (!fileUrl) return null;
   if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
@@ -122,19 +131,22 @@ const CVLabPage: React.FC = () => {
 
   const activeInsight =
     historyItems.find((item) => item?.insight_id === selectedInsightId) || historyItems[0] || null;
-  const analysisInsights =
+  const rawAiIntelligence =
     activeInsight?.ai_intelligence || analysis?.ai_insights?.ai_intelligence || analysis?.ai_intelligence || {};
+  const analysisInsights = parseJsonMaybe(rawAiIntelligence) || {};
   const strategic = analysisInsights?.strategic_analysis || {};
   const strengthItems = toList(analysisInsights?.strengths || strategic?.strengths);
   const weaknessItems = toList(analysisInsights?.weaknesses || strategic?.weaknesses);
   const recommendationItems = toList(
     analysisInsights?.recommendations || analysisInsights?.ats_optimization_tips
   );
-  const keySkills = toList(analysis?.features_analytics?.key_skills);
-  const atsScore = activeInsight?.ats_score ?? analysis?.features_analytics?.ats_score;
+  const snapshotFeatures = activeInsight?.features_analytics || analysis?.features_analytics || {};
+  const snapshotStructured = activeInsight?.structured_data || analysis?.structured_data || {};
+  const keySkills = toList(snapshotFeatures?.key_skills);
+  const atsScore = activeInsight?.ats_score ?? snapshotFeatures?.ats_score;
   const industryScore = activeInsight?.industry_ranking_score;
   const industryLabel = activeInsight?.industry_ranking_label;
-  const experience = analysis?.features_analytics?.total_years_experience;
+  const experience = snapshotFeatures?.total_years_experience;
   const aiSummary =
     analysisInsights?.summary ||
     analysisInsights?.contextual_summary ||
@@ -149,6 +161,7 @@ const CVLabPage: React.FC = () => {
     strengthItems.length > 0 ||
     weaknessItems.length > 0 ||
     recommendationItems.length > 0;
+  const hasAnyAnalysis = Boolean(analysis || activeInsight);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -206,12 +219,6 @@ const CVLabPage: React.FC = () => {
               }}
             />
           </label>
-
-          {selectedCvHref && (
-            <a className="btn-ghost" href={selectedCvHref} target="_blank" rel="noreferrer">
-              {t("previewCv")}
-            </a>
-          )}
 
           {selectedCv && (
             <button
@@ -284,27 +291,34 @@ const CVLabPage: React.FC = () => {
               const method = item?.analysis_method ? String(item.analysis_method) : t("analysisRun");
               const label = createdAt ? `${method} - ${createdAt}` : method;
               return (
-                <button
+                <div
                   key={item?.insight_id ?? index}
-                  type="button"
-                  onClick={() => setSelectedInsightId(item?.insight_id ?? null)}
-                  className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
+                  className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-xs ${
                     isActive
                       ? "border-[var(--accent)] bg-[var(--accent)]/10"
                       : "border-[var(--border)] hover:border-[var(--accent)]/40"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div>
                     <span className="font-medium">{label}</span>
-                    {index === 0 && <span className="text-[var(--text-muted)]">{t("analysisLatest")}</span>}
+                    {index === 0 && (
+                      <span className="ml-2 text-[var(--text-muted)]">{t("analysisLatest")}</span>
+                    )}
                   </div>
-                </button>
+                  <button
+                    type="button"
+                    className="btn-ghost text-xs"
+                    onClick={() => setSelectedInsightId(item?.insight_id ?? null)}
+                  >
+                    {t("viewAnalysis")}
+                  </button>
+                </div>
               );
             })}
           </div>
         </div>
 
-        {analysis && (
+        {hasAnyAnalysis && (
           <div className="mt-4 space-y-3">
             {hasAnalysisCards ? (
               <>
@@ -437,21 +451,29 @@ const CVLabPage: React.FC = () => {
                     <div>
                       <p className="mb-1 text-[var(--text-muted)]">{t("featuresAnalytics")}</p>
                       <pre className="max-h-64 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2">
-                        {JSON.stringify(analysis?.features_analytics || {}, null, 2)}
+                        {JSON.stringify(snapshotFeatures || {}, null, 2)}
                       </pre>
                     </div>
                     <div>
                       <p className="mb-1 text-[var(--text-muted)]">{t("structuredData")}</p>
                       <pre className="max-h-64 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2">
-                        {JSON.stringify(analysis?.structured_data || {}, null, 2)}
+                        {JSON.stringify(snapshotStructured || {}, null, 2)}
                       </pre>
                     </div>
+                    {activeInsight?.ai_raw_response && (
+                      <div>
+                        <p className="mb-1 text-[var(--text-muted)]">{t("rawAiResponse")}</p>
+                        <pre className="max-h-64 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2">
+                          {JSON.stringify(activeInsight.ai_raw_response || {}, null, 2)}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 </details>
               </>
             ) : (
               <pre className="max-h-52 overflow-auto rounded-xl border border-[var(--border)] p-3 text-xs">
-                {JSON.stringify(analysis, null, 2)}
+                {JSON.stringify(activeInsight || analysis, null, 2)}
               </pre>
             )}
           </div>

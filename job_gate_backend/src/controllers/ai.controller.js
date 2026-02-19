@@ -8,6 +8,13 @@ const fs = require("fs");
 const { extractTextFromFile } = require("../utils/cvTextExtractor");
 
 const normalizeAiIntelligence = (raw) => {
+  if (typeof raw === "string") {
+    try {
+      return normalizeAiIntelligence(JSON.parse(raw));
+    } catch (error) {
+      return raw;
+    }
+  }
   if (!raw || typeof raw !== "object") return raw;
   const strategic = raw.strategic_analysis || {};
   const strengths = raw.strengths || strategic.strengths || [];
@@ -32,7 +39,7 @@ exports.analyzeCVText = async (req, res) => {
   const requestId = uuidv4();
   console.log(`[${requestId}] Start CV Analysis`);
   try {
-    const { cvText, useAI = false, saveToDb = true } = req.body;
+    const { cvText, useAI = false, saveToDb = false } = req.body;
     const userId = req.user.user_id;
 
     if (!cvText) {
@@ -49,14 +56,16 @@ exports.analyzeCVText = async (req, res) => {
     const processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
     const rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
     const competency_matrix = analysisResult.competency_matrix || null;
-    const ai_intelligence = rawAIIntelligence
-      ? normalizeAiIntelligence({
-          ...rawAIIntelligence,
-          ...(competency_matrix ? { competency_matrix } : {}),
-        })
-      : competency_matrix
-        ? { competency_matrix }
-        : null;
+    let ai_intelligence = null;
+    if (rawAIIntelligence) {
+      const normalized = normalizeAiIntelligence(rawAIIntelligence);
+      if (normalized && typeof normalized === "object" && competency_matrix) {
+        normalized.competency_matrix = competency_matrix;
+      }
+      ai_intelligence = normalized || (competency_matrix ? { competency_matrix } : null);
+    } else if (competency_matrix) {
+      ai_intelligence = { competency_matrix };
+    }
     const cleaned_job_description = analysisResult.cleaned_job_description || null;
     const industry_ranking_score = analysisResult.industry_ranking_score ?? null;
     const industry_ranking_label = analysisResult.industry_ranking_label ?? null;
@@ -96,6 +105,19 @@ exports.analyzeCVText = async (req, res) => {
           industry_ranking_label,
           cleaned_job_description,
           analysis_method,
+          structured_data: structuredData,
+          features_analytics: {
+            cv_id: cvRecord.cv_id,
+            ats_score,
+            total_years_experience: features.total_years_experience || 0,
+            key_skills: features.key_skills || [],
+            achievement_count: features.achievement_count || 0,
+            has_contact_info: features.has_contact_info || false,
+            has_education: features.has_education || false,
+            has_experience: features.has_experience || false,
+            is_ats_compliant: ats_score >= 70,
+          },
+          ai_raw_response: analysisResult || null,
         });
       }
 
@@ -153,7 +175,7 @@ exports.analyzeCVFile = async (req, res) => {
 
   try {
     const userId = req.user.user_id;
-    const { useAI = false, saveToDb = true, title } = req.body;
+    const { useAI = false, saveToDb = false, title } = req.body;
     const cvFile = req.file;
 
     if (!cvFile) {
@@ -181,14 +203,16 @@ exports.analyzeCVFile = async (req, res) => {
     const processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
     const rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
     const competency_matrix = analysisResult.competency_matrix || null;
-    const ai_intelligence = rawAIIntelligence
-      ? normalizeAiIntelligence({
-          ...rawAIIntelligence,
-          ...(competency_matrix ? { competency_matrix } : {}),
-        })
-      : competency_matrix
-        ? { competency_matrix }
-        : null;
+    let ai_intelligence = null;
+    if (rawAIIntelligence) {
+      const normalized = normalizeAiIntelligence(rawAIIntelligence);
+      if (normalized && typeof normalized === "object" && competency_matrix) {
+        normalized.competency_matrix = competency_matrix;
+      }
+      ai_intelligence = normalized || (competency_matrix ? { competency_matrix } : null);
+    } else if (competency_matrix) {
+      ai_intelligence = { competency_matrix };
+    }
     const cleaned_job_description = analysisResult.cleaned_job_description || null;
     const industry_ranking_score = analysisResult.industry_ranking_score ?? null;
     const industry_ranking_label = analysisResult.industry_ranking_label ?? null;
@@ -230,6 +254,19 @@ exports.analyzeCVFile = async (req, res) => {
           industry_ranking_label,
           cleaned_job_description,
           analysis_method,
+          structured_data: structuredData,
+          features_analytics: {
+            cv_id: cvRecord.cv_id,
+            ats_score,
+            total_years_experience: features.total_years_experience || 0,
+            key_skills: features.key_skills || [],
+            achievement_count: features.achievement_count || 0,
+            has_contact_info: features.has_contact_info || false,
+            has_education: features.has_education || false,
+            has_experience: features.has_experience || false,
+            is_ats_compliant: ats_score >= 70,
+          },
+          ai_raw_response: analysisResult || null,
         });
       }
 
@@ -462,14 +499,16 @@ exports.analyzeExistingCV = async (req, res) => {
     const processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
     const rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
     const competency_matrix = analysisResult.competency_matrix || null;
-    const ai_intelligence = rawAIIntelligence
-      ? normalizeAiIntelligence({
-          ...rawAIIntelligence,
-          ...(competency_matrix ? { competency_matrix } : {}),
-        })
-      : competency_matrix
-        ? { competency_matrix }
-        : null;
+    let ai_intelligence = null;
+    if (rawAIIntelligence) {
+      const normalized = normalizeAiIntelligence(rawAIIntelligence);
+      if (normalized && typeof normalized === "object" && competency_matrix) {
+        normalized.competency_matrix = competency_matrix;
+      }
+      ai_intelligence = normalized || (competency_matrix ? { competency_matrix } : null);
+    } else if (competency_matrix) {
+      ai_intelligence = { competency_matrix };
+    }
     const cleaned_job_description = analysisResult.cleaned_job_description || null;
     const industry_ranking_score = analysisResult.industry_ranking_score ?? null;
     const industry_ranking_label = analysisResult.industry_ranking_label ?? null;
@@ -510,6 +549,9 @@ exports.analyzeExistingCV = async (req, res) => {
         industry_ranking_label,
         cleaned_job_description,
         analysis_method,
+        structured_data: structuredData,
+        features_analytics: featuresPayload,
+        ai_raw_response: analysisResult || null,
       });
       aiInsights = created.toJSON ? created.toJSON() : created;
     }

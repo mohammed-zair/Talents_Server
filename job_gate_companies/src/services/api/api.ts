@@ -308,6 +308,9 @@ export const companyApi = {
     return data;
   },
   analyzeCvFile: async (payload: FormData) => {
+    if (!payload.has("saveToDb")) {
+      payload.append("saveToDb", "false");
+    }
     const { data } = await api.post<AIAnalysis>("/ai/cv/analyze-file", payload, {
       headers: { "Content-Type": "multipart/form-data" },
     });

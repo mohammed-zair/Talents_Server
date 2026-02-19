@@ -22,6 +22,18 @@ const CVAIInsights = sequelize.define(
       allowNull: false,
       defaultValue: {},
     },
+    structured_data: {
+      type: DataTypes.JSON,
+      allowNull: true,
+    },
+    features_analytics: {
+      type: DataTypes.JSON,
+      allowNull: true,
+    },
+    ai_raw_response: {
+      type: DataTypes.JSON,
+      allowNull: true,
+    },
     ats_score: {
       type: DataTypes.FLOAT,
       allowNull: true,
