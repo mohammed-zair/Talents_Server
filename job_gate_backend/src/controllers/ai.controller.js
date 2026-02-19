@@ -4,6 +4,7 @@ const { CV, CVStructuredData, CVFeaturesAnalytics, CVAIInsights, JobPosting } = 
 const { successResponse } = require('../utils/responseHandler');
 const { v4: uuidv4 } = require('uuid');
 const path = require("path");
+const fs = require("fs");
 const { extractTextFromFile } = require("../utils/cvTextExtractor");
 
 /**
@@ -370,6 +371,155 @@ exports.getChatbotSession = async (req, res) => {
     return res.status(500).json({
       message: "Failed to get chatbot session",
       error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc Analyze an existing uploaded CV by id (PDF/DOCX) via AI Core
+ * @route POST /api/ai/cv/analyze/:cvId
+ * @access Private
+ */
+exports.analyzeExistingCV = async (req, res) => {
+  const requestId = uuidv4();
+  console.log(`[${requestId}] Start Existing CV Analysis`);
+
+  try {
+    const userId = req.user.user_id;
+    const cvId = parseInt(req.params.cvId, 10);
+    const { useAI = true } = req.body || {};
+
+    if (!Number.isFinite(cvId) || cvId <= 0) {
+      return res.status(400).json({ message: "Invalid CV ID", requestId });
+    }
+
+    const cvRecord = await CV.findOne({ where: { cv_id: cvId, user_id: userId } });
+    if (!cvRecord) {
+      return res.status(404).json({ message: "CV not found or access denied", requestId });
+    }
+
+    if (!cvRecord.file_url) {
+      return res.status(400).json({ message: "CV file is missing", requestId });
+    }
+
+    const rawPath = String(cvRecord.file_url);
+    const backendRoot = path.join(__dirname, "..", "..");
+    const normalized = rawPath.replace(/^\/+/, "");
+    const filePath = path.isAbsolute(rawPath) ? rawPath : path.join(backendRoot, normalized);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "CV file not found on server", requestId });
+    }
+
+    const fileObj = {
+      path: filePath,
+      originalname: cvRecord.title || `cv_${cvId}`,
+      mimetype: cvRecord.file_type || "application/pdf",
+    };
+
+    const analysisResult = await aiService.analyzeCVFile(userId, fileObj, useAI);
+
+    if (analysisResult?.success === false || analysisResult?.analysis_method === "error") {
+      return res.status(502).json({
+        message: "CV analysis failed in AI service",
+        error:
+          analysisResult?.error_message ||
+          analysisResult?.error ||
+          "AI Core analysis failed",
+        ai_service_response: analysisResult,
+        requestId,
+      });
+    }
+
+    const structuredData = analysisResult.structured_data || analysisResult.structuredData || {};
+    const features = analysisResult.features || {};
+    const ats_score = analysisResult.ats_score ?? analysisResult.score ?? 0;
+    const analysis_method = analysisResult.analysis_method || analysisResult.analysisMethod || "ai_core";
+    const processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
+    const rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
+    const competency_matrix = analysisResult.competency_matrix || null;
+    const ai_intelligence = rawAIIntelligence
+      ? {
+          ...rawAIIntelligence,
+          ...(competency_matrix ? { competency_matrix } : {}),
+        }
+      : competency_matrix
+        ? { competency_matrix }
+        : null;
+    const cleaned_job_description = analysisResult.cleaned_job_description || null;
+    const industry_ranking_score = analysisResult.industry_ranking_score ?? null;
+    const industry_ranking_label = analysisResult.industry_ranking_label ?? null;
+
+    const structuredRecord = await CVStructuredData.findOne({ where: { cv_id: cvId } });
+    if (structuredRecord) {
+      await structuredRecord.update({ data_json: structuredData });
+    } else {
+      await CVStructuredData.create({ cv_id: cvId, data_json: structuredData });
+    }
+
+    const featuresRecord = await CVFeaturesAnalytics.findOne({ where: { cv_id: cvId } });
+    const featuresPayload = {
+      cv_id: cvId,
+      ats_score,
+      total_years_experience: features.total_years_experience || 0,
+      key_skills: features.key_skills || [],
+      achievement_count: features.achievement_count || 0,
+      has_contact_info: features.has_contact_info || false,
+      has_education: features.has_education || false,
+      has_experience: features.has_experience || false,
+      is_ats_compliant: ats_score >= 70,
+    };
+    if (featuresRecord) {
+      await featuresRecord.update(featuresPayload);
+    } else {
+      await CVFeaturesAnalytics.create(featuresPayload);
+    }
+
+    let aiInsights = null;
+    if (ai_intelligence) {
+      const insightRecord = await CVAIInsights.findOne({
+        where: { cv_id: cvId, job_id: null },
+        order: [["insight_id", "DESC"]],
+      });
+      const insightPayload = {
+        cv_id: cvId,
+        job_id: null,
+        ai_intelligence,
+        ats_score,
+        industry_ranking_score,
+        industry_ranking_label,
+        cleaned_job_description,
+        analysis_method,
+      };
+      if (insightRecord) {
+        await insightRecord.update(insightPayload);
+        aiInsights = insightRecord.toJSON ? insightRecord.toJSON() : insightRecord;
+      } else {
+        const created = await CVAIInsights.create(insightPayload);
+        aiInsights = created.toJSON ? created.toJSON() : created;
+      }
+    }
+
+    console.log(`[${requestId}] Existing CV analysis completed for user ${userId}`);
+    return successResponse(res, {
+      cv_id: cvRecord.cv_id,
+      title: cvRecord.title,
+      created_at: cvRecord.created_at,
+      structured_data: structuredData,
+      features_analytics: featuresPayload,
+      ai_insights: aiInsights,
+      partial: false,
+      warnings: [],
+      requestId,
+      analysis_method,
+      processing_time,
+    }, "CV analysis generated successfully");
+  } catch (error) {
+    console.error(`[${requestId}] Existing CV Analysis Error:`, error);
+    return res.status(500).json({
+      message: "Failed to analyze existing CV",
+      error: error.message,
+      requestId,
     });
   }
 };

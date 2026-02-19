@@ -188,6 +188,10 @@ export const seekerApi = {
     });
     return unwrap(res.data);
   },
+  analyzeCvExisting: async (cvId: number, payload?: { useAI?: boolean }) => {
+    const res = await api.post(`/ai/cv/analyze/${cvId}`, payload || {});
+    return unwrap(res.data);
+  },
   getCvAnalysis: async (cvId: number) => {
     const res = await api.get(`/ai/cv/analysis/${cvId}`);
     return unwrap(res.data);

@@ -1,4 +1,4 @@
-// file: src/routes/ai.routes.js
+﻿// file: src/routes/ai.routes.js
 const express = require("express");
 const router = express.Router();
 const aiController = require("../controllers/ai.controller");
@@ -10,13 +10,13 @@ const { uploadCV } = require("../middleware/upload.middleware");
 //          AI APIs
 // ============================================
 
-// تحليل CV نصي
+// ØªØ­Ù„ÙŠÙ„ CV Ù†ØµÙŠ
 router.post("/cv/analyze-text", 
   verifyToken, 
   aiController.analyzeCVText
 );
 
-// تحليل CV ملف (Multipart) عبر الـ Backend ثم AI Core
+// ØªØ­Ù„ÙŠÙ„ CV Ù…Ù„Ù (Multipart) Ø¹Ø¨Ø± Ø§Ù„Ù€ Backend Ø«Ù… AI Core
 router.post(
   "/cv/analyze-file",
   verifyToken,
@@ -24,13 +24,13 @@ router.post(
   aiController.analyzeCVFile
 );
 
-// بدء محادثة chatbot
+// Ø¨Ø¯Ø¡ Ù…Ø­Ø§Ø¯Ø«Ø© chatbot
 router.post("/chatbot/start", 
   verifyToken, 
   aiController.startChatbotSession
 );
 
-// إرسال رسالة chatbot
+// Ø¥Ø±Ø³Ø§Ù„ Ø±Ø³Ø§Ù„Ø© chatbot
 router.post("/chatbot/chat", 
   verifyToken, 
   aiController.sendChatbotMessage
@@ -78,7 +78,7 @@ router.get("/chatbot/insights/:sessionId",
   aiController.getChatbotInsights
 );
 
-// الحصول على تحليل CV محفوظ
+// Ø§Ù„Ø­ØµÙˆÙ„ Ø¹Ù„Ù‰ ØªØ­Ù„ÙŠÙ„ CV Ù…Ø­ÙÙˆØ¸
 router.get("/cv/analysis/:cvId", 
   verifyToken, 
   aiController.getCVAnalysis
@@ -90,7 +90,7 @@ router.post(
   aiController.generateCVMatchPitch
 );
 
-// فحص صحة AI service
+// ÙØ­Øµ ØµØ­Ø© AI service
 router.get("/health", 
   aiController.aiHealthCheck
 );
@@ -103,13 +103,13 @@ router.get(
 );
 
 // ============================================
-//       APIs لاختبار AI Service
+//       APIs Ù„Ø§Ø®ØªØ¨Ø§Ø± AI Service
 // ============================================
 
 /**
- * @desc اختبار اتصال مع AI service (للتطوير)
+ * @desc Ø§Ø®ØªØ¨Ø§Ø± Ø§ØªØµØ§Ù„ Ù…Ø¹ AI service (Ù„Ù„ØªØ·ÙˆÙŠØ±)
  * @route POST /api/ai/test-connection
- * @access Private (Admin فقط)
+ * @access Private (Admin ÙÙ‚Ø·)
  */
 router.post("/test-connection",
   verifyToken,
@@ -118,7 +118,7 @@ router.post("/test-connection",
     try {
       const aiService = require("../services/aiService");
       
-      // اختبار بسيط للنص
+      // Ø§Ø®ØªØ¨Ø§Ø± Ø¨Ø³ÙŠØ· Ù„Ù„Ù†Øµ
       const testText = `John Doe
 Email: john@example.com
 Phone: +1-555-123-4567
@@ -152,12 +152,12 @@ Education: BS Computer Science, University (2016-2020)`;
 );
 
 /**
- * @desc الحصول على تحليل جميع CVs للمستخدم
+ * @desc Ø§Ù„Ø­ØµÙˆÙ„ Ø¹Ù„Ù‰ ØªØ­Ù„ÙŠÙ„ Ø¬Ù…ÙŠØ¹ CVs Ù„Ù„Ù…Ø³ØªØ®Ø¯Ù…
  * @route GET /api/ai/user/cvs
  * @access Private
  */
 router.get("/user/cvs", 
-  verifyToken, // تم التصحيح هنا
+  verifyToken, // ØªÙ… Ø§Ù„ØªØµØ­ÙŠØ­ Ù‡Ù†Ø§
   async (req, res) => {
     try {
       const { CV, CVStructuredData, CVFeaturesAnalytics } = require("../models");
@@ -193,7 +193,7 @@ router.get("/user/cvs",
 
       return res.status(200).json({
         success: true,
-        message: "تم جلب CVs بنجاح",
+        message: "ØªÙ… Ø¬Ù„Ø¨ CVs Ø¨Ù†Ø¬Ø§Ø­",
         count: formattedCVs.length,
         cvs: formattedCVs
       });
@@ -201,7 +201,7 @@ router.get("/user/cvs",
       console.error('Get User CVs Error:', error);
       return res.status(500).json({
         success: false,
-        message: "فشل في جلب CVs",
+        message: "ÙØ´Ù„ ÙÙŠ Ø¬Ù„Ø¨ CVs",
         error: error.message
       });
     }
@@ -209,4 +209,5 @@ router.get("/user/cvs",
 );
 
 module.exports = router;
+
 

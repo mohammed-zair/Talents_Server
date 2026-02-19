@@ -53,7 +53,7 @@ const CVLabPage: React.FC = () => {
   const analyzeMutation = useMutation({
     mutationFn: async () => {
       if (!selectedCv) throw new Error(t("selectCvFirst"));
-      return seekerApi.getCvAnalysis(selectedCv.cv_id);
+      return seekerApi.analyzeCvExisting(selectedCv.cv_id, { useAI: true });
     },
     onSuccess: (data: any) => {
       setAnalysisError("");
