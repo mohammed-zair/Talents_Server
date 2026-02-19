@@ -114,9 +114,12 @@ const CVLabPage: React.FC = () => {
   const selectedCvHref = getCvPublicHref(selectedCv?.file_url);
 
   const analysisInsights = analysis?.ai_insights?.ai_intelligence || analysis?.ai_intelligence || {};
-  const strengthItems = toList(analysisInsights?.strengths);
-  const weaknessItems = toList(analysisInsights?.weaknesses);
-  const recommendationItems = toList(analysisInsights?.recommendations);
+  const strategic = analysisInsights?.strategic_analysis || {};
+  const strengthItems = toList(analysisInsights?.strengths || strategic?.strengths);
+  const weaknessItems = toList(analysisInsights?.weaknesses || strategic?.weaknesses);
+  const recommendationItems = toList(
+    analysisInsights?.recommendations || analysisInsights?.ats_optimization_tips
+  );
   const keySkills = toList(analysis?.features_analytics?.key_skills);
   const atsScore = analysis?.features_analytics?.ats_score;
   const experience = analysis?.features_analytics?.total_years_experience;

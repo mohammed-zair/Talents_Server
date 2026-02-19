@@ -1,4 +1,4 @@
-// file: src/controllers/ai.controller.js
+﻿// file: src/controllers/ai.controller.js
 const aiService = require('../services/aiService');
 const { CV, CVStructuredData, CVFeaturesAnalytics, CVAIInsights, JobPosting } = require('../models');
 const { successResponse } = require('../utils/responseHandler');
@@ -7,8 +7,24 @@ const path = require("path");
 const fs = require("fs");
 const { extractTextFromFile } = require("../utils/cvTextExtractor");
 
+const normalizeAiIntelligence = (raw) => {
+  if (!raw || typeof raw !== "object") return raw;
+  const strategic = raw.strategic_analysis || {};
+  const strengths = raw.strengths || strategic.strengths || [];
+  const weaknesses = raw.weaknesses || strategic.weaknesses || [];
+  const recommendations = raw.recommendations || raw.ats_optimization_tips || [];
+  const summary = raw.contextual_summary || raw.professional_summary || raw.summary || null;
+  return {
+    ...raw,
+    strengths,
+    weaknesses,
+    recommendations,
+    summary,
+  };
+};
+
 /**
- * @desc تحليل CV نصي باستخدام AI (مع Normalization وRequest ID)
+ * @desc ØªØ­Ù„ÙŠÙ„ CV Ù†ØµÙŠ Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… AI (Ù…Ø¹ Normalization ÙˆRequest ID)
  * @route POST /api/ai/cv/analyze-text
  * @access Private
  */
@@ -20,12 +36,12 @@ exports.analyzeCVText = async (req, res) => {
     const userId = req.user.user_id;
 
     if (!cvText) {
-      return res.status(400).json({ message: 'نص CV مطلوب', requestId });
+      return res.status(400).json({ message: 'Ù†Øµ CV Ù…Ø·Ù„ÙˆØ¨', requestId });
     }
 
     const analysisResult = await aiService.analyzeCVText(userId, cvText, useAI);
 
-    // Normalization: التأكد أن البيانات دائما بشكل موحد
+    // Normalization: Ø§Ù„ØªØ£ÙƒØ¯ Ø£Ù† Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ø¯Ø§Ø¦Ù…Ø§ Ø¨Ø´ÙƒÙ„ Ù…ÙˆØ­Ø¯
     const structuredData = analysisResult.structured_data || {};
     const features = analysisResult.features || {};
     const ats_score = analysisResult.ats_score ?? analysisResult.score ?? 0;
@@ -34,10 +50,10 @@ exports.analyzeCVText = async (req, res) => {
     const rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
     const competency_matrix = analysisResult.competency_matrix || null;
     const ai_intelligence = rawAIIntelligence
-      ? {
+      ? normalizeAiIntelligence({
           ...rawAIIntelligence,
           ...(competency_matrix ? { competency_matrix } : {}),
-        }
+        })
       : competency_matrix
         ? { competency_matrix }
         : null;
@@ -99,7 +115,7 @@ exports.analyzeCVText = async (req, res) => {
         processing_time,
         saved_to_db: true,
         requestId,
-      }, 'تم تحليل CV بنجاح وحفظه في قاعدة البيانات');
+      }, 'ØªÙ… ØªØ­Ù„ÙŠÙ„ CV Ø¨Ù†Ø¬Ø§Ø­ ÙˆØ­ÙØ¸Ù‡ ÙÙŠ Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª');
     }
 
     console.log(`[${requestId}] CV Analysis completed (not saved) for user ${userId}`);
@@ -115,11 +131,11 @@ exports.analyzeCVText = async (req, res) => {
       processing_time,
       saved_to_db: false,
       requestId,
-    }, 'تم تحليل CV بنجاح (لم يتم الحفظ)');
+    }, 'ØªÙ… ØªØ­Ù„ÙŠÙ„ CV Ø¨Ù†Ø¬Ø§Ø­ (Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø­ÙØ¸)');
   } catch (error) {
     console.error(`[${requestId}] CV Text Analysis Error:`, error);
     return res.status(500).json({
-      message: 'فشل في تحليل CV',
+      message: 'ÙØ´Ù„ ÙÙŠ ØªØ­Ù„ÙŠÙ„ CV',
       error: error.message,
       requestId,
     });
@@ -127,7 +143,7 @@ exports.analyzeCVText = async (req, res) => {
 };
 
 /**
- * @desc تحليل CV ملف (PDF/DOCX) عبر AI Core
+ * @desc ØªØ­Ù„ÙŠÙ„ CV Ù…Ù„Ù (PDF/DOCX) Ø¹Ø¨Ø± AI Core
  * @route POST /api/ai/cv/analyze-file
  * @access Private
  */
@@ -141,14 +157,14 @@ exports.analyzeCVFile = async (req, res) => {
     const cvFile = req.file;
 
     if (!cvFile) {
-      return res.status(400).json({ message: 'ملف CV مطلوب', requestId });
+      return res.status(400).json({ message: 'Ù…Ù„Ù CV Ù…Ø·Ù„ÙˆØ¨', requestId });
     }
 
     const analysisResult = await aiService.analyzeCVFile(userId, cvFile, useAI);
 
     if (analysisResult?.success === false || analysisResult?.analysis_method === 'error') {
       return res.status(502).json({
-        message: 'فشل تحليل CV (ملف) في خدمة الذكاء الاصطناعي',
+        message: 'ÙØ´Ù„ ØªØ­Ù„ÙŠÙ„ CV (Ù…Ù„Ù) ÙÙŠ Ø®Ø¯Ù…Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
         error:
           analysisResult?.error_message ||
           analysisResult?.error ||
@@ -166,10 +182,10 @@ exports.analyzeCVFile = async (req, res) => {
     const rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
     const competency_matrix = analysisResult.competency_matrix || null;
     const ai_intelligence = rawAIIntelligence
-      ? {
+      ? normalizeAiIntelligence({
           ...rawAIIntelligence,
           ...(competency_matrix ? { competency_matrix } : {}),
-        }
+        })
       : competency_matrix
         ? { competency_matrix }
         : null;
@@ -235,7 +251,7 @@ exports.analyzeCVFile = async (req, res) => {
           saved_to_db: true,
           requestId,
         },
-        'تم تحليل CV (ملف) بنجاح وحفظه في قاعدة البيانات'
+        'ØªÙ… ØªØ­Ù„ÙŠÙ„ CV (Ù…Ù„Ù) Ø¨Ù†Ø¬Ø§Ø­ ÙˆØ­ÙØ¸Ù‡ ÙÙŠ Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª'
       );
     }
 
@@ -256,12 +272,12 @@ exports.analyzeCVFile = async (req, res) => {
         saved_to_db: false,
         requestId,
       },
-      'تم تحليل CV (ملف) بنجاح (لم يتم الحفظ)'
+      'ØªÙ… ØªØ­Ù„ÙŠÙ„ CV (Ù…Ù„Ù) Ø¨Ù†Ø¬Ø§Ø­ (Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø­ÙØ¸)'
     );
   } catch (error) {
     console.error(`[${requestId}] CV File Analysis Error:`, error);
     return res.status(500).json({
-      message: 'فشل في تحليل CV (ملف)',
+      message: 'ÙØ´Ù„ ÙÙŠ ØªØ­Ù„ÙŠÙ„ CV (Ù…Ù„Ù)',
       error: error.message,
       requestId,
     });
@@ -269,7 +285,7 @@ exports.analyzeCVFile = async (req, res) => {
 };
 
 /**
- * @desc بدء محادثة chatbot
+ * @desc Ø¨Ø¯Ø¡ Ù…Ø­Ø§Ø¯Ø«Ø© chatbot
  * @route POST /api/ai/chatbot/start
  * @access Private
  */
@@ -294,11 +310,11 @@ exports.startChatbotSession = async (req, res) => {
     });
 
     console.log(`[${requestId}] Chatbot Session started for user ${userId}`);
-    return successResponse(res, { ...result, requestId }, 'تم بدء محادثة chatbot بنجاح');
+    return successResponse(res, { ...result, requestId }, 'ØªÙ… Ø¨Ø¯Ø¡ Ù…Ø­Ø§Ø¯Ø«Ø© chatbot Ø¨Ù†Ø¬Ø§Ø­');
   } catch (error) {
     console.error(`[${requestId}] Chatbot Start Error:`, error);
     return res.status(500).json({
-      message: 'فشل في بدء محادثة chatbot',
+      message: 'ÙØ´Ù„ ÙÙŠ Ø¨Ø¯Ø¡ Ù…Ø­Ø§Ø¯Ø«Ø© chatbot',
       error: error.message,
       requestId,
     });
@@ -306,7 +322,7 @@ exports.startChatbotSession = async (req, res) => {
 };
 
 /**
- * @desc إرسال رسالة chatbot
+ * @desc Ø¥Ø±Ø³Ø§Ù„ Ø±Ø³Ø§Ù„Ø© chatbot
  * @route POST /api/ai/chatbot/chat
  * @access Private
  */
@@ -319,7 +335,7 @@ exports.sendChatbotMessage = async (req, res) => {
 
     if (!resolvedSessionId || !message) {
       return res.status(400).json({
-        message: 'معرف الجلسة والرسالة مطلوبان',
+        message: 'Ù…Ø¹Ø±Ù Ø§Ù„Ø¬Ù„Ø³Ø© ÙˆØ§Ù„Ø±Ø³Ø§Ù„Ø© Ù…Ø·Ù„ÙˆØ¨Ø§Ù†',
         requestId,
       });
     }
@@ -337,20 +353,20 @@ exports.sendChatbotMessage = async (req, res) => {
     });
 
     console.log(`[${requestId}] Message sent in session ${resolvedSessionId}`);
-    return successResponse(res, { ...result, requestId }, 'تم إرسال الرسالة بنجاح');
+    return successResponse(res, { ...result, requestId }, 'ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø±Ø³Ø§Ù„Ø© Ø¨Ù†Ø¬Ø§Ø­');
   } catch (error) {
     console.error(`[${requestId}] Chatbot Message Error:`, error);
 
     if (typeof error?.message === 'string' && error.message.includes('Session not found')) {
       return res.status(404).json({
-        message: 'انتهت صلاحية جلسة المحادثة، ابدأ جلسة جديدة',
+        message: 'Ø§Ù†ØªÙ‡Øª ØµÙ„Ø§Ø­ÙŠØ© Ø¬Ù„Ø³Ø© Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©ØŒ Ø§Ø¨Ø¯Ø£ Ø¬Ù„Ø³Ø© Ø¬Ø¯ÙŠØ¯Ø©',
         error: error.message,
         requestId,
       });
     }
 
     return res.status(500).json({
-      message: 'فشل في إرسال الرسالة',
+      message: 'ÙØ´Ù„ ÙÙŠ Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø±Ø³Ø§Ù„Ø©',
       error: error.message,
       requestId,
     });
@@ -447,10 +463,10 @@ exports.analyzeExistingCV = async (req, res) => {
     const rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
     const competency_matrix = analysisResult.competency_matrix || null;
     const ai_intelligence = rawAIIntelligence
-      ? {
+      ? normalizeAiIntelligence({
           ...rawAIIntelligence,
           ...(competency_matrix ? { competency_matrix } : {}),
-        }
+        })
       : competency_matrix
         ? { competency_matrix }
         : null;
@@ -670,7 +686,7 @@ exports.previewChatbotDocument = async (req, res) => {
 };
 
 /**
- * @desc فحص صحة اتصال AI service
+ * @desc ÙØ­Øµ ØµØ­Ø© Ø§ØªØµØ§Ù„ AI service
  * @route GET /api/ai/health
  * @access Public
  */
@@ -685,11 +701,11 @@ exports.aiHealthCheck = async (req, res) => {
       ai_service: aiHealth,
       ai_service_url: process.env.AI_SERVICE_URL || 'http://localhost:8000',
       requestId,
-    }, 'كل الخدمات تعمل بشكل صحيح');
+    }, 'ÙƒÙ„ Ø§Ù„Ø®Ø¯Ù…Ø§Øª ØªØ¹Ù…Ù„ Ø¨Ø´ÙƒÙ„ ØµØ­ÙŠØ­');
   } catch (error) {
     console.error(`[${requestId}] AI Health Check Error:`, error);
     return res.status(503).json({
-      message: 'AI Service غير متوفر',
+      message: 'AI Service ØºÙŠØ± Ù…ØªÙˆÙØ±',
       node_backend: 'healthy',
       ai_service: 'unavailable',
       error: error.message,
@@ -748,7 +764,7 @@ exports.debugAuth = async (req, res) => {
 };
 
 /**
- * @desc الحصول على تحليل CV من قاعدة البيانات
+ * @desc Ø§Ù„Ø­ØµÙˆÙ„ Ø¹Ù„Ù‰ ØªØ­Ù„ÙŠÙ„ CV Ù…Ù† Ù‚Ø§Ø¹Ø¯Ø© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª
  * @route GET /api/ai/cv/analysis/:cvId
  * @access Private
  */
@@ -811,6 +827,9 @@ exports.getCVAnalysis = async (req, res) => {
         order: [["insight_id", "DESC"]],
       });
       aiInsights = insight ? insight.toJSON() : null;
+      if (aiInsights?.ai_intelligence) {
+        aiInsights.ai_intelligence = normalizeAiIntelligence(aiInsights.ai_intelligence);
+      }
     } catch (innerError) {
       partial = true;
       warnings.push("ai_insights_unavailable");
@@ -956,3 +975,4 @@ exports.generateCVMatchPitch = async (req, res) => {
     });
   }
 };
+
