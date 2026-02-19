@@ -13,7 +13,7 @@ import {
 
 type Props = {
   t: (key: string) => string;
-  atsScore: number;
+  atsScore: number | null;
   funnel: {
     applied: number;
     interview: number;
@@ -32,21 +32,27 @@ const PulseInsightsCharts: React.FC<Props> = ({ t, atsScore, funnel, radarData }
       <div className="glass-card p-4">
         <h2 className="mb-2 font-semibold">{t("atsHealth")}</h2>
         <div className="h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadialBarChart
-              innerRadius="65%"
-              outerRadius="90%"
-              data={[{ name: "ATS", value: atsScore }]}
-              startAngle={90}
-              endAngle={-270}
-            >
-              <RadialBar dataKey="value" cornerRadius={14} fill="var(--accent)" />
-              <Tooltip />
-            </RadialBarChart>
-          </ResponsiveContainer>
+          {typeof atsScore === "number" ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <RadialBarChart
+                innerRadius="65%"
+                outerRadius="90%"
+                data={[{ name: "ATS", value: atsScore }]}
+                startAngle={90}
+                endAngle={-270}
+              >
+                <RadialBar dataKey="value" cornerRadius={14} fill="var(--accent)" />
+                <Tooltip />
+              </RadialBarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
+              {t("noData")}
+            </div>
+          )}
         </div>
         <p className="text-center text-sm text-[var(--text-muted)]">
-          {t("currentCvStrength")}: {atsScore}/100
+          {t("currentCvStrength")}: {typeof atsScore === "number" ? `${atsScore}/100` : "-"}
         </p>
       </div>
 
@@ -71,27 +77,33 @@ const PulseInsightsCharts: React.FC<Props> = ({ t, atsScore, funnel, radarData }
       <div className="glass-card p-4">
         <h2 className="mb-2 font-semibold">{t("skillRadar")}</h2>
         <div className="h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={radarData}>
-              <PolarGrid stroke="var(--border)" />
-              <PolarAngleAxis dataKey="skill" />
-              <PolarRadiusAxis angle={30} domain={[0, 100]} />
-              <Radar
-                name={t("seeker")}
-                dataKey="seeker"
-                stroke="var(--accent)"
-                fill="var(--accent)"
-                fillOpacity={0.35}
-              />
-              <Radar
-                name={t("marketLabel")}
-                dataKey="market"
-                stroke="var(--accent-2)"
-                fill="var(--accent-2)"
-                fillOpacity={0.2}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+          {radarData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="var(--border)" />
+                <PolarAngleAxis dataKey="skill" />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                <Radar
+                  name={t("seeker")}
+                  dataKey="seeker"
+                  stroke="var(--accent)"
+                  fill="var(--accent)"
+                  fillOpacity={0.35}
+                />
+                <Radar
+                  name={t("marketLabel")}
+                  dataKey="market"
+                  stroke="var(--accent-2)"
+                  fill="var(--accent-2)"
+                  fillOpacity={0.2}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
+              {t("noData")}
+            </div>
+          )}
         </div>
       </div>
     </div>

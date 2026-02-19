@@ -44,24 +44,21 @@ const PulsePage: React.FC = () => {
   }, [applications]);
 
   const atsScore = useMemo(() => {
-    const hasCv = (cvsQ.data?.length || 0) > 0;
-    const base = hasCv ? 72 : 38;
-    return Math.min(96, base + Math.min(applications.length * 3, 20));
-  }, [cvsQ.data, applications.length]);
+    const score = cvsQ.data?.[0]?.ats_score;
+    return typeof score === "number" ? Math.round(score) : null;
+  }, [cvsQ.data]);
 
-  const radarData = [
-    { skill: "AI", seeker: 68, market: 82 },
-    { skill: "Communication", seeker: 74, market: 77 },
-    { skill: "Domain", seeker: 62, market: 80 },
-    { skill: "Leadership", seeker: 58, market: 70 },
-    { skill: "Tools", seeker: 71, market: 83 },
-  ];
+  const radarData = useMemo(() => {
+    return [];
+  }, []);
 
   return (
     <div className="space-y-4">
       <div className="glass-card p-6">
         <p className="text-sm text-[var(--text-muted)]">{t("goodMorning")}, {user?.full_name || t("seeker")}.</p>
-        <h1 className="mt-2 text-2xl font-bold">{t("profileMatchPrefix")} {atsScore}% {t("profileMatchMiddle")} {Math.min(jobs.length, 3)} {t("profileMatchSuffix")}</h1>
+        <h1 className="mt-2 text-2xl font-bold">
+          {t("profileMatchPrefix")} {atsScore !== null ? `${atsScore}%` : t("matchUnavailable")} {t("profileMatchMiddle")} {Math.min(jobs.length, 3)} {t("profileMatchSuffix")}
+        </h1>
         <div className="mt-4 flex flex-wrap gap-2">
           <Link className="btn-primary" to="/cv-lab">{t("goToCvLab")}</Link>
           <Link className="btn-ghost" to="/opportunities">{t("browseJobs")}</Link>
@@ -72,7 +69,7 @@ const PulsePage: React.FC = () => {
       <div className="grid gap-4 xl:grid-cols-4">
         <div className="glass-card p-4">
           <p className="text-xs text-[var(--text-muted)]">{t("currentCvStrength")}</p>
-          <p className="mt-2 text-3xl font-semibold">{atsScore}%</p>
+          <p className="mt-2 text-3xl font-semibold">{atsScore !== null ? `${atsScore}%` : "-"}</p>
         </div>
         <div className="glass-card p-4">
           <p className="text-xs text-[var(--text-muted)]">{t("applications")}</p>

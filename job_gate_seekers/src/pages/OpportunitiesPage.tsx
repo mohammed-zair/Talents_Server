@@ -266,12 +266,12 @@ const OpportunitiesPage: React.FC = () => {
             const badgeLabel = baseLabel ? `${baseLabel} · ${t("aiComingSoon")}` : "";
 
             return (
-              <div key={job.job_id} className="glass-card card-hover overflow-hidden rounded-3xl min-h-[420px]">
+              <div key={job.job_id} className="glass-card card-hover overflow-hidden rounded-2xl">
                 <div className="relative">
                   {imageUrl ? (
-                    <img src={imageUrl} alt={job.title} className="h-44 w-full object-cover" />
+                    <img src={imageUrl} alt={job.title} className="h-32 w-full object-cover" />
                   ) : (
-                    <div className="flex h-44 items-center justify-center bg-[var(--glass)]">
+                    <div className="flex h-32 items-center justify-center bg-[var(--glass)]">
                       <Briefcase size={32} className="text-[var(--text-muted)]" />
                     </div>
                   )}
@@ -282,33 +282,46 @@ const OpportunitiesPage: React.FC = () => {
                       {badgeLabel}
                     </span>
                   )}
+                  {isApplied && (
+                    <span className="absolute left-3 top-3 rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold text-emerald-200">
+                      {t("applied")}
+                    </span>
+                  )}
                 </div>
                 <div className="flex h-full flex-col p-4">
-                  <h3 className="text-lg font-semibold">{job.title}</h3>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-base font-semibold">{job.title}</h3>
+                    <button
+                      className="btn-ghost p-2"
+                      onClick={() => saveMutation.mutate(job.job_id)}
+                      aria-label={isSaved ? t("saved") : t("save")}
+                    >
+                      <Bookmark
+                        size={16}
+                        className={isSaved ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}
+                        fill={isSaved ? "currentColor" : "none"}
+                      />
+                    </button>
+                  </div>
                   <p className="text-xs text-[var(--text-muted)]">
                     {job.Company?.name || t("company")} · {job.location || t("remote")}
                   </p>
                   <p className="mt-2 text-sm text-[var(--text-muted)] line-clamp-2">
                     {job.description || t("noDescriptionYet")}
                   </p>
-                  <div className="mt-auto flex items-center gap-2 pt-4">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
-                      className="btn-primary"
+                      className="btn-primary px-3 py-2 text-xs"
                       onClick={() => setActiveJob(job)}
                       disabled={isApplied}
                     >
                       {isApplied ? t("applied") : t("apply")}
                     </button>
                     <button
-                      className="btn-ghost"
-                      onClick={() => saveMutation.mutate(job.job_id)}
-                      aria-label={isSaved ? t("saved") : t("save")}
+                      className="btn-ghost px-3 py-2 text-xs"
+                      onClick={() => setActiveJob(job)}
                     >
-                      <Bookmark
-                        size={18}
-                        className={isSaved ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}
-                        fill={isSaved ? "currentColor" : "none"}
-                      />
+                      {t("viewDetails")}
                     </button>
                   </div>
                 </div>
