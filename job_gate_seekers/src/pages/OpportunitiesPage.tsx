@@ -1,4 +1,4 @@
-﻿﻿﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { Bookmark, Briefcase, Sparkles } from "lucide-react";
@@ -516,3 +516,5 @@ const OpportunitiesPage: React.FC = () => {
 };
 
 export default OpportunitiesPage;
+
+
