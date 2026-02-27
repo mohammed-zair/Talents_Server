@@ -19,7 +19,7 @@ const SettingsPage: React.FC = () => {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="glass-card p-4">
           <h2 className="mb-3 text-lg font-semibold">{t("language")}</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               className={`rounded-xl border px-4 py-2 ${language === "en" ? "nav-active" : "border-[var(--border)]"}`}
               onClick={() => setLanguage("en")}

@@ -50,6 +50,10 @@ html, body, #root { min-height: 100%; }
 body { margin: 0; font-family: "Plus Jakarta Sans", "Inter", sans-serif; color: var(--text-primary); background: var(--bg); }
 html[lang="ar"] body { font-family: "Noto Sans Arabic", "Plus Jakarta Sans", "Inter", sans-serif; }
 
+[dir="rtl"] .search-icon { left: auto; right: 0.75rem; }
+[dir="rtl"] .search-input { padding-right: 2.25rem; padding-left: 0.75rem; }
+[dir="rtl"] .notif-badge { right: auto; left: -0.25rem; }
+
 .mesh-bg {
   background:
     radial-gradient(circle at 13% 8%, var(--mesh-a), transparent 45%),

@@ -56,7 +56,7 @@ const formatSessionLabel = (s: any, t: (key: string) => string) => {
   const label = mode === "mock_interview" ? t("sessionLabelMock") : t("sessionLabelCareer");
   const created = s?.created_at || s?.createdAt || s?.started_at;
   const date = created ? new Date(created).toLocaleString() : "";
-  return date ? `${label} � ${date}` : label;
+  return date ? `${label} Â· ${date}` : label;
 };
 
 const AIConsultantPage: React.FC = () => {
@@ -77,6 +77,7 @@ const AIConsultantPage: React.FC = () => {
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const isRtl = language == "ar";
 
   useEffect(() => {
     const stored = localStorage.getItem(SESSION_KEY);
@@ -330,7 +331,7 @@ const AIConsultantPage: React.FC = () => {
       {titleError && <p className="mb-2 text-xs text-red-300">{titleError}</p>}
       {titleSuccess && <p className="mb-2 text-xs text-emerald-300">{titleSuccess}</p>}
 
-      <div className="space-y-2 overflow-auto pr-1">
+      <div className={`space-y-2 overflow-auto ${isRtl ? "pl-1" : "pr-1"}`}>
         {filteredSessions.map((s: any) => {
           const id = String(s.session_id || s.id || "");
           const label = formatSessionLabel(s, t);
@@ -341,7 +342,7 @@ const AIConsultantPage: React.FC = () => {
           return (
             <div key={id} className="relative">
               <button
-                className={`w-full rounded-2xl border p-3 text-left transition card-hover ${
+                className={`w-full rounded-2xl border p-3 text-start transition card-hover ${
                   id === sessionId
                     ? "border-[var(--accent)] bg-[var(--accent)]/10"
                     : "border-[var(--border)]"
@@ -372,9 +373,9 @@ const AIConsultantPage: React.FC = () => {
                 ) : null}
               </button>
               {menuSessionId === id && (
-                <div className="absolute right-2 top-12 z-10 w-36 rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2 text-xs shadow-lg">
+                <div className={`absolute ${isRtl ? "left-2" : "right-2"} top-12 z-10 w-36 rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2 text-xs shadow-lg`}>
                   <button
-                    className="w-full rounded-md px-2 py-1 text-left hover:bg-[var(--glass)]"
+                    className="w-full rounded-md px-2 py-1 text-start hover:bg-[var(--glass)]"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleRename(id, title);
@@ -383,7 +384,7 @@ const AIConsultantPage: React.FC = () => {
                     {t("renameSession")}
                   </button>
                   <button
-                    className="mt-1 w-full rounded-md px-2 py-1 text-left text-red-300 hover:bg-[var(--glass)]"
+                    className="mt-1 w-full rounded-md px-2 py-1 text-start text-red-300 hover:bg-[var(--glass)]"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDelete(id);
@@ -400,23 +401,23 @@ const AIConsultantPage: React.FC = () => {
 
       <div className="relative mt-4">
         <button
-          className="btn-primary absolute bottom-0 right-0 flex h-12 w-12 items-center justify-center rounded-full p-0 shadow-lg"
+          className={`btn-primary absolute bottom-0 ${isRtl ? "left-0" : "right-0"} flex h-12 w-12 items-center justify-center rounded-full p-0 shadow-lg`}
           onClick={() => setStartMenuOpen((prev) => !prev)}
           aria-label={t("startNewSession")}
         >
           <Plus size={20} />
         </button>
         {startMenuOpen && (
-          <div className="absolute bottom-14 right-0 z-10 w-48 rounded-xl border border-[var(--border)] bg-[var(--glass)] p-2 text-sm shadow-lg">
+          <div className={`absolute bottom-14 ${isRtl ? "left-0" : "right-0"} z-10 w-48 rounded-xl border border-[var(--border)] bg-[var(--glass)] p-2 text-sm shadow-lg`}>
             <button
-              className="w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--glass)]"
+              className="w-full rounded-lg px-3 py-2 text-start hover:bg-[var(--glass)]"
               onClick={() => startMutation.mutate(false)}
               disabled={startMutation.isPending}
             >
               {t("startCareerAdvisor")}
             </button>
             <button
-              className="mt-1 w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--glass)]"
+              className="mt-1 w-full rounded-lg px-3 py-2 text-start hover:bg-[var(--glass)]"
               onClick={() => startMutation.mutate(true)}
               disabled={startMutation.isPending}
             >
@@ -436,22 +437,22 @@ const AIConsultantPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="mb-4 flex gap-2" role="tablist" aria-label={t("aiConsultant")}>
+      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label={t("aiConsultant")}>
         {["preview", "insights", "export"].map((tab) => (
           <button
             key={tab}
             role="tab"
             aria-selected={activeTab === tab}
-            className={`flex-1 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+            className={`min-w-[110px] flex-1 rounded-full border px-3 py-2 text-[11px] font-semibold transition sm:text-xs ${
               activeTab === tab
                 ? "border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--text-primary)]"
                 : "border-transparent text-[var(--text-muted)] hover:bg-[var(--glass)]"
             }`}
             onClick={() => setActiveTab(tab as "preview" | "insights" | "export")}
           >
-            {tab === "preview" && <Eye className="mr-1 inline h-4 w-4" />}
-            {tab === "insights" && <Lightbulb className="mr-1 inline h-4 w-4" />}
-            {tab === "export" && <Download className="mr-1 inline h-4 w-4" />}
+            {tab === "preview" && <Eye className="mx-1 inline h-4 w-4" />}
+            {tab === "insights" && <Lightbulb className="mx-1 inline h-4 w-4" />}
+            {tab === "export" && <Download className="mx-1 inline h-4 w-4" />}
             {t(`${tab}Panel`)}
           </button>
         ))}
@@ -480,7 +481,7 @@ const AIConsultantPage: React.FC = () => {
             {sessionId && previewQ.data && (
               <iframe
                 title="cv-preview"
-                className="h-[60vh] min-h-[260px] w-full rounded-lg border border-[var(--border)] bg-white"
+                className="h-[50vh] min-h-[260px] w-full rounded-lg border border-[var(--border)] bg-white sm:h-[60vh]"
                 srcDoc={previewQ.data}
               />
             )}
@@ -504,7 +505,7 @@ const AIConsultantPage: React.FC = () => {
                     {insights?.is_complete ? t("insightsStatusComplete") : t("insightsStatusInProgress")}
                   </span>
                   {insights?.current_step ? (
-                    <span className="text-[var(--text-muted)]">� {insights.current_step}</span>
+                    <span className="text-[var(--text-muted)]">Â· {insights.current_step}</span>
                   ) : null}
                 </div>
 
@@ -579,7 +580,7 @@ const AIConsultantPage: React.FC = () => {
               disabled={!sessionId || !previewAvailable || exportMutation.isPending}
             >
               {exportMutation.isPending && exportFormat === "pdf" && (
-                <Loader2 size={16} className="mr-2 inline animate-spin" />
+                <Loader2 size={16} className="mx-2 inline animate-spin" />
               )}
               {t("exportPdf")}
             </button>
@@ -592,7 +593,7 @@ const AIConsultantPage: React.FC = () => {
               disabled={!sessionId || !previewAvailable || exportMutation.isPending}
             >
               {exportMutation.isPending && exportFormat === "docx" && (
-                <Loader2 size={16} className="mr-2 inline animate-spin" />
+                <Loader2 size={16} className="mx-2 inline animate-spin" />
               )}
               {t("exportDocx")}
             </button>
@@ -605,10 +606,10 @@ const AIConsultantPage: React.FC = () => {
     </div>
   );
   return (
-    <div className="relative flex h-[calc(100vh-6rem)] gap-4">
+    <div className="relative flex min-h-[calc(100vh-6rem)] flex-col gap-4 lg:h-[calc(100vh-6rem)] lg:flex-row">
       <aside
-        className={`fixed inset-y-0 left-0 z-20 w-[80vw] max-w-[20rem] transform border-r border-[var(--border)] bg-[var(--glass)] transition-transform duration-300 lg:static lg:w-[30%] lg:max-w-[22rem] lg:translate-x-0 ${
-          showSessions ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 z-20 w-[82vw] max-w-[20rem] transform border border-[var(--border)] bg-[var(--glass)] transition-transform duration-300 lg:static lg:w-[30%] lg:max-w-[22rem] lg:translate-x-0 lg:border-0 ${isRtl ? "right-0 lg:border-l" : "left-0 lg:border-r"} ${
+          showSessions ? "translate-x-0" : isRtl ? "translate-x-full" : "-translate-x-full"
         }`}
       >
         {sessionsSidebar}
@@ -656,32 +657,42 @@ const AIConsultantPage: React.FC = () => {
                 return (
                   <div key={idx} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                     {!isUser && showAvatar && (
-                      <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold text-black">
+                      <div className={`${isRtl ? "ml-2" : "mr-2"} flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold text-black`}>
                         AI
                       </div>
                     )}
                     <div
-                      className={`relative max-w-[80%] rounded-2xl p-3 text-sm shadow-md transition animate-fade-in ${
+                      className={`relative max-w-[92%] rounded-2xl p-3 text-sm shadow-md transition animate-fade-in sm:max-w-[80%] ${
                         isUser
-                          ? "rounded-br-none bg-[var(--accent)] text-black"
-                          : "rounded-bl-none bg-[var(--glass)]"
+                          ? isRtl
+                            ? "rounded-bl-none bg-[var(--accent)] text-black"
+                            : "rounded-br-none bg-[var(--accent)] text-black"
+                          : isRtl
+                            ? "rounded-br-none bg-[var(--glass)]"
+                            : "rounded-bl-none bg-[var(--glass)]"
                       }`}
                     >
                       <div className="whitespace-pre-wrap">{m.text}</div>
                       {showAvatar && (
-                        <span className="mt-1 block text-right text-[10px] text-[var(--text-muted)]">
+                        <span className="mt-1 block text-end text-[10px] text-[var(--text-muted)]">
                           {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       )}
                       <span
                         aria-hidden="true"
                         className={`absolute bottom-2 h-3 w-3 rotate-45 ${
-                          isUser ? "-right-1 bg-[var(--accent)]" : "-left-1 bg-[var(--glass)]"
+                          isUser
+                            ? isRtl
+                              ? "-left-1 bg-[var(--accent)]"
+                              : "-right-1 bg-[var(--accent)]"
+                            : isRtl
+                              ? "-right-1 bg-[var(--glass)]"
+                              : "-left-1 bg-[var(--glass)]"
                         }`}
                       />
                     </div>
                     {isUser && showAvatar && (
-                      <div className="ml-2 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold text-black">
+                      <div className={`${isRtl ? "mr-2" : "ml-2"} flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold text-black`}>
                         You
                       </div>
                     )}
@@ -690,7 +701,7 @@ const AIConsultantPage: React.FC = () => {
               })}
               {chatMutation.isPending && (
                 <div className="flex justify-start">
-                  <div className="rounded-2xl rounded-bl-none bg-[var(--glass)] p-3 text-sm">
+                  <div className={`rounded-2xl ${isRtl ? "rounded-br-none" : "rounded-bl-none"} bg-[var(--glass)] p-3 text-sm`}>
                     <div className="flex items-center gap-2">
                       <span>{t("typing")}</span>
                       <span className="inline-flex gap-1">
@@ -756,7 +767,9 @@ const AIConsultantPage: React.FC = () => {
         <div className="mb-3 flex justify-center">
           <div className="h-1 w-14 rounded-full bg-[var(--border)]" />
         </div>
-        {insightsPanel}
+        <div className="h-[calc(80vh-2.5rem)] overflow-auto">
+          {insightsPanel}
+        </div>
       </aside>
 
       {(showSessions || showRightPanel) && (

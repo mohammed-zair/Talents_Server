@@ -71,7 +71,7 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="glass-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -139,7 +139,7 @@ const ProfilePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div className="glass-card p-4">
           <div className="mb-2 flex items-center gap-2">
             <Sparkles size={16} className="text-[var(--text-muted)]" />

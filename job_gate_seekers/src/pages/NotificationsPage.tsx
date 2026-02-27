@@ -34,7 +34,7 @@ const NotificationsPage: React.FC = () => {
           )}
           {notificationItems.map((n: any) => (
             <div key={n.push_id} className="rounded-xl border border-[var(--border)] p-3">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
                 <p className="font-medium">{n.title}</p>
                 {!n.is_read && <span className="badge">{t("unread")}</span>}
               </div>

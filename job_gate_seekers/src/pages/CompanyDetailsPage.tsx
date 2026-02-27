@@ -29,7 +29,8 @@ const resolveAssetUrl = (url?: string | null) => {
 
 const CompanyDetailsPage: React.FC = () => {
   const { companyId } = useParams();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isRtl = language === "ar";
   const location = useLocation();
   const backState = (location.state as any)?.marketSearch;
 
@@ -104,7 +105,7 @@ const CompanyDetailsPage: React.FC = () => {
       {company && (
         <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
           <div className="glass-card p-5">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               {company.logo_url ? (
                 <img
                   src={company.logo_url}
@@ -165,7 +166,7 @@ const CompanyDetailsPage: React.FC = () => {
                 const badgeLabel = baseLabel ? `${baseLabel} · ${t("aiComingSoon")}` : "";
 
                 return (
-                  <div key={job.job_id || job.id} className="glass-card card-hover overflow-hidden rounded-3xl min-h-[420px]">
+                  <div key={job.job_id || job.id} className="glass-card card-hover overflow-hidden rounded-3xl min-h-[360px] sm:min-h-[420px]">
                     <div className="relative">
                       {imageUrl ? (
                         <img src={imageUrl} alt={job.title} className="h-40 w-full object-cover" />
@@ -176,7 +177,7 @@ const CompanyDetailsPage: React.FC = () => {
                       )}
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
                       {badgeLabel && (
-                        <span className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}>
+                        <span className={`absolute ${isRtl ? "left-3" : "right-3"} top-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}>
                           <Sparkles size={12} />
                           {badgeLabel}
                         </span>

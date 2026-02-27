@@ -43,7 +43,8 @@ const CVLabPage: React.FC = () => {
   const [selectedInsightId, setSelectedInsightId] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const isRtl = language === "ar";
 
   const cvsQ = useQuery({ queryKey: ["cvs"], queryFn: seekerApi.listCVs });
   const cvItems = useMemo(() => (Array.isArray(cvsQ.data) ? cvsQ.data : []), [cvsQ.data]);
@@ -191,7 +192,7 @@ const CVLabPage: React.FC = () => {
             <button
               key={cv.cv_id}
               onClick={() => setSelectedCvId(cv.cv_id)}
-              className={`w-full rounded-xl border p-3 text-left ${
+              className={`w-full rounded-xl border p-3 text-start ${
                 selectedCv?.cv_id === cv.cv_id ? "border-[var(--accent)]" : "border-[var(--border)]"
               }`}
             >
@@ -293,7 +294,7 @@ const CVLabPage: React.FC = () => {
               return (
                 <div
                   key={item?.insight_id ?? index}
-                  className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-xs ${
+                  className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-start text-xs ${
                     isActive
                       ? "border-[var(--accent)] bg-[var(--accent)]/10"
                       : "border-[var(--border)] hover:border-[var(--accent)]/40"
@@ -302,7 +303,7 @@ const CVLabPage: React.FC = () => {
                   <div>
                     <span className="font-medium">{label}</span>
                     {index === 0 && (
-                      <span className="ml-2 text-[var(--text-muted)]">{t("analysisLatest")}</span>
+                      <span className={`${isRtl ? "mr-2" : "ml-2"} text-[var(--text-muted)]`}>{t("analysisLatest")}</span>
                     )}
                   </div>
                   <button
@@ -387,7 +388,7 @@ const CVLabPage: React.FC = () => {
                           key={`${item}-${idx}`}
                           className="rounded-lg border border-emerald-500/20 bg-[var(--glass)] p-2 text-sm"
                         >
-                          <span className="mr-2 text-xs text-emerald-200">{String(idx + 1).padStart(2, "0")}.</span>
+                          <span className={`${isRtl ? "ml-2" : "mr-2"} text-xs text-emerald-200`}>{String(idx + 1).padStart(2, "0")}.</span>
                           {item}
                         </div>
                       ))}
@@ -409,7 +410,7 @@ const CVLabPage: React.FC = () => {
                           key={`${item}-${idx}`}
                           className="rounded-lg border border-red-500/20 bg-[var(--glass)] p-2 text-sm"
                         >
-                          <span className="mr-2 text-xs text-red-200">{String(idx + 1).padStart(2, "0")}.</span>
+                          <span className={`${isRtl ? "ml-2" : "mr-2"} text-xs text-red-200`}>{String(idx + 1).padStart(2, "0")}.</span>
                           {item}
                         </div>
                       ))}
@@ -431,7 +432,7 @@ const CVLabPage: React.FC = () => {
                           key={`${item}-${idx}`}
                           className="rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2 text-sm"
                         >
-                          <span className="mr-2 text-xs text-[var(--text-muted)]">{String(idx + 1).padStart(2, "0")}.</span>
+                          <span className={`${isRtl ? "ml-2" : "mr-2"} text-xs text-[var(--text-muted)]`}>{String(idx + 1).padStart(2, "0")}.</span>
                           {item}
                         </div>
                       ))}

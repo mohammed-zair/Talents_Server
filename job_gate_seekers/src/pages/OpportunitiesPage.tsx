@@ -32,6 +32,7 @@ type FormField = {
 
 const OpportunitiesPage: React.FC = () => {
   const { language, t } = useLanguage();
+  const isRtl = language === "ar";
   const queryClient = useQueryClient();
   const [actionMsg, setActionMsg] = useState("");
   const [activeJob, setActiveJob] = useState<any | null>(null);
@@ -277,13 +278,13 @@ const OpportunitiesPage: React.FC = () => {
                   )}
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
                   {badgeLabel && (
-                    <span className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}>
+                    <span className={`absolute ${isRtl ? "left-3" : "right-3"} top-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}>
                       <Sparkles size={12} />
                       {badgeLabel}
                     </span>
                   )}
                   {isApplied && (
-                    <span className="absolute left-3 top-3 rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold text-emerald-200">
+                    <span className={`absolute ${isRtl ? "right-3" : "left-3"} top-3 rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-semibold text-emerald-200`}>
                       {t("applied")}
                     </span>
                   )}
@@ -340,9 +341,9 @@ const OpportunitiesPage: React.FC = () => {
       )}
 
       {activeJob && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-          <div className="glass-card w-full max-w-3xl p-5">
-            <div className="flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/50 p-4 sm:items-center">
+          <div className="glass-card w-full max-w-3xl max-h-[85vh] overflow-y-auto p-4 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold">{activeJob.title}</h2>
                 <p className="text-sm text-[var(--text-muted)]">

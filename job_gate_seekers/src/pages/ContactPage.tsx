@@ -29,7 +29,7 @@ const ContactPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="glass-card p-5">
           <h2 className="text-lg font-semibold">{t("contactFormTitle")}</h2>
           <p className="mt-1 text-sm text-[var(--text-muted)]">{t("contactNote")}</p>

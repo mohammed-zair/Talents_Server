@@ -20,7 +20,7 @@ const ApplicationsPage: React.FC = () => {
       <div className="grid gap-3">
         {appItems.map((a: any) => (
           <div key={a.application_id} className="glass-card p-4">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="font-semibold">{a.JobPosting?.title || `${t("applicationFallback")} #${a.application_id}`}</p>
                 <p className="text-sm text-[var(--text-muted)]">{a.JobPosting?.Company?.name || t("company")}</p>

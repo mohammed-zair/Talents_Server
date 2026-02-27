@@ -66,7 +66,7 @@ const PulsePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card p-4">
           <p className="text-xs text-[var(--text-muted)]">{t("currentCvStrength")}</p>
           <p className="mt-2 text-3xl font-semibold">{atsScore !== null ? `${atsScore}%` : "-"}</p>
@@ -103,7 +103,7 @@ const PulsePage: React.FC = () => {
         />
       </Suspense>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <div className="glass-card p-5">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">{t("recentApplications")}</h2>
@@ -147,7 +147,7 @@ const PulsePage: React.FC = () => {
 export default PulsePage;
 
 const PulseChartsSkeleton: React.FC = () => (
-  <div className="grid gap-4 xl:grid-cols-3">
+  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
     {Array.from({ length: 3 }).map((_, idx) => (
       <div key={idx} className="glass-card p-4">
         <div className="h-4 w-28 animate-pulse rounded-full bg-[var(--border)]" />

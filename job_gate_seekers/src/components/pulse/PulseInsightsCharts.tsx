@@ -28,7 +28,7 @@ type Props = {
 
 const PulseInsightsCharts: React.FC<Props> = ({ t, atsScore, funnel, radarData }) => {
   return (
-    <div className="grid gap-4 xl:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <div className="glass-card p-4">
         <h2 className="mb-2 font-semibold">{t("atsHealth")}</h2>
         <div className="h-56">

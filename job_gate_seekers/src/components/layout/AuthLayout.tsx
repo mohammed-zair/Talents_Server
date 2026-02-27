@@ -8,13 +8,14 @@ const AuthLayout: React.FC<React.PropsWithChildren<{ title: string; subtitle?: s
   children,
 }) => {
   const { t, language, setLanguage } = useLanguage();
+  const isRtl = language === "ar";
 
   return (
     <div className="min-h-screen mesh-bg p-4">
       <div className="mx-auto flex min-h-[90vh] max-w-5xl items-center justify-center">
         <div className="glass-panel grid w-full overflow-hidden rounded-3xl border border-[var(--border)] md:grid-cols-2">
           <div className="p-8">
-            <div className="mb-4 flex justify-end">
+            <div className={`mb-4 flex ${isRtl ? "justify-start" : "justify-end"}`}>
               <button
                 className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs"
                 onClick={() => setLanguage(language === "en" ? "ar" : "en")}
