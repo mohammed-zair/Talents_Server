@@ -58,6 +58,8 @@ const CVLabPage: React.FC = () => {
     enabled: !!selectedCv?.cv_id,
   });
   const historyItems = useMemo(() => (Array.isArray(historyQ.data) ? historyQ.data : []), [historyQ.data]);
+  const maxCvReached = cvItems.length >= 3;
+  const hasAnalysisRun = historyItems.length > 0;
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
@@ -213,9 +215,14 @@ const CVLabPage: React.FC = () => {
               accept=".pdf,.doc,.docx"
               className="hidden"
               aria-describedby="cv-upload-feedback"
+              disabled={maxCvReached || uploadMutation.isPending}
               onChange={(e) => {
                 setUploadError("");
                 setUploadFeedback("");
+                if (maxCvReached) {
+                  setUploadError(t("cvUploadLimitReached"));
+                  return;
+                }
                 if (e.target.files?.[0]) uploadMutation.mutate(e.target.files[0]);
               }}
             />
@@ -237,7 +244,7 @@ const CVLabPage: React.FC = () => {
           <button
             className={`btn-primary ${analyzeMutation.isPending ? "btn-loading" : ""}`}
             onClick={() => analyzeMutation.mutate()}
-            disabled={analyzeMutation.isPending || !selectedCv}
+            disabled={analyzeMutation.isPending || !selectedCv || hasAnalysisRun}
           >
             {analyzeMutation.isPending ? (
               <span className="loading-orbit" aria-live="polite">
@@ -259,6 +266,9 @@ const CVLabPage: React.FC = () => {
           {uploadFeedback && <p className="mt-2 text-sm text-emerald-300">{uploadFeedback}</p>}
           {uploadError && <p className="mt-2 text-sm text-red-300">{uploadError}</p>}
           {analysisInfo && <p className="mt-2 text-sm text-emerald-300">{analysisInfo}</p>}
+          {hasAnalysisRun && (
+            <p className="mt-2 text-sm text-[var(--text-muted)]">{t("cvAnalyzeOnceHint")}</p>
+          )}
 
           {analysisError && (
             <div className="mt-2 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">

@@ -86,6 +86,22 @@ exports.uploadNewCV = async (req, res) => {
   const cvUrl = cvFile.path;
 
   try {
+    const existingCount = await CV.count({ where: { user_id: userId } });
+    if (existingCount >= 3) {
+      if (cvUrl) {
+        try {
+          await unlinkFile(cvUrl);
+        } catch (unlinkError) {
+          console.warn("Warning: Could not delete uploaded CV file:", unlinkError);
+        }
+      }
+      return res.status(400).json({
+        message: "CV upload limit reached. Maximum 3 CVs allowed.",
+        error_code: "CV_UPLOAD_LIMIT_REACHED",
+        limit: 3,
+      });
+    }
+
     const allowPromotionValue =
       allow_promotion === true ||
       allow_promotion === "true" ||
