@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -166,10 +166,7 @@ const PageShell: React.FC = () => {
               </button>
             </div>
 
-            <div className="relative flex-1 min-w-[180px]">
-              <Search size={16} className="search-icon absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-              <input className="search-input w-full rounded-xl border border-[var(--border)] bg-transparent py-2 pl-9 pr-3 outline-none" placeholder={t("searchPlaceholder")} />
-            </div>
+
 
             <div className="flex flex-wrap items-center gap-2">
               <button className="rounded-xl border border-[var(--border)] px-3 py-2" onClick={() => setLanguage(language === "en" ? "ar" : "en")}>{language.toUpperCase()}</button>
@@ -193,7 +190,7 @@ const PageShell: React.FC = () => {
 
                 {notificationsOpen && (
                   <div
-                    className={`absolute top-full z-50 mt-2 w-[92vw] max-w-80 -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--popout)] p-2 shadow-xl backdrop-blur left-1/2 sm:w-80 sm:translate-x-0 ${
+                    className={`absolute top-full left-1/2 z-50 mt-2 w-[92vw] max-w-80 -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--popout)] p-2 shadow-xl backdrop-blur sm:w-80 sm:translate-x-0 ${
                       isRtl ? "sm:left-0 sm:right-auto" : "sm:right-0 sm:left-auto"
                     }`}
                   >
@@ -244,7 +241,7 @@ const PageShell: React.FC = () => {
           </header>
 
           <main className="relative z-10 pb-4">
-            <div className="mb-3 text-sm text-[var(--text-muted)]">{user ? `${user.full_name} � ${user.email}` : ""}</div>
+            <div className="mb-3 text-sm text-[var(--text-muted)]">{user ? `${user.full_name} • ${user.email}` : ""}</div>
             <div>
               <Outlet />
             </div>
@@ -256,4 +253,6 @@ const PageShell: React.FC = () => {
 };
 
 export default PageShell;
+
+
 
