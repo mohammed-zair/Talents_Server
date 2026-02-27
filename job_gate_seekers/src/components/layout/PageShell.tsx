@@ -190,7 +190,7 @@ const PageShell: React.FC = () => {
                 </button>
 
                 {notificationsOpen && (
-                  <div className={`absolute ${isRtl ? "left-0" : "right-0"} z-50 mt-2 w-[90vw] max-w-80 rounded-xl border border-[var(--border)] bg-[var(--glass)]/70 p-2 shadow-xl backdrop-blur`}>
+                  <div className={`absolute ${isRtl ? "left-0" : "right-0"} z-50 mt-2 w-[90vw] max-w-80 rounded-xl border border-[var(--border)] bg-[var(--bg)]/92 p-2 shadow-xl backdrop-blur`}>
                     <p className="px-2 py-1 text-xs text-[var(--text-muted)]">{t("notifications")}</p>
                     <div className="max-h-72 space-y-1 overflow-auto">
                       {notificationItems.slice(0, 6).map((n: any) => (
