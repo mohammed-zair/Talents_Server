@@ -635,9 +635,11 @@ const AIConsultantPage: React.FC = () => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={t("askPlaceholder")}
-              disabled={!sessionId}
               ref={inputRef}
               rows={1}
+              onFocus={() => {
+                if (!sessionId) setShowSessions(true);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -674,6 +676,9 @@ const AIConsultantPage: React.FC = () => {
               <Send size={18} />
             </button>
           </div>
+          {!sessionId && (
+            <p className="mt-2 px-2 text-xs text-[var(--text-muted)]">{t("selectSessionHint")}</p>
+          )}
           {chatError && <p className="mt-2 px-2 text-xs text-red-300">{chatError}</p>}
         </div>
       </main>

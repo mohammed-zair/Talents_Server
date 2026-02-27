@@ -1,4 +1,4 @@
-import React, { Suspense } from "react";
+import React, { Suspense, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import {
@@ -8,6 +8,8 @@ import {
   Shield,
   ClipboardCheck,
   FileBadge,
+  Menu,
+  X,
 } from "lucide-react";
 const CompanyDashboard = React.lazy(() => import("./pages/CompanyDashboard"));
 const ApplicationList = React.lazy(() => import("./pages/ApplicationList"));
@@ -27,6 +29,8 @@ import AuthStatusOverlay from "./components/auth/AuthStatusOverlay";
 
 const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { language } = useLanguage();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const isRtl = language === "ar";
   const navLabels = {
     en: {
       dashboard: "Dashboard",
@@ -46,11 +50,75 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     },
   }[language];
 
+  const navItems = [
+    { to: "/dashboard", icon: BriefcaseBusiness, label: navLabels.dashboard },
+    { to: "/applications", icon: Globe2, label: navLabels.applications },
+    { to: "/profile", icon: Shield, label: navLabels.profile },
+    { to: "/jobs", icon: ClipboardCheck, label: navLabels.jobs },
+    { to: "/cv-requests", icon: FileBadge, label: navLabels.cv },
+    { to: "/settings", icon: Globe2, label: navLabels.settings },
+  ];
+
   return (
     <div className="min-h-screen">
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 mesh-bg opacity-70" />
         <div className="relative z-10 flex min-h-screen flex-col lg:flex-row">
+          {mobileOpen && (
+            <button
+              className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+              aria-label="Close navigation"
+              onClick={() => setMobileOpen(false)}
+            />
+          )}
+          <aside
+            className={`fixed inset-y-0 z-50 w-72 max-w-[85vw] transform bg-[var(--panel-bg)] p-6 backdrop-blur-md transition duration-300 lg:hidden ${
+              mobileOpen ? "translate-x-0" : isRtl ? "translate-x-full" : "-translate-x-full"
+            } ${isRtl ? "right-0" : "left-0"}`}
+            style={{ borderInlineEnd: "1px solid var(--panel-border)" }}
+          >
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--accent)] text-slate-900">
+                  <Building2 size={18} />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">
+                    Talents
+                  </p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">We Trust</p>
+                </div>
+              </div>
+              <button
+                className="rounded-xl border border-[var(--panel-border)] p-2"
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close navigation"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <nav className="flex flex-col gap-2 text-sm">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMobileOpen(false)}
+                    className={({ isActive }) =>
+                      `smooth-hover flex items-center gap-3 rounded-xl px-4 py-3 text-[var(--text-primary)] ${
+                        isActive ? "bg-[var(--chip-bg)]" : "hover:bg-[var(--chip-bg)]"
+                      }`
+                    }
+                  >
+                    <Icon size={18} />
+                    {item.label}
+                  </NavLink>
+                );
+              })}
+            </nav>
+          </aside>
+
           <header className="flex items-center justify-between bg-[var(--panel-bg)] px-5 py-4 backdrop-blur-md lg:hidden">
             <div className="flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--accent)] text-slate-900">
@@ -63,6 +131,13 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <p className="text-sm font-semibold text-[var(--text-primary)]">We Trust</p>
               </div>
             </div>
+            <button
+              className="rounded-xl border border-[var(--panel-border)] p-2"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open navigation"
+            >
+              <Menu size={16} />
+            </button>
           </header>
           <aside
             className="hidden w-64 flex-col gap-6 bg-[var(--panel-bg)] p-6 backdrop-blur-md lg:flex"
@@ -81,72 +156,23 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </div>
 
             <nav className="flex flex-col gap-2 text-sm">
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  `smooth-hover flex items-center gap-3 rounded-xl px-4 py-3 text-[var(--text-primary)] ${
-                    isActive ? "bg-[var(--chip-bg)]" : "hover:bg-[var(--chip-bg)]"
-                  }`
-                }
-              >
-                <BriefcaseBusiness size={18} />
-                {navLabels.dashboard}
-              </NavLink>
-              <NavLink
-                to="/applications"
-                className={({ isActive }) =>
-                  `smooth-hover flex items-center gap-3 rounded-xl px-4 py-3 text-[var(--text-primary)] ${
-                    isActive ? "bg-[var(--chip-bg)]" : "hover:bg-[var(--chip-bg)]"
-                  }`
-                }
-              >
-                <Globe2 size={18} />
-                {navLabels.applications}
-              </NavLink>
-              <NavLink
-                to="/profile"
-                className={({ isActive }) =>
-                  `smooth-hover flex items-center gap-3 rounded-xl px-4 py-3 text-[var(--text-primary)] ${
-                    isActive ? "bg-[var(--chip-bg)]" : "hover:bg-[var(--chip-bg)]"
-                  }`
-                }
-              >
-                <Shield size={18} />
-                {navLabels.profile}
-              </NavLink>
-              <NavLink
-                to="/jobs"
-                className={({ isActive }) =>
-                  `smooth-hover flex items-center gap-3 rounded-xl px-4 py-3 text-[var(--text-primary)] ${
-                    isActive ? "bg-[var(--chip-bg)]" : "hover:bg-[var(--chip-bg)]"
-                  }`
-                }
-              >
-                <ClipboardCheck size={18} />
-                {navLabels.jobs}
-              </NavLink>
-              <NavLink
-                to="/cv-requests"
-                className={({ isActive }) =>
-                  `smooth-hover flex items-center gap-3 rounded-xl px-4 py-3 text-[var(--text-primary)] ${
-                    isActive ? "bg-[var(--chip-bg)]" : "hover:bg-[var(--chip-bg)]"
-                  }`
-                }
-              >
-                <FileBadge size={18} />
-                {navLabels.cv}
-              </NavLink>
-              <NavLink
-                to="/settings"
-                className={({ isActive }) =>
-                  `smooth-hover flex items-center gap-3 rounded-xl px-4 py-3 text-[var(--text-primary)] ${
-                    isActive ? "bg-[var(--chip-bg)]" : "hover:bg-[var(--chip-bg)]"
-                  }`
-                }
-              >
-                <Globe2 size={18} />
-                {navLabels.settings}
-              </NavLink>
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `smooth-hover flex items-center gap-3 rounded-xl px-4 py-3 text-[var(--text-primary)] ${
+                        isActive ? "bg-[var(--chip-bg)]" : "hover:bg-[var(--chip-bg)]"
+                      }`
+                    }
+                  >
+                    <Icon size={18} />
+                    {item.label}
+                  </NavLink>
+                );
+              })}
             </nav>
 
             <div className="mt-auto space-y-3">
