@@ -1,7 +1,6 @@
-﻿import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import {
   BadgeCheck,
@@ -245,10 +244,10 @@ const PageShell: React.FC = () => {
           </header>
 
           <main className="relative z-10 pb-4">
-            <div className="mb-3 text-sm text-[var(--text-muted)]">{user ? `${user.full_name} • ${user.email}` : ""}</div>
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+            <div className="mb-3 text-sm text-[var(--text-muted)]">{user ? `${user.full_name} � ${user.email}` : ""}</div>
+            <div>
               <Outlet />
-            </motion.div>
+            </div>
           </main>
         </div>
       </div>
@@ -257,3 +256,4 @@ const PageShell: React.FC = () => {
 };
 
 export default PageShell;
+

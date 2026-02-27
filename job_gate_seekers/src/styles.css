@@ -247,3 +247,12 @@ html[lang="ar"] body { font-family: "Noto Sans Arabic", "Plus Jakarta Sans", "In
   0%, 100% { transform: translateY(0); opacity: 0.35; }
   50% { transform: translateY(-2px); opacity: 1; }
 }
+
+/* Disable all animations/transitions to avoid mobile jank */
+.no-motion *,
+.no-motion *::before,
+.no-motion *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

@@ -1,4 +1,4 @@
-﻿import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
@@ -35,6 +35,13 @@ const queryClient = new QueryClient({
 const routerBasename = import.meta.env.VITE_ROUTER_BASENAME || "/";
 
 const App: React.FC = () => {
+  useEffect(() => {
+    document.body.classList.add("no-motion");
+    return () => {
+      document.body.classList.remove("no-motion");
+    };
+  }, []);
+
   return (
     <HelmetProvider>
       <ThemeProvider>
@@ -94,3 +101,4 @@ const RouteLoader: React.FC = () => (
     </div>
   </div>
 );
+
