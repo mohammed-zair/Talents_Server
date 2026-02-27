@@ -56,7 +56,7 @@ const formatSessionLabel = (s: any, t: (key: string) => string) => {
   const label = mode === "mock_interview" ? t("sessionLabelMock") : t("sessionLabelCareer");
   const created = s?.created_at || s?.createdAt || s?.started_at;
   const date = created ? new Date(created).toLocaleString() : "";
-  return date ? `${label} Â· ${date}` : label;
+  return date ? `${label} ÃÂ· ${date}` : label;
 };
 
 const AIConsultantPage: React.FC = () => {
@@ -373,7 +373,7 @@ const AIConsultantPage: React.FC = () => {
                 ) : null}
               </button>
               {menuSessionId === id && (
-                <div className={`absolute ${isRtl ? "left-2" : "right-2"} top-12 z-10 w-36 rounded-lg border border-[var(--border)] bg-[var(--glass)] p-2 text-xs shadow-lg`}>
+                <div className={`absolute ${isRtl ? "left-2" : "right-2"} top-12 z-10 w-36 rounded-lg border border-[var(--border)] bg-[var(--bg)]/98 p-2 text-xs shadow-lg backdrop-blur`}>
                   <button
                     className="w-full rounded-md px-2 py-1 text-start hover:bg-[var(--glass)]"
                     onClick={(e) => {
@@ -408,7 +408,7 @@ const AIConsultantPage: React.FC = () => {
           <Plus size={20} />
         </button>
         {startMenuOpen && (
-          <div className={`absolute bottom-14 ${isRtl ? "left-0" : "right-0"} z-10 w-48 rounded-xl border border-[var(--border)] bg-[var(--glass)] p-2 text-sm shadow-lg`}>
+          <div className={`absolute bottom-14 ${isRtl ? "left-0" : "right-0"} z-10 w-48 rounded-xl border border-[var(--border)] bg-[var(--bg)]/98 p-2 text-sm shadow-lg backdrop-blur`}>
             <button
               className="w-full rounded-lg px-3 py-2 text-start hover:bg-[var(--glass)]"
               onClick={() => startMutation.mutate(false)}
@@ -505,7 +505,7 @@ const AIConsultantPage: React.FC = () => {
                     {insights?.is_complete ? t("insightsStatusComplete") : t("insightsStatusInProgress")}
                   </span>
                   {insights?.current_step ? (
-                    <span className="text-[var(--text-muted)]">Â· {insights.current_step}</span>
+                    <span className="text-[var(--text-muted)]">ÃÂ· {insights.current_step}</span>
                   ) : null}
                 </div>
 
