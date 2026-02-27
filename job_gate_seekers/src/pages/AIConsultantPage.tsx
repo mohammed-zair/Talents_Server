@@ -56,7 +56,7 @@ const formatSessionLabel = (s: any, t: (key: string) => string) => {
   const label = mode === "mock_interview" ? t("sessionLabelMock") : t("sessionLabelCareer");
   const created = s?.created_at || s?.createdAt || s?.started_at;
   const date = created ? new Date(created).toLocaleString() : "";
-  return date ? `${label} ÃÂ· ${date}` : label;
+  return date ? `${label} ÃÂÃÂ· ${date}` : label;
 };
 
 const AIConsultantPage: React.FC = () => {
@@ -505,7 +505,7 @@ const AIConsultantPage: React.FC = () => {
                     {insights?.is_complete ? t("insightsStatusComplete") : t("insightsStatusInProgress")}
                   </span>
                   {insights?.current_step ? (
-                    <span className="text-[var(--text-muted)]">ÃÂ· {insights.current_step}</span>
+                    <span className="text-[var(--text-muted)]">ÃÂÃÂ· {insights.current_step}</span>
                   ) : null}
                 </div>
 
@@ -626,11 +626,11 @@ const AIConsultantPage: React.FC = () => {
               <Menu size={18} />
             </button>
             <button
-              className="btn-ghost lg:hidden"
+              className="btn-ghost lg:hidden flex items-center gap-2"
               onClick={() => setShowRightPanel(true)}
               aria-label={t("insightsPanel")}
             >
-              <ChevronRight size={18} />
+              <Sparkles size={18} className="shine-icon" />
             </button>
           </div>
           {sessionId ? <span className="text-xs text-[var(--text-muted)]">{sessionId}</span> : null}
