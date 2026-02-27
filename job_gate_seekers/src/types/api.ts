@@ -56,6 +56,7 @@ export type CVItem = {
   file_type?: string;
   allow_promotion?: boolean;
   created_at?: string;
+  ats_score?: number | null;
 };
 
 export type Company = {
