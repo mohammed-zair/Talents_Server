@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Briefcase,
@@ -21,7 +21,7 @@ import { getApiErrorMessage } from "../utils/apiError";
 
 const SESSION_KEY = "twt_ai_session";
 
-type ChatMessage = { role: string; text: string };
+type ChatMessage = { role: "user" | "assistant"; text: string; id?: string; pending?: boolean };
 
 type InsightsData = {
   is_complete?: boolean;
@@ -232,17 +232,23 @@ const AIConsultantPage: React.FC = () => {
   });
 
   const chatMutation = useMutation({
-    mutationFn: () => seekerApi.sendChat({ sessionId, message }),
-    onSuccess: (data: any) => {
+    mutationFn: ({ text }: { text: string; pendingId: string }) =>
+      seekerApi.sendChat({ sessionId, message: text }),
+    onSuccess: (data: any, variables) => {
       const reply = data?.reply || data?.message || data?.text || "";
-      setMessages((prev) => [...prev, { role: "user", text: message }, { role: "assistant", text: reply }]);
-      setMessage("");
+      const pendingId = variables?.pendingId;
+      setMessages((prev) => [
+        ...prev.map((m) => (pendingId && m.id === pendingId ? { ...m, pending: false } : m)),
+        { role: "assistant", text: reply },
+      ]);
       setChatError("");
       queryClient.invalidateQueries({ queryKey: ["chat-preview", sessionId, language] });
       queryClient.invalidateQueries({ queryKey: ["chat-insights", sessionId] });
       queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, variables) => {
+      const pendingId = variables?.pendingId;
+      setMessages((prev) => prev.map((m) => (pendingId && m.id === pendingId ? { ...m, pending: false } : m)));
       setChatError(getApiErrorMessage(error, t("sendFailed")));
     },
   });
@@ -348,7 +354,7 @@ const AIConsultantPage: React.FC = () => {
             </button>
             {startMenuOpen && (
               <div
-                className={`absolute ${isRtl ? "left-0" : "right-0"} top-12 z-10 w-48 rounded-xl border border-[var(--border)] bg-[var(--popout)] p-2 text-sm shadow-lg backdrop-blur`}
+                className={`absolute ${isRtl ? "left-0" : "right-0"} top-12 z-50 w-48 rounded-xl border border-[var(--border)] bg-[var(--popout)] p-2 text-sm shadow-lg backdrop-blur`}
               >
                 <button
                   className="w-full rounded-lg px-3 py-2 text-start hover:bg-[var(--glass)]"
@@ -465,7 +471,7 @@ const AIConsultantPage: React.FC = () => {
               </button>
               {menuSessionId === id && (
                 <div
-                  className={`absolute ${isRtl ? "left-2" : "right-2"} top-12 z-10 w-36 rounded-lg border border-[var(--border)] bg-[var(--popout)] p-2 text-xs shadow-lg backdrop-blur`}
+                  className={`absolute ${isRtl ? "left-2" : "right-2"} top-12 z-50 w-36 rounded-lg border border-[var(--border)] bg-[var(--popout)] p-2 text-xs shadow-lg backdrop-blur`}
                 >
                   <button
                     className="w-full rounded-md px-2 py-1 text-start hover:bg-[var(--glass)]"
@@ -567,6 +573,16 @@ const AIConsultantPage: React.FC = () => {
                       {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   )}
+                  {isUser && m.pending && (
+                    <span className="mt-1 inline-flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
+                      {t("sending")}
+                      <span className="inline-flex gap-1">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--text-muted)] [animation-delay:-0.2s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--text-muted)] [animation-delay:-0.1s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--text-muted)]" />
+                      </span>
+                    </span>
+                  )}
                   <span
                     aria-hidden="true"
                     className={`absolute bottom-2 h-3 w-3 rotate-45 ${
@@ -626,13 +642,32 @@ const AIConsultantPage: React.FC = () => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   if (!sessionId || !message || chatMutation.isPending) return;
-                  chatMutation.mutate();
+                  const outgoing = message.trim();
+                  if (!outgoing) return;
+                  const pendingId = `pending-${Date.now()}`;
+                  setMessages((prev) => [
+                    ...prev,
+                    { role: "user", text: outgoing, pending: true, id: pendingId },
+                  ]);
+                  setMessage("");
+                  chatMutation.mutate({ text: outgoing, pendingId });
                 }
               }}
             />
             <button
               className="btn-primary flex h-10 w-10 items-center justify-center rounded-full p-0"
-              onClick={() => chatMutation.mutate()}
+              onClick={() => {
+                if (!sessionId || !message || chatMutation.isPending) return;
+                const outgoing = message.trim();
+                if (!outgoing) return;
+                const pendingId = `pending-${Date.now()}`;
+                setMessages((prev) => [
+                  ...prev,
+                  { role: "user", text: outgoing, pending: true, id: pendingId },
+                ]);
+                setMessage("");
+                chatMutation.mutate({ text: outgoing, pendingId });
+              }}
               disabled={!sessionId || !message || chatMutation.isPending}
               aria-label={t("send")}
             >
@@ -754,7 +789,7 @@ const AIConsultantPage: React.FC = () => {
                         {insights?.is_complete ? t("insightsStatusComplete") : t("insightsStatusInProgress")}
                       </span>
                       {insights?.current_step ? (
-                        <span className="text-[var(--text-muted)]">� {insights.current_step}</span>
+                        <span className="text-[var(--text-muted)]">· {insights.current_step}</span>
                       ) : null}
                     </div>
 
@@ -871,3 +906,4 @@ const AIConsultantPage: React.FC = () => {
 };
 
 export default AIConsultantPage;
+

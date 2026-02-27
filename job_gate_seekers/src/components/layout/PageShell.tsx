@@ -65,8 +65,7 @@ const PageShell: React.FC = () => {
       <Helmet>
         <title>{t("appTitle")}</title>
       </Helmet>
-      <motion.div className="orb orb-a" animate={{ x: [0, 20, 0], y: [0, -18, 0] }} transition={{ duration: 14, repeat: Infinity }} />
-      <motion.div className="orb orb-b" animate={{ x: [0, -18, 0], y: [0, 16, 0] }} transition={{ duration: 16, repeat: Infinity }} />
+      {/* Background orbs removed to avoid layout jank */}
 
       <div className="relative z-10 flex min-h-screen gap-4 px-4 pb-4">
         {mobileOpen && (
@@ -194,7 +193,11 @@ const PageShell: React.FC = () => {
                 </button>
 
                 {notificationsOpen && (
-                  <div className={`absolute ${isRtl ? "left-0" : "right-0"} z-50 mt-2 w-[90vw] max-w-80 rounded-xl border border-[var(--border)] bg-[var(--popout)] p-2 shadow-xl backdrop-blur`}>
+                  <div
+                    className={`absolute top-full z-50 mt-2 w-[92vw] max-w-80 -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--popout)] p-2 shadow-xl backdrop-blur left-1/2 sm:w-80 sm:translate-x-0 ${
+                      isRtl ? "sm:left-0 sm:right-auto" : "sm:right-0 sm:left-auto"
+                    }`}
+                  >
                     <p className="px-2 py-1 text-xs text-[var(--text-muted)]">{t("notifications")}</p>
                     <div className="max-h-72 space-y-1 overflow-auto">
                       {notificationItems.slice(0, 6).map((n: any) => (
