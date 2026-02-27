@@ -68,7 +68,7 @@ const PageShell: React.FC = () => {
       <motion.div className="orb orb-a" animate={{ x: [0, 20, 0], y: [0, -18, 0] }} transition={{ duration: 14, repeat: Infinity }} />
       <motion.div className="orb orb-b" animate={{ x: [0, -18, 0], y: [0, 16, 0] }} transition={{ duration: 16, repeat: Infinity }} />
 
-      <div className="relative z-10 flex min-h-screen">
+      <div className="relative z-10 flex min-h-screen gap-4 px-4 pb-4">
         {mobileOpen && (
           <button
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
@@ -117,7 +117,11 @@ const PageShell: React.FC = () => {
           </nav>
         </aside>
 
-        <aside className={`glass-panel hidden border-r border-[var(--border)] p-4 transition-all duration-300 md:flex ${collapsed ? "w-20" : "w-72"}`}>
+        <aside
+          className={`glass-panel hidden shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] p-4 transition-all duration-300 md:flex md:sticky md:top-4 md:h-[calc(100vh-2rem)] ${
+            collapsed ? "w-20" : "w-72"
+          }`}
+        >
           <div className="mb-6 flex items-center justify-between">
             <Link to="/pulse" className="flex items-center gap-3">
               <img src="/logo.png" alt="Talents" className="h-10 w-10 rounded-2xl object-cover" />
@@ -133,7 +137,7 @@ const PageShell: React.FC = () => {
             </button>
           </div>
 
-          <nav className="flex flex-col gap-2">
+          <nav className="flex flex-1 flex-col gap-2 overflow-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -152,8 +156,8 @@ const PageShell: React.FC = () => {
           </nav>
         </aside>
 
-        <div className="flex flex-1 flex-col">
-          <header className="glass-panel relative z-30 m-4 flex flex-wrap items-center gap-3 rounded-2xl p-3">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="glass-panel relative z-30 mt-4 flex flex-wrap items-center gap-3 rounded-2xl p-3">
             <div className="flex items-center gap-2 md:hidden">
               <button
                 className="rounded-xl border border-[var(--border)] p-2"
@@ -237,7 +241,7 @@ const PageShell: React.FC = () => {
             </div>
           </header>
 
-          <main className="relative z-10 px-4 pb-4">
+          <main className="relative z-10 pb-4">
             <div className="mb-3 text-sm text-[var(--text-muted)]">{user ? `${user.full_name} • ${user.email}` : ""}</div>
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
               <Outlet />

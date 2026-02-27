@@ -16,6 +16,7 @@
   --mesh-a: rgba(0, 168, 232, 0.22);
   --mesh-b: rgba(18, 181, 166, 0.16);
   --mesh-c: rgba(255, 255, 255, 0.06);
+  --popout: rgba(7, 10, 15, 0.92);
 }
 
 :root[data-theme="light"] {
@@ -30,6 +31,7 @@
   --mesh-a: rgba(0, 143, 224, 0.22);
   --mesh-b: rgba(21, 169, 154, 0.18);
   --mesh-c: rgba(21, 46, 78, 0.08);
+  --popout: rgba(255, 255, 255, 0.96);
 }
 
 :root[data-theme="premium"] {
@@ -43,12 +45,38 @@
   --mesh-a: rgba(45, 11, 90, 0.45);
   --mesh-b: rgba(184, 134, 11, 0.26);
   --mesh-c: rgba(255, 255, 255, 0.05);
+  --popout: rgba(8, 7, 15, 0.92);
 }
 
 * { box-sizing: border-box; }
 html, body, #root { min-height: 100%; }
 body { margin: 0; font-family: "Plus Jakarta Sans", "Inter", sans-serif; color: var(--text-primary); background: var(--bg); }
 html[lang="ar"] body { font-family: "Noto Sans Arabic", "Plus Jakarta Sans", "Inter", sans-serif; }
+
+[data-theme] {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 45%, var(--border)) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
 
 [dir="rtl"] .search-icon { left: auto; right: 0.75rem; }
 [dir="rtl"] .search-input { padding-right: 2.25rem; padding-left: 0.75rem; }
