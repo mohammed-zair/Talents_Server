@@ -196,7 +196,7 @@ const OpportunitiesPage: React.FC = () => {
       return;
     }
 
-    if (uploadFile instanceof File) {
+    if (uploadFile) {
       try {
         const fd = new FormData();
         const file = uploadFile;
@@ -579,5 +579,6 @@ const OpportunitiesPage: React.FC = () => {
 };
 
 export default OpportunitiesPage;
+
 
 
