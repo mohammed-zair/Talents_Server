@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Bookmark, Briefcase, Sparkles } from "lucide-react";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -42,7 +42,9 @@ const OpportunitiesPage: React.FC = () => {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
+  const [showAnalyzePrompt, setShowAnalyzePrompt] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const selectedCompanyId = (location.state as any)?.companyId;
   const requestedJobId = (location.state as any)?.jobId;
   const openedJobId = useRef<number | null>(null);
@@ -141,6 +143,18 @@ const OpportunitiesPage: React.FC = () => {
   const formFields: FormField[] = Array.isArray((formQ.data as any)?.fields) ? (formQ.data as any).fields : [];
   const formType = (formQ.data as any)?.form_type;
   const requireCv = Boolean((formQ.data as any)?.require_cv);
+  const selectedCvNumeric = selectedCvId ? Number(selectedCvId) : null;
+
+  const cvAnalysisQ = useQuery({
+    queryKey: ["cv-analysis-history", selectedCvNumeric],
+    queryFn: () => seekerApi.getCvAnalysisHistory(selectedCvNumeric || 0),
+    enabled: !!selectedCvNumeric,
+  });
+  const cvAnalysisItems = useMemo(
+    () => (Array.isArray(cvAnalysisQ.data) ? cvAnalysisQ.data : []),
+    [cvAnalysisQ.data]
+  );
+  const hasAnalyzedCv = Boolean(selectedCvNumeric && cvAnalysisItems.length > 0);
 
   const resetModal = () => {
     setActiveJob(null);
@@ -161,6 +175,10 @@ const OpportunitiesPage: React.FC = () => {
     }
 
     setFormError("");
+    if (!hasAnalyzedCv || uploadFile) {
+      setShowAnalyzePrompt(true);
+      return;
+    }
     const missingField = formFields.find((f) => {
       if (!f.is_required) return false;
       const value = formValues[String(f.field_id || f.title)];
@@ -528,6 +546,29 @@ const OpportunitiesPage: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAnalyzePrompt && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4">
+          <div className="glass-card w-full max-w-md p-5">
+            <h3 className="text-lg font-semibold">{t("analyzeRequiredTitle")}</h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">{t("analyzeRequiredDesc")}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  setShowAnalyzePrompt(false);
+                  navigate("/cv-lab");
+                }}
+              >
+                {t("goToCvLab")}
+              </button>
+              <button className="btn-ghost" onClick={() => setShowAnalyzePrompt(false)}>
+                {t("close")}
+              </button>
             </div>
           </div>
         </div>

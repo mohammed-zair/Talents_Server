@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
@@ -38,11 +39,13 @@ const CVLabPage: React.FC = () => {
   const [analysis, setAnalysis] = useState<any>(null);
   const [analysisInfo, setAnalysisInfo] = useState("");
   const [analysisError, setAnalysisError] = useState("");
+  const [enhanceError, setEnhanceError] = useState("");
   const [uploadFeedback, setUploadFeedback] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [selectedInsightId, setSelectedInsightId] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { t, language } = useLanguage();
   const isRtl = language === "ar";
 
@@ -156,6 +159,42 @@ const CVLabPage: React.FC = () => {
     analysisInsights?.professional_summary ||
     strategic?.summary ||
     "";
+
+  const buildEnhancePayload = () => ({
+    cv_id: selectedCv?.cv_id,
+    cv_title: selectedCv?.title,
+    analyzed_at: activeInsight?.created_at || analysis?.created_at || null,
+    ats_score: atsScore ?? analysis?.ats_score ?? null,
+    industry_ranking_score: industryScore ?? null,
+    industry_ranking_label: industryLabel ?? null,
+    structured_data: snapshotStructured || {},
+    features_analytics: snapshotFeatures || {},
+    ai_intelligence: analysisInsights || {},
+    raw_ai_response: activeInsight?.ai_raw_response || analysis?.ai_raw_response || null,
+  });
+
+  const enhanceMutation = useMutation({
+    mutationFn: async () => {
+      const payload = buildEnhancePayload();
+      const start = await seekerApi.startChat({
+        language: language === "ar" ? "arabic" : "english",
+        initialData: {},
+      });
+      const id = start?.session_id || start?.sessionId || start?.id;
+      if (!id) throw new Error(t("startFailed"));
+      const message = JSON.stringify(payload, null, 2);
+      await seekerApi.sendChat({ sessionId: String(id), message });
+      return String(id);
+    },
+    onSuccess: (id: string) => {
+      setEnhanceError("");
+      localStorage.setItem("twt_ai_session", id);
+      navigate("/ai-consultant");
+    },
+    onError: (error: unknown) => {
+      setEnhanceError(getApiErrorMessage(error, t("enhanceFailed")));
+    },
+  });
 
   const hasAnalysisCards =
     Number.isFinite(atsScore) ||
@@ -283,6 +322,23 @@ const CVLabPage: React.FC = () => {
 
       <div className="glass-card p-4">
         <h2 className="mb-3 text-xl font-semibold">{t("aiAnalysis")}</h2>
+
+        {hasAnyAnalysis && (
+          <div className="mb-4 rounded-xl border border-[var(--border)] p-3">
+            <div className="text-sm font-semibold">{t("enhanceTitle")}</div>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">{t("enhanceDescription")}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                className={`btn-primary ${enhanceMutation.isPending ? "btn-loading" : ""}`}
+                onClick={() => enhanceMutation.mutate()}
+                disabled={enhanceMutation.isPending}
+              >
+                {enhanceMutation.isPending ? t("enhanceStarting") : t("enhanceNow")}
+              </button>
+              {enhanceError && <p className="text-xs text-red-300">{enhanceError}</p>}
+            </div>
+          </div>
+        )}
 
         <div className="mt-3 rounded-xl border border-[var(--border)] p-3">
           <div className="mb-2 flex items-center justify-between">

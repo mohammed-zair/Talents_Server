@@ -199,6 +199,123 @@ def _safe_json_loads(raw: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def _ensure_rewrite_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+    if "rewrite" not in meta or not isinstance(meta.get("rewrite"), dict):
+        meta["rewrite"] = {}
+    return meta["rewrite"]
+
+
+def _normalize_rewrite_list(existing: Any, length: int) -> List[Optional[Dict[str, Any]]]:
+    items = list(existing) if isinstance(existing, list) else []
+    if len(items) < length:
+        items.extend([None] * (length - len(items)))
+    return items[:length]
+
+
+def _rewrite_cv_sections(llm: LLMService, cv_data: Dict[str, Any]) -> None:
+    if not llm.is_available():
+        return
+
+    summary_text = (cv_data.get("summary") or "").strip()
+    experience = cv_data.get("experience", []) or []
+    projects = cv_data.get("projects", []) or []
+
+    experience_texts = [str(item.get("description", "") or "").strip() for item in experience]
+    project_texts = [str(item.get("description", "") or "").strip() for item in projects]
+
+    if not summary_text and not any(experience_texts) and not any(project_texts):
+        return
+
+    payload = {
+        "summary": summary_text,
+        "experience": experience_texts,
+        "projects": project_texts,
+    }
+
+    prompt = f"""
+Rewrite the following CV content in English.
+Keep facts, names, titles, companies, dates, and numbers unchanged.
+Do NOT add new information. Do NOT remove important details.
+Make it professional, concise, and ATS-friendly.
+Return ONLY JSON with the same structure and array lengths.
+If an input is empty, return an empty string for that item.
+
+Input JSON:
+{json.dumps(payload, ensure_ascii=False)}
+"""
+
+    try:
+        response = llm.client.chat.completions.create(
+            model=llm.model,
+            messages=[
+                {"role": "system", "content": "Rewrite CV text. Return only valid JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+            max_tokens=900,
+            response_format={"type": "json_object"},
+        )
+        parsed = _safe_json_loads(response.choices[0].message.content)
+    except Exception as e:
+        logger.warning(f"Rewrite failed: {e}")
+        return
+
+    if not isinstance(parsed, dict):
+        return
+
+    meta = _get_meta(cv_data)
+    rewrite_meta = _ensure_rewrite_meta(meta)
+
+    improved_summary = str(parsed.get("summary", "") or "").strip()
+    if summary_text and improved_summary:
+        stored = rewrite_meta.get("summary")
+        original = summary_text
+        if isinstance(stored, dict) and summary_text == stored.get("improved"):
+            original = stored.get("original") or summary_text
+        rewrite_meta["summary"] = {"original": original, "improved": improved_summary}
+        cv_data["summary"] = improved_summary
+
+    improved_experience = parsed.get("experience", [])
+    exp_meta = _normalize_rewrite_list(rewrite_meta.get("experience"), len(experience))
+    for idx, original in enumerate(experience_texts):
+        if not original:
+            continue
+        improved = ""
+        if isinstance(improved_experience, list) and idx < len(improved_experience):
+            improved = str(improved_experience[idx] or "").strip()
+        if not improved:
+            continue
+        stored = exp_meta[idx] if idx < len(exp_meta) else None
+        base_original = original
+        if isinstance(stored, dict) and original == stored.get("improved"):
+            base_original = stored.get("original") or original
+        exp_meta[idx] = {"original": base_original, "improved": improved}
+        if isinstance(experience[idx], dict):
+            experience[idx]["description"] = improved
+    if exp_meta:
+        rewrite_meta["experience"] = exp_meta
+
+    improved_projects = parsed.get("projects", [])
+    proj_meta = _normalize_rewrite_list(rewrite_meta.get("projects"), len(projects))
+    for idx, original in enumerate(project_texts):
+        if not original:
+            continue
+        improved = ""
+        if isinstance(improved_projects, list) and idx < len(improved_projects):
+            improved = str(improved_projects[idx] or "").strip()
+        if not improved:
+            continue
+        stored = proj_meta[idx] if idx < len(proj_meta) else None
+        base_original = original
+        if isinstance(stored, dict) and original == stored.get("improved"):
+            base_original = stored.get("original") or original
+        proj_meta[idx] = {"original": base_original, "improved": improved}
+        if isinstance(projects[idx], dict):
+            projects[idx]["description"] = improved
+    if proj_meta:
+        rewrite_meta["projects"] = proj_meta
+
+
 def _extract_cv_updates_with_llm(llm: LLMService, message: str, cv_data: Dict[str, Any]) -> Dict[str, Any]:
     if not llm.is_available():
         return {}
@@ -520,6 +637,7 @@ async def chat_with_cv_bot(request: ChatbotMessageRequest):
         meta["skip_flags"] = skip_flags
 
     _merge_cv_data(cv_data, updates)
+    _rewrite_cv_sections(llm_service, cv_data)
 
     if request.job_description:
         session["job_requirements"] = request.job_description
@@ -663,6 +781,7 @@ async def get_chatbot_insights(session_id: str, user_id: str = Query(..., min_le
         "current_step": session.get("current_step"),
         "score": session.get("score_data", {}),
         "final_summary": session.get("final_summary"),
+        "rewrites": (session.get("cv_data") or {}).get("_meta", {}).get("rewrite", {}),
         "session_title": (session.get("job_posting_meta") or {}).get("session_title"),
     }
 
@@ -673,12 +792,9 @@ async def export_cv_document(request: ChatbotExportRequest):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    language = _normalize_language(request.language or session.get("output_language") or session.get("language"))
+    language = "english"
     llm_service = LLMService()
     cv_data = json.loads(json.dumps(session.get("cv_data", {})))
-
-    if language != _normalize_language(session.get("language")):
-        cv_data = _translate_cv_payload(llm_service, cv_data, language)
 
     cv_data["summary_professional"] = cv_data.get("summary", "")
 
@@ -704,12 +820,9 @@ async def preview_cv_document(session_id: str, language: Optional[str] = None):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    resolved_language = _normalize_language(language or session.get("output_language") or session.get("language"))
+    resolved_language = "english"
     llm_service = LLMService()
     cv_data = json.loads(json.dumps(session.get("cv_data", {})))
-
-    if resolved_language != _normalize_language(session.get("language")):
-        cv_data = _translate_cv_payload(llm_service, cv_data, resolved_language)
 
     cv_data["summary_professional"] = cv_data.get("summary", "")
     html = document_generator.generate_html(cv_data, resolved_language)

@@ -155,7 +155,7 @@ const PageShell: React.FC = () => {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="glass-panel relative z-30 mt-4 flex flex-wrap items-center gap-3 rounded-2xl p-3">
+          <header className="glass-panel relative z-10 mt-4 flex flex-wrap items-center gap-3 rounded-2xl p-3">
             <div className="flex items-center gap-2 md:hidden">
               <button
                 className="rounded-xl border border-[var(--border)] p-2"

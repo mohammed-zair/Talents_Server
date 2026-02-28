@@ -31,6 +31,11 @@ type InsightsData = {
     checklist?: string[];
   };
   final_summary?: any;
+  rewrites?: {
+    summary?: { original?: string; improved?: string };
+    experience?: Array<{ original?: string; improved?: string } | null>;
+    projects?: Array<{ original?: string; improved?: string } | null>;
+  };
   session_title?: string | null;
 };
 
@@ -100,6 +105,7 @@ const AIConsultantPage: React.FC = () => {
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const autoStartedRef = useRef(false);
   const isRtl = language === "ar";
 
   useEffect(() => {
@@ -173,6 +179,16 @@ const AIConsultantPage: React.FC = () => {
       return `${title} ${last}`.toLowerCase().includes(needle);
     });
   }, [sessionItems, sessionSearch]);
+
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    if (sessionsQ.isLoading) return;
+    if (sessionId) return;
+    if (sessionItems.length > 0) return;
+    if (startMutation.isPending) return;
+    autoStartedRef.current = true;
+    startMutation.mutate({ mockInterview: false, title: t("firstChatTitle") });
+  }, [sessionId, sessionItems.length, sessionsQ.isLoading, startMutation.isPending, t, startMutation]);
 
   const sessionQ = useQuery({
     queryKey: ["chat-session", sessionId],
@@ -309,6 +325,14 @@ const AIConsultantPage: React.FC = () => {
     finalSummaryRaw && typeof finalSummaryRaw === "string" ? { summary: finalSummaryRaw } : finalSummaryRaw;
   const improvements = Array.isArray(finalSummary?.improvements) ? finalSummary?.improvements : [];
   const requirements = finalSummary?.job_requirements || "";
+  const rewrites = insights?.rewrites;
+  const rewriteSummary = rewrites?.summary;
+  const rewriteExperience = Array.isArray(rewrites?.experience)
+    ? rewrites?.experience.filter((item) => item && (item.original || item.improved))
+    : [];
+  const rewriteProjects = Array.isArray(rewrites?.projects)
+    ? rewrites?.projects.filter((item) => item && (item.original || item.improved))
+    : [];
 
   const scoreHint =
     scoreValue === null
@@ -503,7 +527,7 @@ const AIConsultantPage: React.FC = () => {
   return (
     <div className="relative flex h-[calc(100vh-6rem)] gap-4">
       <aside
-        className={`fixed inset-y-0 z-20 w-[82vw] max-w-[20rem] transform border border-[var(--border)] bg-[var(--glass)] transition-transform duration-300 lg:static lg:w-[30%] lg:max-w-[22rem] lg:translate-x-0 lg:border-0 ${
+        className={`fixed inset-y-0 z-20 w-[82vw] max-w-[20rem] transform border border-[var(--border)] bg-[var(--popout)] transition-transform duration-300 lg:static lg:w-[30%] lg:max-w-[22rem] lg:translate-x-0 lg:border-0 ${
           isRtl ? "right-0 lg:border-l" : "left-0 lg:border-r"
         } ${showSessions ? "translate-x-0" : isRtl ? "translate-x-full" : "-translate-x-full"}`}
       >
@@ -836,6 +860,57 @@ const AIConsultantPage: React.FC = () => {
                       </div>
                     )}
 
+                    {(rewriteSummary || rewriteExperience.length || rewriteProjects.length) && (
+                      <div className="rounded-xl border border-[var(--border)] p-3">
+                        <div className="text-xs uppercase text-[var(--text-muted)]">{t("rewriteTitle")}</div>
+                        {rewriteSummary?.original && rewriteSummary?.improved && (
+                          <div className="mt-2 space-y-2">
+                            <div className="text-xs text-[var(--text-muted)]">{t("summaryLabel")}</div>
+                            <div className="rounded-lg border border-[var(--border)] p-2 text-xs">
+                              <div className="text-[var(--text-muted)]">{t("originalText")}</div>
+                              <div className="mt-1 whitespace-pre-wrap">{rewriteSummary.original}</div>
+                            </div>
+                            <div className="rounded-lg border border-[var(--border)] p-2 text-xs">
+                              <div className="text-[var(--text-muted)]">{t("improvedText")}</div>
+                              <div className="mt-1 whitespace-pre-wrap">{rewriteSummary.improved}</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {rewriteExperience.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {rewriteExperience.slice(0, 3).map((item: any, idx: number) => (
+                              <div key={`exp-${idx}`} className="rounded-lg border border-[var(--border)] p-2 text-xs">
+                                <div className="mb-1 text-[var(--text-muted)]">
+                                  {t("experienceLabel")} {idx + 1}
+                                </div>
+                                <div className="text-[var(--text-muted)]">{t("originalText")}</div>
+                                <div className="mt-1 whitespace-pre-wrap">{item?.original || ""}</div>
+                                <div className="mt-2 text-[var(--text-muted)]">{t("improvedText")}</div>
+                                <div className="mt-1 whitespace-pre-wrap">{item?.improved || ""}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {rewriteProjects.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {rewriteProjects.slice(0, 3).map((item: any, idx: number) => (
+                              <div key={`proj-${idx}`} className="rounded-lg border border-[var(--border)] p-2 text-xs">
+                                <div className="mb-1 text-[var(--text-muted)]">
+                                  {t("projectLabel")} {idx + 1}
+                                </div>
+                                <div className="text-[var(--text-muted)]">{t("originalText")}</div>
+                                <div className="mt-1 whitespace-pre-wrap">{item?.original || ""}</div>
+                                <div className="mt-2 text-[var(--text-muted)]">{t("improvedText")}</div>
+                                <div className="mt-1 whitespace-pre-wrap">{item?.improved || ""}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {improvements.length > 0 && (
                       <div className="rounded-xl border border-[var(--border)] p-3">
                         <div className="text-xs uppercase text-[var(--text-muted)]">{t("insightsImprovements")}</div>
@@ -897,7 +972,7 @@ const AIConsultantPage: React.FC = () => {
 
       {(showSessions || showRightPanel) && (
         <div
-          className="fixed inset-0 z-10 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-10 bg-black/50 backdrop-blur-sm lg:hidden"
           onClick={() => {
             setShowSessions(false);
             setShowRightPanel(false);
