@@ -252,7 +252,15 @@ const en: Dict = {
     analyzingCv: "Analyzing CV...",
     analysisReady: "Analysis loaded successfully.",
     analysisPartial: "Partial analysis loaded. Some AI sections are unavailable.",
-    cvAnalyzeOnceHint: "Each CV can be analyzed once. Upload a new CV to analyze again.",\n    analyzeRequiredTitle: "Analyze your CV before applying",\n    analyzeRequiredDesc: "To apply, upload your CV and run the AI analysis first. Then return here and apply again.",\n    goToCvLab: "Go to CV Lab",\n    enhanceTitle: "Enhance your CV with our AI Consultant",\n    enhanceNow: "Enhance Now",\n    enhanceStarting: "Sending...",\n    enhanceDescription: "We will send your analysis to the AI Consultant and turn it into stronger, ATS-friendly CV language.",\n    enhanceFailed: "Could not send to the AI Consultant. Please try again.",
+    cvAnalyzeOnceHint: "Each CV can be analyzed once. Upload a new CV to analyze again.",
+    analyzeRequiredTitle: "Analyze your CV before applying",
+    analyzeRequiredDesc: "To apply, upload your CV and run the AI analysis first. Then return here and apply again.",
+    goToCvLab: "Go to CV Lab",
+    enhanceTitle: "Enhance your CV with our AI Consultant",
+    enhanceNow: "Enhance Now",
+    enhanceStarting: "Sending...",
+    enhanceDescription: "We will send your analysis to the AI Consultant and turn it into stronger, ATS-friendly CV language.",
+    enhanceFailed: "Could not send to the AI Consultant. Please try again.",
     retryAnalysis: "Retry Analysis",
     settingsSubtitle: "Manage language, theme, and account preferences.",
     language: "Language",
@@ -551,7 +559,15 @@ const ar: Dict = {
   analyzingCv: "جارٍ تحليل السيرة...",
   analysisReady: "تم تحميل التحليل بنجاح.",
   analysisPartial: "تم تحميل التحليل جزئيًا. بعض الأقسام غير متاحة.",
-  cvAnalyzeOnceHint: "يمكن تحليل كل سيرة ذاتية مرة واحدة فقط. ارفع سيرة جديدة للتحليل.",\n  analyzeRequiredTitle: "حلل سيرتك قبل التقديم",\n  analyzeRequiredDesc: "للتقديم يجب رفع السيرة وتحليلها بالذكاء أولاً، ثم العودة للتقديم.",\n  goToCvLab: "الانتقال إلى مختبر السيرة",\n  enhanceTitle: "حسّن سيرتك مع المستشار الذكي",\n  enhanceNow: "ابدأ التحسين",\n  enhanceStarting: "جارٍ الإرسال...",\n  enhanceDescription: "سنرسل التحليل إلى المستشار الذكي لتحويله إلى صياغة احترافية مناسبة للـ ATS.",\n  enhanceFailed: "تعذر الإرسال إلى المستشار الذكي. حاول مرة أخرى.",
+  cvAnalyzeOnceHint: "يمكن تحليل كل سيرة ذاتية مرة واحدة فقط. ارفع سيرة جديدة للتحليل.",
+  analyzeRequiredTitle: "حلل سيرتك قبل التقديم",
+  analyzeRequiredDesc: "للتقديم يجب رفع السيرة وتحليلها بالذكاء أولاً، ثم العودة للتقديم.",
+  goToCvLab: "الانتقال إلى مختبر السيرة",
+  enhanceTitle: "حسّن سيرتك مع المستشار الذكي",
+  enhanceNow: "ابدأ التحسين",
+  enhanceStarting: "جارٍ الإرسال...",
+  enhanceDescription: "سنرسل التحليل إلى المستشار الذكي لتحويله إلى صياغة احترافية مناسبة للـ ATS.",
+  enhanceFailed: "تعذر الإرسال إلى المستشار الذكي. حاول مرة أخرى.",
   retryAnalysis: "أعد التحليل",
   settingsSubtitle: "إدارة اللغة والمظهر وتفضيلات الحساب.",
   language: "اللغة",
@@ -648,6 +664,8 @@ export const useLanguage = () => {
   if (!ctx) throw new Error("useLanguage must be used inside LanguageProvider");
   return ctx;
 };
+
+
 
 
 
