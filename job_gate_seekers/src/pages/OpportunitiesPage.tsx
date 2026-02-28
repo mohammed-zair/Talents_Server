@@ -196,11 +196,12 @@ const OpportunitiesPage: React.FC = () => {
       return;
     }
 
-    if (uploadFile) {
+    if (uploadFile instanceof File) {
       try {
         const fd = new FormData();
-        fd.append("cv_file", uploadFile);
-        fd.append("cv_title", uploadFile.name);
+        const file = uploadFile;
+        fd.append("cv_file", file);
+        fd.append("cv_title", file.name);
         const uploaded = await seekerApi.uploadCV(fd);
         cvId = uploaded?.cv_id || null;
         if (cvId) {

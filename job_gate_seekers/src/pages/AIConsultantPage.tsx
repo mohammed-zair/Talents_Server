@@ -180,16 +180,6 @@ const AIConsultantPage: React.FC = () => {
     });
   }, [sessionItems, sessionSearch]);
 
-  useEffect(() => {
-    if (autoStartedRef.current) return;
-    if (sessionsQ.isLoading) return;
-    if (sessionId) return;
-    if (sessionItems.length > 0) return;
-    if (startMutation.isPending) return;
-    autoStartedRef.current = true;
-    startMutation.mutate({ mockInterview: false, title: t("firstChatTitle") });
-  }, [sessionId, sessionItems.length, sessionsQ.isLoading, startMutation.isPending, t, startMutation]);
-
   const sessionQ = useQuery({
     queryKey: ["chat-session", sessionId],
     queryFn: () => seekerApi.getChatSession(sessionId),
@@ -246,6 +236,16 @@ const AIConsultantPage: React.FC = () => {
       setChatError(getApiErrorMessage(error, t("startFailed")));
     },
   });
+
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    if (sessionsQ.isLoading) return;
+    if (sessionId) return;
+    if (sessionItems.length > 0) return;
+    if (startMutation.isPending) return;
+    autoStartedRef.current = true;
+    startMutation.mutate({ mockInterview: false, title: t("firstChatTitle") });
+  }, [sessionId, sessionItems.length, sessionsQ.isLoading, startMutation.isPending, t, startMutation]);
 
   const chatMutation = useMutation({
     mutationFn: ({ text }: { text: string; pendingId: string }) =>
