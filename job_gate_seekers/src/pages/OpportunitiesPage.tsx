@@ -199,7 +199,7 @@ const OpportunitiesPage: React.FC = () => {
     if (uploadFile) {
       try {
         const fd = new FormData();
-        const file = uploadFile;
+        const file = uploadFile as File;
         fd.append("cv_file", file);
         fd.append("cv_title", file.name);
         const uploaded = await seekerApi.uploadCV(fd);
@@ -579,6 +579,7 @@ const OpportunitiesPage: React.FC = () => {
 };
 
 export default OpportunitiesPage;
+
 
 
 
