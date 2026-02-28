@@ -67,7 +67,7 @@ api.interceptors.response.use(
 
 export const companyApi = {
   getSession: async () => {
-    const { data } = await api.get("/companies/session");
+    const { data } = await authClient.post("/companies/refresh");
     return data;
   },
   getDashboard: async () => {
