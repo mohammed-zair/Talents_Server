@@ -536,24 +536,6 @@ const ApplicationDetail: React.FC = () => {
           >
             {copy.cv}
           </Button>
-          <Button
-            variant="outline"
-            className="justify-center"
-            onClick={() => {
-              if (data.candidate.id) {
-                window.open(
-                  `https://talents-we-trust.tech/profile/${data.candidate.id}`,
-                  "_blank"
-                );
-              }
-            }}
-            disabled={!data.candidate.id}
-          >
-            {language === "ar" ? "عرض الملف" : "View profile"}
-          </Button>
-
-
-
           {structured && (
             <div className="mt-6 border-t border-[var(--panel-border)] pt-4">
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
@@ -599,8 +581,8 @@ const ApplicationDetail: React.FC = () => {
             </div>
           )}
 
-          {insights && (
-            <div className="mt-6 border-t border-[var(--panel-border)] pt-4">
+          <div className="mt-6 border-t border-[var(--panel-border)] pt-4">
+
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
                 {copy.aiTitle}
               </p>
@@ -625,11 +607,18 @@ const ApplicationDetail: React.FC = () => {
               >
                 {copy.viewFullInsights}
               </Button>
+              {!insights && (
+                <p className="mt-3 text-xs text-[var(--text-muted)]">
+                  {language === "ar"
+                    ? "لا يوجد تحليل مرتبط بهذه الوظيفة بعد. اضغط تحديث التحليل أولاً."
+                    : "No job-specific AI insight yet. Click Refresh AI Insights first."}
+                </p>
+              )}
               <div className="mt-3 space-y-3 text-sm text-[var(--text-primary)]">
                 <div className="rounded-lg border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3">
                   <p className="text-xs text-[var(--text-muted)]">{copy.aiScore}</p>
                   <p className="text-xl font-semibold">
-                    {insights.ats_score ?? intelligence?.industry_ranking_score ?? "-"}
+                    {formattedAtsScore ?? formattedIndustryScore ?? "-"}
                   </p>
                 </div>
                 {intelligence?.industry_ranking_label && (
@@ -694,7 +683,7 @@ const ApplicationDetail: React.FC = () => {
                     </ul>
                   </div>
                 )}
-                {insights.cleaned_job_description && (
+                {insights?.cleaned_job_description && (
                   <div>
                     <p className="text-xs text-[var(--text-muted)]">{copy.aiJobContext}</p>
                     <p className="text-xs text-[var(--text-muted)] whitespace-pre-wrap">
@@ -704,7 +693,6 @@ const ApplicationDetail: React.FC = () => {
                 )}
               </div>
             </div>
-          )}
         </div>
       </Card>
       </div>
@@ -837,3 +825,5 @@ const ApplicationDetail: React.FC = () => {
 };
 
 export default ApplicationDetail;
+
+
