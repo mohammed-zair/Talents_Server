@@ -276,18 +276,6 @@ const ApplicationDetail: React.FC = () => {
     enabled: Boolean(id),
   });
 
-  const generatePitch = useMutation({
-    mutationFn: ({ cvId, jobId }: { cvId: string; jobId: string }) =>
-      companyApi.generateSmartMatchPitch({
-        cv_id: cvId,
-        job_id: jobId,
-        language,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["application", id] });
-    },
-  });
-
   const updateStatus = useMutation({
     mutationFn: ({ applicationId, status }: { applicationId: string; status: ApplicationItem["status"] }) =>
       companyApi.updateApplicationStatus(applicationId, status),
@@ -376,17 +364,6 @@ const ApplicationDetail: React.FC = () => {
   }, [matrixFromInsights, data]);
 
   useEffect(() => {
-    if (!generatedPitch && data?.cv?.id && data?.job?.id && !generatePitch.isPending) {
-      generatePitch.mutate({ cvId: data.cv.id, jobId: data.job.id });
-    }
-  }, [
-    generatedPitch,
-    data?.cv?.id,
-    data?.job?.id,
-    generatePitch.isPending,
-  ]);
-
-  useEffect(() => {
     if (!generatedPitch) {
       setTypedPitch("");
       setIsTypingPitch(false);
@@ -433,7 +410,7 @@ const ApplicationDetail: React.FC = () => {
       <div className="rounded-[28px] border border-cyan-400/30 bg-[rgba(7,10,15,0.7)] p-6 backdrop-blur-xl shadow-[0_10px_45px_rgba(0,168,232,0.2)]">
         <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">{copy.whyCandidate}</p>
         <p className="mt-3 min-h-[90px] text-sm leading-7 text-slate-100">
-          {typedPitch || (generatePitch.isPending ? copy.pitchLoading : generatedPitch || copy.pitchLoading)}
+          {typedPitch || generatedPitch || copy.pitchLoading}
           {isTypingPitch && <span className="ms-1 inline-block h-4 w-[2px] animate-pulse bg-cyan-300 align-middle" />}
         </p>
       </div>
