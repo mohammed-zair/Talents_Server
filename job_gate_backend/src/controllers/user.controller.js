@@ -32,10 +32,7 @@ const RESET_PASSWORD_TOKEN_EXPIRES_MIN = parseInt(
   10
 );
 
-const getFrontendUrl = () => {
-  const url = process.env.FRONTEND_URL || "http://localhost:3000";
-  return String(url).replace(/\/+$/, ""); // remove trailing slashes
-};
+const generateOtpCode = () => String(crypto.randomInt(100000, 1000000));
 
 const buildCompanyLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
 
@@ -193,49 +190,40 @@ exports.forgotPassword = async (req, res) => {
 
   try {
     if (!email) {
-      return errorResponse(res, "يرجى إدخال البريد الإلكتروني.", null, 400);
+      return errorResponse(res, "Please provide your email address.", null, 400);
     }
 
-    const genericMsg = "إذا كان البريد مسجلاً لدينا، سيتم إرسال رابط إعادة التعيين.";
-
+    const genericMsg = "If the email is registered, an OTP reset code has been sent.";
     const user = await User.findOne({ where: { email } });
 
-    // لأسباب أمنية: لا نكشف إن المستخدم موجود أو لا
+    // Security: do not reveal whether the email exists.
     if (!user) {
       return successResponse(res, null, genericMsg);
     }
 
-    // توليد Token عشوائي (خام) ثم تخزين نسخة مشفرة منه
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
-
+    const otpCode = generateOtpCode();
+    const hashedToken = crypto.createHash("sha256").update(otpCode).digest("hex");
     const expiresAt = new Date(Date.now() + RESET_PASSWORD_TOKEN_EXPIRES_MIN * 60 * 1000);
 
     user.reset_password_token = hashedToken;
     user.reset_password_expires = expiresAt;
     user.reset_password_sent_at = new Date();
-
     await user.save();
 
-    const resetLink =
-      `${getFrontendUrl()}/reset-password` +
-      `?token=${rawToken}&email=${encodeURIComponent(email)}`;
-
-    const subject = "إعادة تعيين كلمة المرور - Job Gate";
+    const subject = "Password Reset OTP - Talents We Trust";
     const text =
-      `مرحباً ${user.full_name || ""}\n\n` +
-      `لقد طلبت إعادة تعيين كلمة المرور.\n` +
-      `اضغط على الرابط التالي لإعادة تعيين كلمة المرور (صالح لمدة ${RESET_PASSWORD_TOKEN_EXPIRES_MIN} دقيقة):\n\n` +
-      `${resetLink}\n\n` +
-      `إذا لم تطلب ذلك، يمكنك تجاهل هذا البريد.\n`;
+      `Hello ${user.full_name || ""},\n\n` +
+      "We received a password reset request for your account.\n\n" +
+      `Your OTP code is: ${otpCode}\n` +
+      `This code expires in ${RESET_PASSWORD_TOKEN_EXPIRES_MIN} minutes.\n\n` +
+      "If you did not request this, please ignore this email.\n";
 
-    // مهم: لازم sendEmail يرمي error إذا فشل (util الجديد)
     await sendEmail(email, subject, text);
 
     return successResponse(res, null, genericMsg);
   } catch (error) {
     console.error("Forgot password error:", error);
-    return errorResponse(res, "حدث خطأ أثناء طلب إعادة التعيين.", null, 500);
+    return errorResponse(res, "Failed to process forgot-password request.", null, 500);
   }
 };
 
@@ -248,23 +236,25 @@ exports.forgotPassword = async (req, res) => {
  * body: { email, token, newPassword }
  */
 exports.resetPassword = async (req, res) => {
-  const { email, token, newPassword } = req.body;
+  const { email, token, newPassword, code, password } = req.body;
+  const providedToken = String(token || code || "").trim();
+  const providedNewPassword = String(newPassword || password || "");
 
   try {
-    if (!email || !token || !newPassword) {
+    if (!email || !providedToken || !providedNewPassword) {
       return errorResponse(
         res,
-        "يرجى إدخال البريد الإلكتروني و التوكن و كلمة المرور الجديدة.",
+        "Please provide email, OTP code, and new password.",
         null,
         400
       );
     }
 
-    if (String(newPassword).length < 6) {
-      return errorResponse(res, "كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.", null, 400);
+    if (providedNewPassword.length < 6) {
+      return errorResponse(res, "New password must be at least 6 characters.", null, 400);
     }
 
-    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    const hashedToken = crypto.createHash("sha256").update(providedToken).digest("hex");
 
     const user = await User.findOne({
       where: {
@@ -274,24 +264,20 @@ exports.resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      return errorResponse(res, "التوكن غير صالح أو البريد غير صحيح.", null, 400);
+      return errorResponse(res, "Invalid OTP code or email.", null, 400);
     }
 
     if (!user.reset_password_expires || user.reset_password_expires < new Date()) {
-      return errorResponse(res, "انتهت صلاحية التوكن. اطلب رابطاً جديداً.", null, 400);
+      return errorResponse(res, "OTP has expired. Please request a new one.", null, 400);
     }
 
-    // تحديث كلمة المرور
-    user.hashed_password = await bcrypt.hash(newPassword, 10);
-
-    // مسح بيانات التوكن
+    user.hashed_password = await bcrypt.hash(providedNewPassword, 10);
     user.reset_password_token = null;
     user.reset_password_expires = null;
     user.reset_password_sent_at = null;
 
     await user.save();
 
-    // (اختياري) تسجيل دخول مباشر بعد الريست
     const newJwt = jwt.sign(
       { user_id: user.user_id, user_type: user.user_type },
       JWT_SECRET,
@@ -304,11 +290,11 @@ exports.resetPassword = async (req, res) => {
     return successResponse(
       res,
       { token: newJwt, user: responseUser },
-      "تم إعادة تعيين كلمة المرور بنجاح."
+      "Password reset successfully."
     );
   } catch (error) {
     console.error("Reset password error:", error);
-    return errorResponse(res, "حدث خطأ أثناء إعادة تعيين كلمة المرور.", null, 500);
+    return errorResponse(res, "Failed to reset password.", null, 500);
   }
 };
 

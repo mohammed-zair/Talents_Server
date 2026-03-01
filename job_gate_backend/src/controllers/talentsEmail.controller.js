@@ -1,9 +1,9 @@
-const axios = require("axios");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const fs = require("fs");
 const path = require("path");
 const aiService = require("../services/aiService");
+const sendEmail = require("../utils/sendEmail");
 const { User, CV, CVStructuredData, sequelize } = require("../models");
 const {
   extractTextFromFile,
@@ -75,34 +75,55 @@ const ensureStructuredEmail = (structuredData, email, name) => {
   return normalized;
 };
 
+const getPortalUrl = () =>
+  process.env.TALENTS_PORTAL_URL || "https://job-seekers.talents-we-trust.tech";
+
+function buildInviteBodies({ name, email, password }) {
+  const safeName = String(name || email || "User").trim();
+  const portalUrl = getPortalUrl();
+  const subject = "Your Talents We Trust account details";
+  const text =
+    `Hello ${safeName},\n\n` +
+    "Your Talents We Trust account is ready.\n" +
+    `Email: ${email}\n` +
+    `Temporary Password: ${password}\n\n` +
+    `Login here: ${portalUrl}\n\n` +
+    "Please change your password after your first login.\n\n" +
+    "Talents We Trust Team";
+  const html =
+    `<p>Hello ${safeName},</p>` +
+    "<p>Your Talents We Trust account is ready.</p>" +
+    `<p><strong>Email:</strong> ${email}<br/><strong>Temporary Password:</strong> ${password}</p>` +
+    `<p><a href="${portalUrl}">Login to Talents We Trust</a></p>` +
+    "<p>Please change your password after your first login.</p>" +
+    "<p>Talents We Trust Team</p>";
+
+  return { subject, text, html };
+}
+
 async function sendTalentsPayload(payloadUsers) {
-  const endpointUrl =
-    process.env.TALENTS_EMAIL_URL || "https://hadaef.com/api/talents/email";
-  const secret = process.env.TALENTS_EMAIL_SECRET;
+  const failed = [];
+  const updates = [];
 
-  if (!secret) {
-    throw new Error("TALENTS_EMAIL_SECRET is not configured.");
-  }
-
-  const response = await axios.post(endpointUrl, payloadUsers, {
-    headers: {
-      "Content-Type": "application/json",
-      "X-Talents-Secret": secret,
-    },
-    timeout: 20000,
-  });
-
-  const failed = Array.isArray(response.data?.failed)
-    ? response.data.failed
-    : [];
-  const failedSet = new Set(failed.map((email) => normalizeEmail(email)));
-
-  const updates = payloadUsers
-    .filter((entry) => !failedSet.has(normalizeEmail(entry.email)))
-    .map((entry) => ({
-      userId: entry.id,
+  for (const entry of payloadUsers) {
+    const recipient = normalizeEmail(entry.email);
+    const { subject, text, html } = buildInviteBodies({
+      name: entry.name,
+      email: recipient,
       password: entry.password,
-    }));
+    });
+
+    try {
+      await sendEmail(recipient, subject, text, { html });
+      updates.push({
+        userId: entry.id,
+        password: entry.password,
+      });
+    } catch (error) {
+      console.error("[Talents Email] Failed:", recipient, error.message);
+      failed.push(recipient);
+    }
+  }
 
   let updatedCount = 0;
   if (updates.length > 0) {
@@ -121,7 +142,8 @@ async function sendTalentsPayload(payloadUsers) {
   }
 
   return {
-    response,
+    requested: payloadUsers.length,
+    sent: payloadUsers.length - failed.length,
     failed,
     updatedCount,
   };
@@ -154,25 +176,26 @@ exports.sendTalentsInviteEmails = async (req, res) => {
       password: buildTempPassword(),
     }));
 
-    const { response, failed, updatedCount } =
-      await sendTalentsPayload(payloadUsers);
-    console.log("[Talents Email] Response:", {
-      status: response.status,
-      data: response.data,
+    const { requested, sent, failed, updatedCount } = await sendTalentsPayload(
+      payloadUsers,
+    );
+    console.log("[Talents Email] Local send summary:", {
+      requested,
+      sent,
+      failed,
     });
 
     return res.status(200).json({
-      requested: response.data?.requested ?? payloadUsers.length,
-      sent: response.data?.sent ?? payloadUsers.length - failed.length,
+      requested,
+      sent,
       failed,
       passwords_updated: updatedCount,
-      raw_response: response.data ?? null,
+      raw_response: null,
     });
   } catch (error) {
-    const status = error.response?.status || 500;
-    const message =
-      error.response?.data || error.message || "Failed to send Talents emails.";
-    return res.status(status).json({ message });
+    return res
+      .status(500)
+      .json({ message: error.message || "Failed to send Talents emails." });
   }
 };
 
@@ -288,14 +311,11 @@ exports.processCvImports = async (req, res) => {
 
     let emailResult = null;
     if (payloadUsers.length > 0) {
-      const {
-        response,
-        failed: failedEmails,
-        updatedCount,
-      } = await sendTalentsPayload(payloadUsers);
+      const { requested, sent, failed: failedEmails, updatedCount } =
+        await sendTalentsPayload(payloadUsers);
       emailResult = {
-        requested: response.data?.requested ?? payloadUsers.length,
-        sent: response.data?.sent ?? payloadUsers.length - failedEmails.length,
+        requested,
+        sent,
         failed: failedEmails,
         passwords_updated: updatedCount,
       };

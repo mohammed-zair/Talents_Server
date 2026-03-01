@@ -1,33 +1,10 @@
 // file: src/utils/mailer.js
 const nodemailer = require("nodemailer");
-const { Resend } = require("resend");
 
 function getFrom() {
   const fromName = process.env.SMTP_FROM_NAME || "Talents We Trust";
-  const fromEmail =
-    process.env.SMTP_FROM_EMAIL ||
-    process.env.GMAIL_USER ||
-    "talentswetrust@gmail.com";
+  const fromEmail = process.env.GMAIL_USER || "talentswetrust@gmail.com";
   return `${fromName} <${fromEmail}>`;
-}
-
-/** RESEND */
-function getResend() {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) throw new Error("RESEND_API_KEY missing");
-  return new Resend(key);
-}
-
-async function sendWithResend({ to, subject, html, text }) {
-  const resend = getResend();
-  return resend.emails.send({
-    from: getFrom(),
-    to,
-    subject,
-    text: text || undefined,
-    html: html || (text ? `<p>${text.replace(/\n/g, "<br>")}</p>` : undefined),
-    reply_to: process.env.REPLY_TO_EMAIL || "talentswetrust@gmail.com",
-  });
 }
 
 /** GMAIL SMTP */
@@ -54,11 +31,13 @@ async function sendWithGmail({ to, subject, html, text }) {
 }
 
 async function sendEmail({ to, subject, html, text }) {
-  const provider = (process.env.EMAIL_PROVIDER || "resend").toLowerCase();
-  console.log("MAILER provider =", provider);
-
-  if (provider === "gmail") return sendWithGmail({ to, subject, html, text });
-  return sendWithResend({ to, subject, html, text });
+  const provider = (process.env.EMAIL_PROVIDER || "gmail").toLowerCase();
+  if (provider !== "gmail") {
+    console.warn(`MAILER provider "${provider}" requested; forcing gmail.`);
+  } else {
+    console.log("MAILER provider = gmail");
+  }
+  return sendWithGmail({ to, subject, html, text });
 }
 
 module.exports = { sendEmail };

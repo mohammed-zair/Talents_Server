@@ -24,6 +24,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<"request" | "reset">("request");
@@ -43,25 +44,27 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
       request: "Send OTP",
       code: "6-digit OTP",
       password: "New Password",
+      confirmPassword: "Confirm Password",
       submit: mode === "set" ? "Set Password" : "Reset Password",
       hint: "Min 8 chars, 1 uppercase, 1 number",
     },
     ar: {
-      email: "البريد المؤسسي",
-      token: "رمز الموافقة",
-      request: "إرسال رمز التحقق",
-      code: "رمز التحقق (6 أرقام)",
-      password: "كلمة مرور جديدة",
-      submit: mode === "set" ? "تعيين كلمة المرور" : "إعادة تعيين كلمة المرور",
-      hint: "8 أحرف على الأقل، حرف كبير ورقم",
+      email: "Corporate Email",
+      token: "Approval Token",
+      request: "Send OTP",
+      code: "6-digit OTP",
+      password: "New Password",
+      confirmPassword: "Confirm Password",
+      submit: mode === "set" ? "Set Password" : "Reset Password",
+      hint: "Min 8 chars, 1 uppercase, 1 number",
     },
   }[language];
 
   const handleRequest = async () => {
     try {
       setLoading(true);
-      await authApi.forgotPassword({ email });
-      toast.success(language === "ar" ? "تم إرسال الرمز" : "OTP sent");
+      await authApi.forgotPassword({ email, language });
+      toast.success("OTP sent");
       setStep("reset");
     } catch (error: any) {
       toast.error(mapAuthError(error?.response?.status, language));
@@ -77,6 +80,11 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
       return;
     }
 
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
     try {
       setLoading(true);
       if (mode === "set") {
@@ -84,7 +92,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
       } else {
         await authApi.resetPassword({ email, code, password });
       }
-      toast.success(language === "ar" ? "تم تحديث كلمة المرور" : "Password updated");
+      toast.success("Password updated");
     } catch (error: any) {
       toast.error(mapAuthError(error?.response?.status, language));
     } finally {
@@ -155,6 +163,22 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
             <span>{labels.hint}</span>
             <span className="text-[var(--accent)]">{strengthLabel(score)}</span>
           </div>
+        </div>
+      )}
+
+      {(mode === "set" || step === "reset") && (
+        <div className="space-y-2">
+          <label htmlFor="pm-confirm-password" className="text-xs text-[var(--text-muted)]">
+            {labels.confirmPassword}
+          </label>
+          <input
+            id="pm-confirm-password"
+            name="confirmPassword"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            type="password"
+            className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+          />
         </div>
       )}
 

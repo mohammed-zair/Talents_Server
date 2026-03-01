@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { Op } = require("sequelize"); // أضف هذا الاستيراد
 const { successResponse, errorResponse } = require("../utils/responseHandler");
+const sendEmail = require("../utils/sendEmail");
 
 const ACCESS_TOKEN_TTL_MINUTES = parseInt(
   process.env.COMPANY_ACCESS_TOKEN_TTL_MINUTES || "15",
@@ -16,7 +17,12 @@ const REFRESH_TOKEN_TTL_DAYS = parseInt(
 const ACCESS_TOKEN_TTL = `${ACCESS_TOKEN_TTL_MINUTES}m`;
 const REFRESH_TOKEN_TTL_MS = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
 const ACCESS_TOKEN_TTL_MS = ACCESS_TOKEN_TTL_MINUTES * 60 * 1000;
+const RESET_PASSWORD_OTP_EXPIRES_MINUTES = parseInt(
+  process.env.COMPANY_RESET_PASSWORD_OTP_EXPIRES_MINUTES || "15",
+  10
+);
 const IS_PROD = process.env.NODE_ENV === "production";
+const RESET_OTP_USER_AGENT = "__company_password_reset_otp__";
 
 const accessCookieOptions = {
   httpOnly: true,
@@ -75,11 +81,233 @@ const clearAuthCookies = (res) => {
   res.clearCookie("company_refresh", refreshCookieOptions);
 };
 
+const generateOtpCode = () => String(crypto.randomInt(100000, 1000000));
+
+const findCompanyByLoginEmail = async (email) => {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const companyUser = await CompanyUser.findOne({ where: { email: normalizedEmail } });
+  if (companyUser) {
+    const company = await Company.findByPk(companyUser.company_id);
+    return { normalizedEmail, company, companyUser };
+  }
+  const company = await Company.findOne({ where: { email: normalizedEmail } });
+  return { normalizedEmail, company, companyUser: null };
+};
+
+const resolveLanguage = (req) => {
+  const bodyLang = String(req.body?.language || "").toLowerCase();
+  const headerLang = String(req.headers["x-language"] || "").toLowerCase();
+  const acceptLanguage = String(req.headers["accept-language"] || "").toLowerCase();
+  const candidate = bodyLang || headerLang || acceptLanguage;
+  return candidate.startsWith("ar") ? "ar" : "en";
+};
+
+const buildCompanyOtpTemplate = ({
+  language,
+  companyName,
+  otpCode,
+  expiresMinutes,
+}) => {
+  const safeName = companyName || "Team";
+  const isAr = language === "ar";
+
+  if (isAr) {
+    return {
+      subject: "رمز إعادة تعيين كلمة المرور - Talents We Trust",
+      text:
+        `مرحباً ${safeName}\n\n` +
+        "وصلنا طلب لإعادة تعيين كلمة المرور لحساب الشركة.\n" +
+        `رمز التحقق (OTP): ${otpCode}\n` +
+        `صلاحية الرمز: ${expiresMinutes} دقيقة.\n\n` +
+        "إذا لم تطلب ذلك، يمكنك تجاهل هذه الرسالة.",
+      html: `
+        <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;" dir="rtl">
+          <div style="max-width:600px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+              <h2 style="margin:0; font-size:20px;">Talents We Trust</h2>
+              <p style="margin:6px 0 0; opacity:.9;">إعادة تعيين كلمة المرور</p>
+            </div>
+            <div style="padding:22px; color:#111827;">
+              <p style="margin:0 0 12px;">مرحباً ${safeName}،</p>
+              <p style="margin:0 0 16px;">وصلنا طلب لإعادة تعيين كلمة المرور لحساب الشركة.</p>
+              <div style="background:#f9fafb; border:1px dashed #d1d5db; border-radius:12px; padding:16px; text-align:center; margin:0 0 16px;">
+                <div style="font-size:13px; color:#6b7280; margin-bottom:8px;">رمز التحقق (OTP)</div>
+                <div style="font-size:32px; font-weight:700; letter-spacing:6px; color:#111827;">${otpCode}</div>
+              </div>
+              <p style="margin:0 0 16px; color:#374151;">صلاحية الرمز: <strong>${expiresMinutes} دقيقة</strong>.</p>
+              <p style="margin:0; color:#6b7280;">إذا لم تطلب ذلك، يمكنك تجاهل هذه الرسالة.</p>
+            </div>
+          </div>
+        </div>
+      `,
+    };
+  }
+
+  return {
+    subject: "Password Reset OTP - Talents We Trust",
+    text:
+      `Hello ${safeName},\n\n` +
+      "We received a password reset request for your company account.\n" +
+      `Your OTP code is: ${otpCode}\n` +
+      `This OTP expires in ${expiresMinutes} minutes.\n\n` +
+      "If you did not request this, please ignore this email.",
+    html: `
+      <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;">
+        <div style="max-width:600px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+            <h2 style="margin:0; font-size:20px;">Talents We Trust</h2>
+            <p style="margin:6px 0 0; opacity:.9;">Password Reset</p>
+          </div>
+          <div style="padding:22px; color:#111827;">
+            <p style="margin:0 0 12px;">Hello ${safeName},</p>
+            <p style="margin:0 0 16px;">We received a password reset request for your company account.</p>
+            <div style="background:#f9fafb; border:1px dashed #d1d5db; border-radius:12px; padding:16px; text-align:center; margin:0 0 16px;">
+              <div style="font-size:13px; color:#6b7280; margin-bottom:8px;">OTP Code</div>
+              <div style="font-size:32px; font-weight:700; letter-spacing:6px; color:#111827;">${otpCode}</div>
+            </div>
+            <p style="margin:0 0 16px; color:#374151;">This OTP expires in <strong>${expiresMinutes} minutes</strong>.</p>
+            <p style="margin:0; color:#6b7280;">If you did not request this, please ignore this email.</p>
+          </div>
+        </div>
+      </div>
+    `,
+  };
+};
+
 /**
  * @desc [Public] تسجيل دخول الشركة
  * @route POST /api/companies/login
  * @access Public
  */
+exports.forgotCompanyPassword = async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    const language = resolveLanguage(req);
+    if (!email) {
+      return errorResponse(res, "Email is required.", null, 400);
+    }
+
+    const genericMessage = "If this email is registered, an OTP code has been sent.";
+    const { normalizedEmail, company, companyUser } = await findCompanyByLoginEmail(email);
+    if (!company) {
+      return successResponse(res, null, genericMessage);
+    }
+    if (companyUser && companyUser.is_active === false) {
+      return successResponse(res, null, genericMessage);
+    }
+
+    const otpCode = generateOtpCode();
+    const otpHash = hashToken(otpCode);
+    const expiresAt = new Date(
+      Date.now() + RESET_PASSWORD_OTP_EXPIRES_MINUTES * 60 * 1000
+    );
+
+    await CompanyRefreshToken.update(
+      { revoked_at: new Date() },
+      {
+        where: {
+          login_email: normalizedEmail,
+          user_agent: RESET_OTP_USER_AGENT,
+          revoked_at: null,
+        },
+      }
+    );
+
+    await CompanyRefreshToken.create({
+      company_id: company.company_id,
+      token_hash: otpHash,
+      login_email: normalizedEmail,
+      expires_at: expiresAt,
+      created_by_ip: req.ip,
+      user_agent: RESET_OTP_USER_AGENT,
+    });
+
+    const { subject, text, html } = buildCompanyOtpTemplate({
+      language,
+      companyName: company.name,
+      otpCode,
+      expiresMinutes: RESET_PASSWORD_OTP_EXPIRES_MINUTES,
+    });
+    await sendEmail(normalizedEmail, subject, text, { html });
+
+    return successResponse(res, null, genericMessage);
+  } catch (error) {
+    console.error("Forgot company password error:", error);
+    return errorResponse(res, "Failed to process forgot-password request.", null, 500);
+  }
+};
+
+exports.resetCompanyPassword = async (req, res) => {
+  try {
+    const { email, code, password } = req.body || {};
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const otp = String(code || "").trim();
+    const newPassword = String(password || "");
+
+    if (!normalizedEmail || !otp || !newPassword) {
+      return errorResponse(res, "Email, OTP code, and password are required.", null, 400);
+    }
+    if (newPassword.length < 6) {
+      return errorResponse(res, "Password must be at least 6 characters.", null, 400);
+    }
+
+    const otpHash = hashToken(otp);
+    const otpRecord = await CompanyRefreshToken.findOne({
+      where: {
+        login_email: normalizedEmail,
+        token_hash: otpHash,
+        user_agent: RESET_OTP_USER_AGENT,
+        revoked_at: null,
+      },
+    });
+
+    if (!otpRecord) {
+      return errorResponse(res, "Invalid OTP code or email.", null, 400);
+    }
+    if (otpRecord.expires_at < new Date()) {
+      otpRecord.revoked_at = new Date();
+      await otpRecord.save();
+      return errorResponse(res, "OTP has expired. Please request a new one.", null, 400);
+    }
+
+    const company = await Company.findByPk(otpRecord.company_id);
+    if (!company) {
+      otpRecord.revoked_at = new Date();
+      await otpRecord.save();
+      return errorResponse(res, "Company not found.", null, 404);
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const companyUser = await CompanyUser.findOne({
+      where: { email: normalizedEmail, company_id: company.company_id },
+    });
+
+    if (companyUser && companyUser.is_active === false) {
+      return errorResponse(res, "This account is inactive.", null, 403);
+    }
+
+    if (companyUser) {
+      await companyUser.update({ hashed_password: hashedPassword });
+    }
+
+    const isCompanyEmail = normalizedEmail === String(company.email || "").toLowerCase();
+    if (isCompanyEmail || !companyUser) {
+      await company.update({
+        password: hashedPassword,
+        password_set_at: new Date(),
+      });
+    }
+
+    otpRecord.revoked_at = new Date();
+    await otpRecord.save();
+
+    return successResponse(res, null, "Password reset successfully.");
+  } catch (error) {
+    console.error("Reset company password error:", error);
+    return errorResponse(res, "Failed to reset password.", null, 500);
+  }
+};
+
 exports.loginCompany = async (req, res) => {
   try {
     const { email, password } = req.body;

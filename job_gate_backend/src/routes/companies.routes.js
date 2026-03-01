@@ -28,6 +28,8 @@ router.get("/session", verifyCompanyAccess, verifyCompany, companyAuthController
 
 // 📌 تعيين كلمة المرور (أول مرة)
 router.post("/set-password", companyAuthController.setCompanyPassword);
+router.post("/forgot-password", companyAuthController.forgotCompanyPassword);
+router.post("/reset-password", companyAuthController.resetCompanyPassword);
 
 // Company registration (pending approval)
 router.post(

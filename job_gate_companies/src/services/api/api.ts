@@ -34,11 +34,11 @@ api.interceptors.response.use(
       url.includes("/companies/login") ||
       url.includes("/companies/register") ||
       url.includes("/companies/set-password") ||
+      url.includes("/companies/forgot-password") ||
+      url.includes("/companies/reset-password") ||
       url.includes("/companies/track") ||
       url.includes("/companies/refresh") ||
-      url.includes("/companies/logout") ||
-      url.includes("/auth/forgot-password") ||
-      url.includes("/auth/reset-password");
+      url.includes("/companies/logout");
 
     if (isAuthRequest) {
       return Promise.reject(error);
@@ -360,12 +360,12 @@ export const authApi = {
     const { data } = await api.post("/companies/set-password", payload);
     return data;
   },
-  forgotPassword: async (payload: { email: string }) => {
-    const { data } = await api.post("/auth/forgot-password", payload);
+  forgotPassword: async (payload: { email: string; language?: "en" | "ar" }) => {
+    const { data } = await api.post("/companies/forgot-password", payload);
     return data;
   },
   resetPassword: async (payload: { email: string; code: string; password: string }) => {
-    const { data } = await api.post("/auth/reset-password", payload);
+    const { data } = await api.post("/companies/reset-password", payload);
     return data;
   },
   trackCompanyRequest: async (payload: { request_id?: string; email?: string }) => {
