@@ -214,6 +214,10 @@ export interface AIInsightsRecord {
       is_missing?: boolean;
     }>;
   };
+  structured_data?: StructuredCV | Record<string, unknown> | null;
+  features_analytics?: CVFeatures | Record<string, unknown> | null;
+  ai_raw_response?: Record<string, unknown> | null;
+  analysis_method?: string | null;
   ats_score?: number;
   industry_ranking_score?: number;
   industry_ranking_label?: string;

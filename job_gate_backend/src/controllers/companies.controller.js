@@ -8,6 +8,27 @@ const { successResponse } = require("../utils/responseHandler");
 const aiService = require("../services/aiService");
 
 //   O_U^O
+const toFiniteNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const normalizeIndustryScore = (value) => {
+  const n = toFiniteNumber(value);
+  if (n === null) return null;
+  if (n >= 0 && n <= 1) return Number((n * 100).toFixed(2));
+  return n;
+};
+
+const resolveApplicationScore = (aiInsights, featuresAtsScore) => {
+  const aiAtsScore = toFiniteNumber(aiInsights?.ats_score);
+  if (aiAtsScore !== null) return aiAtsScore;
+
+  const industryScore = normalizeIndustryScore(aiInsights?.industry_ranking_score);
+  if (industryScore !== null) return industryScore;
+
+  return toFiniteNumber(featuresAtsScore);
+};
 
 /**
  * @desc [Public] List approved companies
@@ -494,11 +515,10 @@ exports.getCompanyDashboard = async (req, res) => {
       const job = data.JobPosting;
       const aiInsights =
         cv?.CVAIInsights?.find((item) => item.job_id === job?.job_id) || null;
-      const score =
-        aiInsights?.industry_ranking_score ??
-        aiInsights?.ats_score ??
-        cv?.CVFeaturesAnalytics?.ats_score ??
-        null;
+      const score = resolveApplicationScore(
+        aiInsights,
+        cv?.CVFeaturesAnalytics?.ats_score
+      );
       const atsScore = cv?.CVFeaturesAnalytics?.ats_score ?? null;
 
       if (typeof score === "number") {
@@ -1029,11 +1049,10 @@ exports.getCompanyApplications = async (req, res) => {
       }
 
       if (cv?.CVFeaturesAnalytics) {
-        ai_score =
-          ai_insights?.industry_ranking_score ??
-          ai_insights?.ats_score ??
-          cv.CVFeaturesAnalytics.ats_score ??
-          null;
+        ai_score = resolveApplicationScore(
+          ai_insights,
+          cv.CVFeaturesAnalytics.ats_score
+        );
         experienceYears = cv.CVFeaturesAnalytics.total_years_experience ?? null;
         skillPool = Array.isArray(cv.CVFeaturesAnalytics.key_skills)
           ? cv.CVFeaturesAnalytics.key_skills
@@ -1327,10 +1346,10 @@ exports.getCompanyApplicationsByID = async (req, res) => {
       }
     }
 
-    const aiScore =
-      aiInsights?.industry_ranking_score ??
-      aiInsights?.ats_score ??
-      null;
+    const aiScore = resolveApplicationScore(
+      aiInsights,
+      applicationData?.CV?.CVFeaturesAnalytics?.ats_score
+    );
 
     const payload = {
       ...applicationData,

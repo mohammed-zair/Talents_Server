@@ -68,6 +68,20 @@ const buildFallbackMatrix = (application: ApplicationItem): MatrixPoint[] => {
   });
 };
 
+const parseJsonMaybe = (value: unknown) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const toList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value.filter(Boolean).map((item: unknown) => String(item));
+};
+
 const RadarChartCard: React.FC<{
   points: MatrixPoint[];
   language: "en" | "ar";
@@ -167,6 +181,7 @@ const RadarChartCard: React.FC<{
           ))}
         </div>
       </div>
+
     </div>
   );
 };
@@ -178,6 +193,7 @@ const ApplicationDetail: React.FC = () => {
   const [refreshingInsights, setRefreshingInsights] = useState(false);
   const [typedPitch, setTypedPitch] = useState("");
   const [isTypingPitch, setIsTypingPitch] = useState(false);
+  const [showInsightsModal, setShowInsightsModal] = useState(false);
   const { language } = useLanguage();
   const apiBase = getApiBaseUrl();
 
@@ -197,14 +213,23 @@ const ApplicationDetail: React.FC = () => {
       appliedAt: "Applied",
       cv: "Open CV",
       aiTitle: "AI CV Intelligence",
+      viewFullInsights: "View Full AI Insights",
+      closeInsights: "Close Insights",
+      fullInsightsTitle: "Full AI Analysis",
       aiScore: "CV Score",
       aiSummary: "Contextual Summary",
       aiStrengths: "Strengths",
       aiWeaknesses: "Weaknesses",
       aiCulture: "Culture & Growth Fit",
       aiTips: "ATS Optimization Tips",
+      aiRecommendations: "Recommendations",
+      aiInterviewQuestions: "Interview Questions",
       aiRanking: "Industry Ranking",
       aiJobContext: "Job Context (Cleaned)",
+      aiMethod: "Analysis Method",
+      featuresTitle: "Features Analytics",
+      structuredTitle: "Structured CV Data",
+      rawTitle: "Raw AI Response",
       whyCandidate: "Why This Candidate?",
       pitchLoading: "Generating smart pitch...",
     },
@@ -223,14 +248,23 @@ const ApplicationDetail: React.FC = () => {
       appliedAt: "تاريخ التقديم",
       cv: "عرض السيرة",
       aiTitle: "ذكاء السيرة الذاتية",
+      viewFullInsights: "عرض جميع التحليل",
+      closeInsights: "إغلاق التحليل",
+      fullInsightsTitle: "التحليل الذكي الكامل",
       aiScore: "درجة السيرة",
       aiSummary: "ملخص سياقي",
       aiStrengths: "نقاط القوة",
       aiWeaknesses: "نقاط الضعف",
       aiCulture: "الملاءمة الثقافية والنمو",
       aiTips: "نصائح تحسين ATS",
+      aiRecommendations: "التوصيات",
+      aiInterviewQuestions: "أسئلة المقابلة",
       aiRanking: "تصنيف الصناعة",
       aiJobContext: "سياق الوظيفة (منقح)",
+      aiMethod: "طريقة التحليل",
+      featuresTitle: "مؤشرات الميزات",
+      structuredTitle: "بيانات السيرة المهيكلة",
+      rawTitle: "استجابة الذكاء الاصطناعي الخام",
       whyCandidate: "لماذا هذا المرشح؟",
       pitchLoading: "جاري توليد الملخص الذكي...",
     },
@@ -290,7 +324,38 @@ const ApplicationDetail: React.FC = () => {
   };
 
   const insights = data?.ai_insights;
-  const intelligence = insights?.ai_intelligence;
+  const intelligence = parseJsonMaybe(insights?.ai_intelligence) as any;
+  const structuredFromInsight = parseJsonMaybe(insights?.structured_data) as any;
+  const featuresFromInsight = parseJsonMaybe(insights?.features_analytics) as any;
+  const structuredForModal = structuredFromInsight || data?.cv_structured_data || null;
+  const featuresForModal = featuresFromInsight || data?.cv_features || null;
+  const modalSummary =
+    intelligence?.summary ||
+    intelligence?.contextual_summary ||
+    intelligence?.professional_summary ||
+    "";
+  const modalStrengths = toList(
+    intelligence?.strengths || intelligence?.strategic_analysis?.strengths
+  );
+  const modalWeaknesses = toList(
+    intelligence?.weaknesses || intelligence?.strategic_analysis?.weaknesses
+  );
+  const modalRecommendations = toList(
+    intelligence?.recommendations || intelligence?.ats_optimization_tips
+  );
+  const modalInterviewQuestions = toList(intelligence?.interview_questions);
+  const formattedAtsScore =
+    typeof insights?.ats_score === "number"
+      ? insights.ats_score
+      : typeof featuresForModal?.ats_score === "number"
+        ? featuresForModal.ats_score
+        : null;
+  const formattedIndustryScore =
+    typeof insights?.industry_ranking_score === "number"
+      ? insights.industry_ranking_score
+      : typeof intelligence?.industry_ranking_score === "number"
+        ? intelligence.industry_ranking_score
+        : null;
   const generatedPitch =
     insights?.smart_match_pitch ||
     intelligence?.smart_match_pitch ||
@@ -553,6 +618,13 @@ const ApplicationDetail: React.FC = () => {
                     ? "تحديث التحليل"
                     : "Refresh AI Insights"}
               </Button>
+              <Button
+                variant="outline"
+                className="mt-2 w-full justify-center"
+                onClick={() => setShowInsightsModal(true)}
+              >
+                {copy.viewFullInsights}
+              </Button>
               <div className="mt-3 space-y-3 text-sm text-[var(--text-primary)]">
                 <div className="rounded-lg border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3">
                   <p className="text-xs text-[var(--text-muted)]">{copy.aiScore}</p>
@@ -576,7 +648,7 @@ const ApplicationDetail: React.FC = () => {
                   <div>
                     <p className="text-xs text-[var(--text-muted)]">{copy.aiStrengths}</p>
                     <ul className="mt-1 list-disc space-y-1 ps-5">
-                      {intelligence.strategic_analysis.strengths.map((item) => (
+                      {intelligence.strategic_analysis.strengths.map((item: string) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
@@ -586,7 +658,7 @@ const ApplicationDetail: React.FC = () => {
                   <div>
                     <p className="text-xs text-[var(--text-muted)]">{copy.aiWeaknesses}</p>
                     <ul className="mt-1 list-disc space-y-1 ps-5">
-                      {intelligence.strategic_analysis.weaknesses.map((item) => (
+                      {intelligence.strategic_analysis.weaknesses.map((item: string) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
@@ -596,7 +668,7 @@ const ApplicationDetail: React.FC = () => {
                   <div>
                     <p className="text-xs text-[var(--text-muted)]">{copy.aiCulture}</p>
                     <ul className="mt-1 list-disc space-y-1 ps-5">
-                      {intelligence.strategic_analysis.culture_growth_fit.map((item) => (
+                      {intelligence.strategic_analysis.culture_growth_fit.map((item: string) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
@@ -606,7 +678,7 @@ const ApplicationDetail: React.FC = () => {
                   <div>
                     <p className="text-xs text-[var(--text-muted)]">{copy.aiTips}</p>
                     <ul className="mt-1 list-disc space-y-1 ps-5">
-                      {intelligence.ats_optimization_tips.map((item) => (
+                      {intelligence.ats_optimization_tips.map((item: string) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
@@ -614,11 +686,9 @@ const ApplicationDetail: React.FC = () => {
                 )}
                 {Array.isArray(intelligence?.interview_questions) && (
                   <div>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      {language === "ar" ? "أسئلة المقابلة" : "Interview Questions"}
-                    </p>
+                    <p className="text-xs text-[var(--text-muted)]">{copy.aiInterviewQuestions}</p>
                     <ul className="mt-1 list-disc space-y-1 ps-5">
-                      {intelligence.interview_questions.map((item) => (
+                      {intelligence.interview_questions.map((item: string) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
@@ -638,6 +708,130 @@ const ApplicationDetail: React.FC = () => {
         </div>
       </Card>
       </div>
+
+      {showInsightsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-base font-semibold text-[var(--text-primary)]">
+                {copy.fullInsightsTitle}
+              </p>
+              <Button variant="outline" onClick={() => setShowInsightsModal(false)}>
+                {copy.closeInsights}
+              </Button>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                <p className="text-xs text-[var(--text-muted)]">{copy.aiScore}</p>
+                <p className="text-xl font-semibold">{formattedAtsScore ?? "-"}</p>
+              </div>
+              <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                <p className="text-xs text-[var(--text-muted)]">{copy.aiRanking}</p>
+                <p className="text-xl font-semibold">
+                  {formattedIndustryScore ?? insights?.industry_ranking_label ?? "-"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {insights?.analysis_method && (
+                <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.aiMethod}</p>
+                  <p className="text-sm text-[var(--text-primary)]">{insights.analysis_method}</p>
+                </div>
+              )}
+
+              {modalSummary && (
+                <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.aiSummary}</p>
+                  <p className="text-sm text-[var(--text-primary)]">{modalSummary}</p>
+                </div>
+              )}
+
+              {modalStrengths.length > 0 && (
+                <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.aiStrengths}</p>
+                  <ul className="mt-2 list-disc space-y-1 ps-5 text-sm text-[var(--text-primary)]">
+                    {modalStrengths.map((item: string) => (
+                      <li key={`strength-${item}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {modalWeaknesses.length > 0 && (
+                <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.aiWeaknesses}</p>
+                  <ul className="mt-2 list-disc space-y-1 ps-5 text-sm text-[var(--text-primary)]">
+                    {modalWeaknesses.map((item: string) => (
+                      <li key={`weakness-${item}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {modalRecommendations.length > 0 && (
+                <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.aiRecommendations}</p>
+                  <ul className="mt-2 list-disc space-y-1 ps-5 text-sm text-[var(--text-primary)]">
+                    {modalRecommendations.map((item: string) => (
+                      <li key={`rec-${item}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {modalInterviewQuestions.length > 0 && (
+                <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.aiInterviewQuestions}</p>
+                  <ul className="mt-2 list-disc space-y-1 ps-5 text-sm text-[var(--text-primary)]">
+                    {modalInterviewQuestions.map((item: string) => (
+                      <li key={`question-${item}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {insights?.cleaned_job_description && (
+                <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.aiJobContext}</p>
+                  <pre className="mt-2 whitespace-pre-wrap text-xs text-[var(--text-primary)]">
+                    {insights.cleaned_job_description}
+                  </pre>
+                </div>
+              )}
+
+              {structuredForModal && (
+                <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.structuredTitle}</p>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs text-[var(--text-primary)]">
+                    {JSON.stringify(structuredForModal, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {featuresForModal && (
+                <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.featuresTitle}</p>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs text-[var(--text-primary)]">
+                    {JSON.stringify(featuresForModal, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {insights?.ai_raw_response && (
+                <div className="rounded-xl border border-[var(--panel-border)] p-3">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.rawTitle}</p>
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs text-[var(--text-primary)]">
+                    {JSON.stringify(insights.ai_raw_response, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
