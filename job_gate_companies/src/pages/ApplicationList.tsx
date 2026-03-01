@@ -42,6 +42,7 @@ const ApplicationList: React.FC = () => {
 
   const filters = useMemo(() => {
     const parseNumber = (value: string) => {
+      if (String(value).trim() === "") return undefined;
       const num = Number(value);
       return Number.isNaN(num) ? undefined : num;
     };
