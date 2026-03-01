@@ -1,17 +1,10 @@
 import React, { useMemo, useState } from "react";
-import { z } from "zod";
 import toast from "react-hot-toast";
 import { authApi } from "../../services/api/api";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { mapAuthError } from "../../utils/authMessages";
 import OtpInput from "./OtpInput";
 import Button from "../shared/Button";
-
-const passwordSchema = z
-  .string()
-  .min(8)
-  .regex(/[A-Z]/, "uppercase")
-  .regex(/[0-9]/, "number");
 
 const strengthLabel = (score: number) => {
   if (score >= 3) return "Strong";
@@ -33,7 +26,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
 
   const score = useMemo(() => {
     let value = 0;
-    if (password.length >= 8) value += 1;
+    if (password.length >= 6) value += 1;
     if (/[A-Z]/.test(password)) value += 1;
     if (/[0-9]/.test(password)) value += 1;
     return value;
@@ -48,7 +41,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
       password: "New Password",
       confirmPassword: "Confirm Password",
       submit: mode === "set" ? "Set Password" : "Reset Password",
-      hint: "Min 8 chars, 1 uppercase, 1 number",
+      hint: "Minimum 6 characters",
     },
     ar: {
       email: "Corporate Email",
@@ -58,7 +51,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
       password: "New Password",
       confirmPassword: "Confirm Password",
       submit: mode === "set" ? "Set Password" : "Reset Password",
-      hint: "Min 8 chars, 1 uppercase, 1 number",
+      hint: "Minimum 6 characters",
     },
   }[language];
 
@@ -98,9 +91,8 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
       return;
     }
 
-    const passwordValid = passwordSchema.safeParse(password);
-    if (!passwordValid.success) {
-      toast.error(mapAuthError(422, language));
+    if (password.trim().length < 6) {
+      toast.error(language === "ar" ? "الحد الأدنى 6 أحرف" : "Password must be at least 6 characters");
       return;
     }
 
