@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Card from "../components/shared/Card";
 import SectionHeader from "../components/shared/SectionHeader";
@@ -13,12 +13,12 @@ const getApiBaseUrl = () =>
 
 const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") => {
   const map = {
-    pending: { en: "Pending", ar: "Ù‚ÙŠØ¯ Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©" },
-    reviewed: { en: "Reviewed", ar: "ØªÙ…Øª Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©" },
-    shortlisted: { en: "Shortlisted", ar: "Ù‚Ø§Ø¦Ù…Ø© Ù…Ø®ØªØµØ±Ø©" },
-    accepted: { en: "Accepted", ar: "Ù…Ù‚Ø¨ÙˆÙ„" },
-    hired: { en: "Hired", ar: "ØªÙ… Ø§Ù„ØªÙˆØ¸ÙŠÙ" },
-    rejected: { en: "Rejected", ar: "Ù…Ø±ÙÙˆØ¶" },
+    pending: { en: "Pending", ar: "قيد المراجعة" },
+    reviewed: { en: "Reviewed", ar: "تمت المراجعة" },
+    shortlisted: { en: "Shortlisted", ar: "قائمة مختصرة" },
+    accepted: { en: "Accepted", ar: "مقبول" },
+    hired: { en: "Hired", ar: "تم التوظيف" },
+    rejected: { en: "Rejected", ar: "مرفوض" },
   };
   return map[status]?.[language] ?? status;
 };
@@ -159,6 +159,7 @@ const ApplicationList: React.FC = () => {
       search: "Search candidate, job, or location",
       listTitle: "Incoming Applications",
       viewCv: "Open CV",
+      viewInsights: "AI Insights",
       total: "Total",
       pending: "Pending",
       reviewed: "Reviewed",
@@ -167,18 +168,19 @@ const ApplicationList: React.FC = () => {
       job: "Job",
     },
     ar: {
-      eyebrow: "Ø§Ù„Ù…ØªÙ‚Ø¯Ù…ÙˆÙ†",
-      title: "Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…ØªÙ‚Ø¯Ù…ÙŠÙ† Ø­Ø³Ø¨ Ø£ÙØ¶Ù„ ØªØ·Ø§Ø¨Ù‚",
-      subtitle: "Ù†Ø¸Ø±Ø© Ø³Ø±ÙŠØ¹Ø© Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø¤Ø´Ø±Ø§Øª ÙˆØ§Ù„ØªØ­Ù„ÙŠÙ„Ø§Øª Ø§Ù„Ø°ÙƒÙŠØ© Ù„Ù„Ù…Ø±Ø´Ø­ÙŠÙ†.",
-      search: "Ø§Ø¨Ø­Ø« Ø¹Ù† Ù…ØªÙ‚Ø¯Ù… Ø£Ùˆ Ù…Ù‡Ø§Ø±Ø© Ø£Ùˆ Ù…ÙˆÙ‚Ø¹",
-      listTitle: "Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ù…ØªÙ‚Ø¯Ù…ÙŠÙ†",
-      viewCv: "Ø¹Ø±Ø¶ Ø§Ù„Ø³ÙŠØ±Ø©",
-      total: "Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ",
-      pending: "Ù‚ÙŠØ¯ Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©",
-      reviewed: "ØªÙ…Øª Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©",
-      empty: "Ù„Ø§ ØªÙˆØ¬Ø¯ Ø·Ù„Ø¨Ø§Øª Ø¨Ø¹Ø¯.",
-      appliedAt: "ØªØ§Ø±ÙŠØ® Ø§Ù„ØªÙ‚Ø¯ÙŠÙ…",
-      job: "Ø§Ù„ÙˆØ¸ÙŠÙØ©",
+      eyebrow: "المتقدمون",
+      title: "قائمة المتقدمين حسب أفضل تطابق",
+      subtitle: "نظرة سريعة على المؤشرات والتحليلات الذكية للمرشحين.",
+      search: "ابحث عن متقدم أو مهارة أو موقع",
+      listTitle: "قائمة المتقدمين",
+      viewCv: "عرض السيرة",
+      viewInsights: "AI Insights",
+      total: "الإجمالي",
+      pending: "قيد المراجعة",
+      reviewed: "تمت المراجعة",
+      empty: "لا توجد طلبات بعد.",
+      appliedAt: "تاريخ التقديم",
+      job: "الوظيفة",
     },
   }[language];
 
@@ -226,7 +228,7 @@ const ApplicationList: React.FC = () => {
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-[var(--text-primary)]">{copy.listTitle}</p>
           <span className="text-xs text-[var(--text-muted)]">
-            {language === "ar" ? "Ù…Ø±ØªÙ‘Ø¨ Ø­Ø³Ø¨ Ø§Ù„Ø£Ø­Ø¯Ø«" : "Sorted by latest"}
+            {language === "ar" ? "مرتّب حسب الأحدث" : "Sorted by latest"}
           </span>
         </div>
 
@@ -234,55 +236,55 @@ const ApplicationList: React.FC = () => {
           <input
             value={atsMin}
             onChange={(event) => setAtsMin(event.target.value)}
-            placeholder={language === "ar" ? "Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ø¯Ù†Ù‰ Ù„Ù„Ø¯Ø±Ø¬Ø©" : "ATS min score"}
+            placeholder={language === "ar" ? "الحد الأدنى للدرجة" : "ATS min score"}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <input
             value={atsMax}
             onChange={(event) => setAtsMax(event.target.value)}
-            placeholder={language === "ar" ? "Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ø¹Ù„Ù‰ Ù„Ù„Ø¯Ø±Ø¬Ø©" : "ATS max score"}
+            placeholder={language === "ar" ? "الحد الأعلى للدرجة" : "ATS max score"}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <input
             value={skills}
             onChange={(event) => setSkills(event.target.value)}
-            placeholder={language === "ar" ? "Ù…Ù‡Ø§Ø±Ø§Øª (React, Node)" : "Skills (React, Node)"}
+            placeholder={language === "ar" ? "مهارات (React, Node)" : "Skills (React, Node)"}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <input
             value={experienceMin}
             onChange={(event) => setExperienceMin(event.target.value)}
-            placeholder={language === "ar" ? "Ø®Ø¨Ø±Ø© (Ø­Ø¯ Ø£Ø¯Ù†Ù‰)" : "Experience min (years)"}
+            placeholder={language === "ar" ? "خبرة (حد أدنى)" : "Experience min (years)"}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <input
             value={experienceMax}
             onChange={(event) => setExperienceMax(event.target.value)}
-            placeholder={language === "ar" ? "Ø®Ø¨Ø±Ø© (Ø­Ø¯ Ø£Ø¹Ù„Ù‰)" : "Experience max (years)"}
+            placeholder={language === "ar" ? "خبرة (حد أعلى)" : "Experience max (years)"}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <input
             value={education}
             onChange={(event) => setEducation(event.target.value)}
-            placeholder={language === "ar" ? "Ø§Ù„Ù…Ø³ØªÙˆÙ‰ Ø§Ù„ØªØ¹Ù„ÙŠÙ…ÙŠ" : "Education level"}
+            placeholder={language === "ar" ? "المستوى التعليمي" : "Education level"}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <input
             value={location}
             onChange={(event) => setLocation(event.target.value)}
-            placeholder={language === "ar" ? "Ø§Ù„Ù…ÙˆÙ‚Ø¹" : "Location"}
+            placeholder={language === "ar" ? "الموقع" : "Location"}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <input
             value={strengths}
             onChange={(event) => setStrengths(event.target.value)}
-            placeholder={language === "ar" ? "Ù†Ù‚Ø§Ø· Ø§Ù„Ù‚ÙˆØ©" : "AI strengths keywords"}
+            placeholder={language === "ar" ? "نقاط القوة" : "AI strengths keywords"}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <input
             value={weaknesses}
             onChange={(event) => setWeaknesses(event.target.value)}
-            placeholder={language === "ar" ? "Ù†Ù‚Ø§Ø· Ø§Ù„Ø¶Ø¹Ù" : "AI weaknesses keywords"}
+            placeholder={language === "ar" ? "نقاط الضعف" : "AI weaknesses keywords"}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
@@ -291,25 +293,25 @@ const ApplicationList: React.FC = () => {
               checked={starredOnly}
               onChange={(event) => setStarredOnly(event.target.checked)}
             />
-            {language === "ar" ? "Ø§Ù„Ù…ÙØ¶Ù„ÙŠÙ† ÙÙ‚Ø·" : "Starred only"}
+            {language === "ar" ? "المفضلين فقط" : "Starred only"}
           </label>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
           <div className="flex items-center gap-2">
-            <span>{language === "ar" ? "ØªØ±ØªÙŠØ¨ Ø§Ù„Ù†ØªØ§Ø¦Ø¬" : "Sort results"}</span>
+            <span>{language === "ar" ? "ترتيب النتائج" : "Sort results"}</span>
             <select
               value={sortMode}
               onChange={(event) => setSortMode(event.target.value as "recent" | "ai" | "experience")}
               className="rounded-lg border border-[var(--panel-border)] bg-transparent px-2 py-1 text-xs text-[var(--text-primary)]"
             >
-              <option value="ai">{language === "ar" ? "Ø£ÙˆÙ„ÙˆÙŠØ© Ø§Ù„Ø°ÙƒØ§Ø¡" : "AI Priority"}</option>
-              <option value="recent">{language === "ar" ? "Ø§Ù„Ø£Ø­Ø¯Ø«" : "Most recent"}</option>
+              <option value="ai">{language === "ar" ? "أولوية الذكاء" : "AI Priority"}</option>
+              <option value="recent">{language === "ar" ? "الأحدث" : "Most recent"}</option>
             </select>
           </div>
           <span>
             {language === "ar"
-              ? "Ø§Ù„ÙØ±Ø² ÙŠØªÙƒÙŠÙ Ù…Ø¹ Ø§Ù„ÙÙ„Ø§ØªØ± ØªÙ„Ù‚Ø§Ø¦ÙŠØ§Ù‹"
+              ? "الفرز يتكيف مع الفلاتر تلقائياً"
               : "Sorting adapts automatically to active filters"}
           </span>
         </div>
@@ -329,13 +331,13 @@ const ApplicationList: React.FC = () => {
           </div>
           <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
             <p className="text-xs text-[var(--text-muted)]">
-              {language === "ar" ? "Ù‚Ø§Ø¦Ù…Ø© Ù…Ø®ØªØµØ±Ø©" : "Shortlisted"}
+              {language === "ar" ? "قائمة مختصرة" : "Shortlisted"}
             </p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.shortlisted}</p>
           </div>
           <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/70 p-4 shadow-soft-ambient">
             <p className="text-xs text-[var(--text-muted)]">
-              {language === "ar" ? "ØªÙ… Ø§Ù„ØªÙˆØ¸ÙŠÙ" : "Hired"}
+              {language === "ar" ? "تم التوظيف" : "Hired"}
             </p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{stats.hired}</p>
           </div>
@@ -343,7 +345,7 @@ const ApplicationList: React.FC = () => {
 
         <div className="mt-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4">
           <p className="text-xs text-[var(--text-muted)]">
-            {language === "ar" ? "ØªÙˆØ²ÙŠØ¹ Ø¯Ø±Ø¬Ø§Øª Ø§Ù„Ø°ÙƒØ§Ø¡" : "AI Score Distribution"}
+            {language === "ar" ? "توزيع درجات الذكاء" : "AI Score Distribution"}
           </p>
           <div className="mt-3 flex items-end gap-2">
             {histogram.bins.map((bin) => (
@@ -404,7 +406,7 @@ const ApplicationList: React.FC = () => {
                       {statusLabel(application.status, language)}
                     </span>
                     <span className="rounded-full bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-                      {language === "ar" ? "Ø¯Ø±Ø¬Ø©" : "Score"}{" "}
+                      {language === "ar" ? "درجة" : "Score"}{" "}
                       {application.ai_score ?? "-"}
                     </span>
                     <button
@@ -423,10 +425,10 @@ const ApplicationList: React.FC = () => {
                       >
                         {application.is_starred
                           ? language === "ar"
-                            ? "Ù…Ù…ÙŠØ²"
+                            ? "مميز"
                             : "Starred"
                           : language === "ar"
-                          ? "ØªÙ…ÙŠÙŠØ²"
+                          ? "تمييز"
                           : "Star"}
                       </button>
                   </div>
@@ -455,15 +457,15 @@ const ApplicationList: React.FC = () => {
                 <div className="flex flex-col justify-between rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4">
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                      {language === "ar" ? "Ù…Ù„Ù Ø§Ù„Ù…Ø±Ø´Ø­" : "Candidate File"}
+                      {language === "ar" ? "ملف المرشح" : "Candidate File"}
                     </p>
                     <p className="mt-2 text-sm text-[var(--text-primary)]">
                       {application.candidate.email || application.candidate.phone || "-"}
                     </p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {language === "ar" ? "Ø§Ù„Ø®Ø¨Ø±Ø©" : "Experience"}:{" "}
+                      {language === "ar" ? "الخبرة" : "Experience"}:{" "}
                       {application.candidate_experience_years ?? "-"}{" "}
-                      {language === "ar" ? "Ø³Ù†ÙˆØ§Øª" : "years"}
+                      {language === "ar" ? "سنوات" : "years"}
                     </p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
                       {copy.job}: {application.job.title}
@@ -485,16 +487,10 @@ const ApplicationList: React.FC = () => {
                     variant="outline"
                     className="mt-2 justify-center"
                     onClick={() => {
-                      if (application.candidate.id) {
-                        window.open(
-                          `https://talents-we-trust.tech/profile/${application.candidate.id}`,
-                          "_blank"
-                        );
-                      }
+                      window.location.href = `/companies/applications/${application.id}`;
                     }}
-                    disabled={!application.candidate.id}
                   >
-                    {language === "ar" ? "Ø¹Ø±Ø¶ Ø§Ù„Ù…Ù„Ù" : "View profile"}
+                    {copy.viewInsights}
                   </Button>
                 </div>
               </div>
@@ -507,4 +503,6 @@ const ApplicationList: React.FC = () => {
 };
 
 export default ApplicationList;
+
+
 
