@@ -82,6 +82,8 @@ const clearAuthCookies = (res) => {
 };
 
 const generateOtpCode = () => String(crypto.randomInt(100000, 1000000));
+const generateUniqueTokenHash = () =>
+  hashToken(crypto.randomBytes(64).toString("hex"));
 
 const findCompanyByLoginEmail = async (email) => {
   const normalizedEmail = String(email || "").trim().toLowerCase();
@@ -215,11 +217,12 @@ exports.forgotCompanyPassword = async (req, res) => {
 
     await CompanyRefreshToken.create({
       company_id: company.company_id,
-      token_hash: otpHash,
+      token_hash: generateUniqueTokenHash(),
       login_email: normalizedEmail,
       expires_at: expiresAt,
       created_by_ip: req.ip,
       user_agent: RESET_OTP_USER_AGENT,
+      replaced_by_token_hash: otpHash,
     });
 
     const { subject, text, html } = buildCompanyOtpTemplate({
@@ -255,7 +258,7 @@ exports.resetCompanyPassword = async (req, res) => {
     const otpRecord = await CompanyRefreshToken.findOne({
       where: {
         login_email: normalizedEmail,
-        token_hash: otpHash,
+        replaced_by_token_hash: otpHash,
         user_agent: RESET_OTP_USER_AGENT,
         revoked_at: null,
       },
