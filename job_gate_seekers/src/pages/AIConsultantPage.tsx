@@ -106,6 +106,60 @@ const BUILDER_REQUIRED_SECTIONS = [
   "education",
 ];
 
+const EMPTY_EXPERIENCE = {
+  job_title: "",
+  company: "",
+  location: "",
+  start_date: "",
+  end_date: "",
+  is_current: false,
+  bullets: [] as string[],
+};
+
+const EMPTY_PROJECT = {
+  title: "",
+  role: "",
+  start_date: "",
+  end_date: "",
+  objective: "",
+  tech_stack: [] as string[],
+  bullets: [] as string[],
+};
+
+const EMPTY_EDUCATION = {
+  degree: "",
+  institution: "",
+  graduation_year: "",
+  coursework: [] as string[],
+};
+
+const EMPTY_CERT_AWARD = {
+  type: "certification",
+  name: "",
+  acronym: "",
+  issuer: "",
+  date: "",
+};
+
+const ACTION_VERBS = [
+  "built",
+  "developed",
+  "designed",
+  "implemented",
+  "optimized",
+  "improved",
+  "led",
+  "managed",
+  "delivered",
+  "created",
+  "engineered",
+  "increased",
+  "reduced",
+  "launched",
+];
+
+const IMPACT_REGEX = /\b(\d+%|\d+\+?|\$\d+|x\d+|milliseconds?|seconds?|minutes?|hours?|days?)\b/i;
+
 const hasContent = (value: any): boolean => {
   if (value == null) return false;
   if (typeof value === "string") return value.trim().length > 0;
@@ -426,6 +480,90 @@ const AIConsultantPage: React.FC = () => {
     };
   }, [builderDraft]);
 
+  const atsHealth = useMemo(() => {
+    if (!builderDraft?.sections) return null;
+    const sections = builderDraft.sections;
+    const totalSections = 7;
+    const existingSections = Object.values(sections).filter((section) =>
+      hasContent(section?.data)
+    ).length;
+
+    const structureScore = Math.round((existingSections / totalSections) * 100);
+
+    const programmingSkills = Array.isArray(
+      sections.core_competencies?.data?.programming
+    )
+      ? sections.core_competencies.data.programming.length
+      : 0;
+    const frameworkSkills = Array.isArray(
+      sections.core_competencies?.data?.frameworks
+    )
+      ? sections.core_competencies.data.frameworks.length
+      : 0;
+    const toolSkills = Array.isArray(
+      sections.core_competencies?.data?.tools_platforms
+    )
+      ? sections.core_competencies.data.tools_platforms.length
+      : 0;
+    const domainSkills = Array.isArray(
+      sections.core_competencies?.data?.domain_expertise
+    )
+      ? sections.core_competencies.data.domain_expertise.length
+      : 0;
+    const keywordReadinessRaw =
+      programmingSkills + frameworkSkills + toolSkills + domainSkills;
+    const keywordReadiness = Math.min(100, keywordReadinessRaw * 8);
+
+    const experienceBullets = (
+      Array.isArray(sections.professional_experience?.data)
+        ? sections.professional_experience.data
+        : []
+    ).flatMap((item: any) => (Array.isArray(item?.bullets) ? item.bullets : []));
+    const projectBullets = (
+      Array.isArray(sections.projects?.data) ? sections.projects.data : []
+    ).flatMap((item: any) => (Array.isArray(item?.bullets) ? item.bullets : []));
+    const allBullets = [...experienceBullets, ...projectBullets]
+      .map((b) => String(b || "").trim())
+      .filter(Boolean);
+
+    const measurableBullets = allBullets.filter((bullet) => IMPACT_REGEX.test(bullet));
+    const actionVerbBullets = allBullets.filter((bullet) =>
+      ACTION_VERBS.some((verb) => new RegExp(`\\b${verb}\\b`, "i").test(bullet))
+    );
+
+    const measurableRatio = allBullets.length
+      ? measurableBullets.length / allBullets.length
+      : 0;
+    const actionRatio = allBullets.length ? actionVerbBullets.length / allBullets.length : 0;
+    const bulletQuality = Math.round((measurableRatio * 0.7 + actionRatio * 0.3) * 100);
+
+    const globalScore = Math.round(
+      structureScore * 0.45 + keywordReadiness * 0.25 + bulletQuality * 0.3
+    );
+
+    const warnings: string[] = [];
+    if (allBullets.length === 0) warnings.push("no_bullets_found");
+    if (allBullets.length > 0 && measurableRatio < 0.35)
+      warnings.push("low_measurable_impact_bullets");
+    if (allBullets.length > 0 && actionRatio < 0.5)
+      warnings.push("low_action_verb_bullets");
+    if ((builderComputed?.missingRequired?.length || 0) > 0)
+      warnings.push("required_sections_missing");
+
+    return {
+      structureScore,
+      keywordReadiness,
+      bulletQuality,
+      globalScore,
+      bulletStats: {
+        total: allBullets.length,
+        measurable: measurableBullets.length,
+        actionVerb: actionVerbBullets.length,
+      },
+      warnings,
+    };
+  }, [builderDraft, builderComputed?.missingRequired]);
+
   const exportBlockedByBuilder = Boolean(
     builderDraft && builderComputed && !builderComputed.canExport
   );
@@ -448,6 +586,52 @@ const AIConsultantPage: React.FC = () => {
     });
     setBuilderDirty(true);
   };
+
+  const updateSectionArrayItem = (sectionKey: string, index: number, nextItem: any) => {
+    const currentList = Array.isArray(builderSections?.[sectionKey]?.data)
+      ? [...builderSections[sectionKey].data]
+      : [];
+    currentList[index] = nextItem;
+    updateBuilderSection(sectionKey, currentList);
+  };
+
+  const removeSectionArrayItem = (sectionKey: string, index: number) => {
+    const currentList = Array.isArray(builderSections?.[sectionKey]?.data)
+      ? [...builderSections[sectionKey].data]
+      : [];
+    currentList.splice(index, 1);
+    updateBuilderSection(sectionKey, currentList);
+  };
+
+  const addSectionArrayItem = (sectionKey: string, template: any) => {
+    const currentList = Array.isArray(builderSections?.[sectionKey]?.data)
+      ? [...builderSections[sectionKey].data]
+      : [];
+    currentList.push({ ...template });
+    updateBuilderSection(sectionKey, currentList);
+  };
+
+  const toLines = (value: any) =>
+    Array.isArray(value) ? value.map((v) => String(v ?? "")).join("\n") : "";
+
+  const fromLines = (value: string) =>
+    value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+  const experienceRows = Array.isArray(builderSections.professional_experience?.data)
+    ? builderSections.professional_experience.data
+    : [];
+  const projectRows = Array.isArray(builderSections.projects?.data)
+    ? builderSections.projects.data
+    : [];
+  const educationRows = Array.isArray(builderSections.education?.data)
+    ? builderSections.education.data
+    : [];
+  const certAwardRows = Array.isArray(builderSections.certifications_awards?.data)
+    ? builderSections.certifications_awards.data
+    : [];
 
   const insights = insightsQ.data;
   const scoreValue = typeof insights?.score?.score === "number" ? insights?.score?.score : null;
@@ -934,6 +1118,53 @@ const AIConsultantPage: React.FC = () => {
                       </div>
                     </div>
 
+                    {atsHealth && (
+                      <div className="rounded-lg border border-[var(--border)] p-2 text-xs space-y-2">
+                        <div className="font-semibold">
+                          {language === "ar" ? "ATS Health" : "ATS Health"}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded border border-[var(--border)] p-2">
+                            <div className="text-[var(--text-muted)]">
+                              {language === "ar" ? "النتيجة العامة" : "Overall Score"}
+                            </div>
+                            <div className="text-lg font-semibold">{atsHealth.globalScore}</div>
+                          </div>
+                          <div className="rounded border border-[var(--border)] p-2">
+                            <div className="text-[var(--text-muted)]">
+                              {language === "ar" ? "هيكل السيرة" : "Structure"}
+                            </div>
+                            <div className="text-lg font-semibold">{atsHealth.structureScore}</div>
+                          </div>
+                          <div className="rounded border border-[var(--border)] p-2">
+                            <div className="text-[var(--text-muted)]">
+                              {language === "ar" ? "جاهزية الكلمات" : "Keyword Readiness"}
+                            </div>
+                            <div className="text-lg font-semibold">{atsHealth.keywordReadiness}</div>
+                          </div>
+                          <div className="rounded border border-[var(--border)] p-2">
+                            <div className="text-[var(--text-muted)]">
+                              {language === "ar" ? "جودة النقاط" : "Bullet Quality"}
+                            </div>
+                            <div className="text-lg font-semibold">{atsHealth.bulletQuality}</div>
+                          </div>
+                        </div>
+                        <div>
+                          {language === "ar" ? "إحصائيات النقاط:" : "Bullet stats:"}{" "}
+                          {atsHealth.bulletStats.measurable}/{atsHealth.bulletStats.total}{" "}
+                          {language === "ar" ? "قابلة للقياس" : "measurable"},{" "}
+                          {atsHealth.bulletStats.actionVerb}/{atsHealth.bulletStats.total}{" "}
+                          {language === "ar" ? "بفعل قوي" : "with action verbs"}
+                        </div>
+                        {atsHealth.warnings.length > 0 && (
+                          <div className="text-amber-300">
+                            {language === "ar" ? "تحذيرات الجودة:" : "Quality warnings:"}{" "}
+                            {atsHealth.warnings.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="space-y-2">
                       <label className="text-xs text-[var(--text-muted)]">
                         {language === "ar" ? "الاسم الكامل" : "Full Name"}
@@ -1026,64 +1257,415 @@ const AIConsultantPage: React.FC = () => {
                           })
                         }
                       />
+                      <div className="mt-2 grid grid-cols-1 gap-2">
+                        <input
+                          className="field"
+                          placeholder={language === "ar" ? "Frameworks (مفصولة بفواصل)" : "Frameworks (comma-separated)"}
+                          value={(builderSections.core_competencies?.data?.frameworks || []).join(", ")}
+                          onChange={(e) =>
+                            updateBuilderSection("core_competencies", {
+                              ...(builderSections.core_competencies?.data || {}),
+                              frameworks: e.target.value
+                                .split(",")
+                                .map((v: string) => v.trim())
+                                .filter(Boolean),
+                            })
+                          }
+                        />
+                        <input
+                          className="field"
+                          placeholder={language === "ar" ? "Tools/Platforms (مفصولة بفواصل)" : "Tools/Platforms (comma-separated)"}
+                          value={(builderSections.core_competencies?.data?.tools_platforms || []).join(", ")}
+                          onChange={(e) =>
+                            updateBuilderSection("core_competencies", {
+                              ...(builderSections.core_competencies?.data || {}),
+                              tools_platforms: e.target.value
+                                .split(",")
+                                .map((v: string) => v.trim())
+                                .filter(Boolean),
+                            })
+                          }
+                        />
+                        <input
+                          className="field"
+                          placeholder={language === "ar" ? "Domain Expertise (مفصولة بفواصل)" : "Domain Expertise (comma-separated)"}
+                          value={(builderSections.core_competencies?.data?.domain_expertise || []).join(", ")}
+                          onChange={(e) =>
+                            updateBuilderSection("core_competencies", {
+                              ...(builderSections.core_competencies?.data || {}),
+                              domain_expertise: e.target.value
+                                .split(",")
+                                .map((v: string) => v.trim())
+                                .filter(Boolean),
+                            })
+                          }
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="text-xs text-[var(--text-muted)]">
-                        {language === "ar" ? "الخبرات (JSON array)" : "Professional Experience (JSON array)"}
-                      </label>
-                      <textarea
-                        className="field mt-1 min-h-[110px] font-mono text-xs"
-                        value={JSON.stringify(
-                          builderSections.professional_experience?.data || [],
-                          null,
-                          2
-                        )}
-                        onChange={(e) => {
-                          try {
-                            updateBuilderSection("professional_experience", JSON.parse(e.target.value));
-                            setBuilderSyncError("");
-                          } catch {
-                            setBuilderSyncError(language === "ar" ? "صيغة JSON غير صحيحة في الخبرات." : "Invalid JSON in experience.");
-                          }
-                        }}
-                      />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-[var(--text-muted)]">
+                          {language === "ar" ? "الخبرة المهنية" : "Professional Experience"}
+                        </label>
+                        <button
+                          type="button"
+                          className="btn-ghost text-xs"
+                          onClick={() => addSectionArrayItem("professional_experience", EMPTY_EXPERIENCE)}
+                        >
+                          {language === "ar" ? "إضافة خبرة" : "Add Experience"}
+                        </button>
+                      </div>
+                      {experienceRows.length === 0 && (
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {language === "ar" ? "لا توجد خبرات مضافة." : "No experience entries yet."}
+                        </p>
+                      )}
+                      {experienceRows.map((row: any, idx: number) => (
+                        <div key={`exp-${idx}`} className="rounded-lg border border-[var(--border)] p-2 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "المسمى الوظيفي" : "Job Title"}
+                              value={row?.job_title || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("professional_experience", idx, {
+                                  ...row,
+                                  job_title: e.target.value,
+                                })
+                              }
+                            />
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "الشركة" : "Company"}
+                              value={row?.company || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("professional_experience", idx, {
+                                  ...row,
+                                  company: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "الموقع" : "Location"}
+                              value={row?.location || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("professional_experience", idx, {
+                                  ...row,
+                                  location: e.target.value,
+                                })
+                              }
+                            />
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "من (YYYY-MM)" : "Start (YYYY-MM)"}
+                              value={row?.start_date || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("professional_experience", idx, {
+                                  ...row,
+                                  start_date: e.target.value,
+                                })
+                              }
+                            />
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "إلى (YYYY-MM)" : "End (YYYY-MM)"}
+                              value={row?.end_date || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("professional_experience", idx, {
+                                  ...row,
+                                  end_date: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <textarea
+                            className="field min-h-[80px]"
+                            placeholder={language === "ar" ? "النقاط (سطر لكل نقطة)" : "Bullets (one line per bullet)"}
+                            value={toLines(row?.bullets)}
+                            onChange={(e) =>
+                              updateSectionArrayItem("professional_experience", idx, {
+                                ...row,
+                                bullets: fromLines(e.target.value),
+                              })
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="btn-ghost text-xs text-red-300"
+                            onClick={() => removeSectionArrayItem("professional_experience", idx)}
+                          >
+                            {language === "ar" ? "حذف الخبرة" : "Remove Experience"}
+                          </button>
+                        </div>
+                      ))}
                     </div>
 
-                    <div>
-                      <label className="text-xs text-[var(--text-muted)]">
-                        {language === "ar" ? "المشاريع (JSON array)" : "Projects (JSON array)"}
-                      </label>
-                      <textarea
-                        className="field mt-1 min-h-[90px] font-mono text-xs"
-                        value={JSON.stringify(builderSections.projects?.data || [], null, 2)}
-                        onChange={(e) => {
-                          try {
-                            updateBuilderSection("projects", JSON.parse(e.target.value));
-                            setBuilderSyncError("");
-                          } catch {
-                            setBuilderSyncError(language === "ar" ? "صيغة JSON غير صحيحة في المشاريع." : "Invalid JSON in projects.");
-                          }
-                        }}
-                      />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-[var(--text-muted)]">
+                          {language === "ar" ? "الشهادات والجوائز" : "Certifications & Awards"}
+                        </label>
+                        <button
+                          type="button"
+                          className="btn-ghost text-xs"
+                          onClick={() => addSectionArrayItem("certifications_awards", EMPTY_CERT_AWARD)}
+                        >
+                          {language === "ar" ? "إضافة عنصر" : "Add Entry"}
+                        </button>
+                      </div>
+                      {certAwardRows.length === 0 && (
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {language === "ar" ? "لا توجد شهادات أو جوائز." : "No certifications or awards yet."}
+                        </p>
+                      )}
+                      {certAwardRows.map((row: any, idx: number) => (
+                        <div key={`cert-${idx}`} className="rounded-lg border border-[var(--border)] p-2 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <select
+                              className="field"
+                              value={row?.type || "certification"}
+                              onChange={(e) =>
+                                updateSectionArrayItem("certifications_awards", idx, {
+                                  ...row,
+                                  type: e.target.value,
+                                })
+                              }
+                            >
+                              <option value="certification">
+                                {language === "ar" ? "شهادة" : "Certification"}
+                              </option>
+                              <option value="award">
+                                {language === "ar" ? "جائزة" : "Award"}
+                              </option>
+                            </select>
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "الاسم" : "Name"}
+                              value={row?.name || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("certifications_awards", idx, {
+                                  ...row,
+                                  name: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "الاختصار" : "Acronym"}
+                              value={row?.acronym || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("certifications_awards", idx, {
+                                  ...row,
+                                  acronym: e.target.value,
+                                })
+                              }
+                            />
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "الجهة المانحة" : "Issuer"}
+                              value={row?.issuer || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("certifications_awards", idx, {
+                                  ...row,
+                                  issuer: e.target.value,
+                                })
+                              }
+                            />
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "التاريخ" : "Date"}
+                              value={row?.date || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("certifications_awards", idx, {
+                                  ...row,
+                                  date: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            className="btn-ghost text-xs text-red-300"
+                            onClick={() => removeSectionArrayItem("certifications_awards", idx)}
+                          >
+                            {language === "ar" ? "حذف العنصر" : "Remove Entry"}
+                          </button>
+                        </div>
+                      ))}
                     </div>
 
-                    <div>
-                      <label className="text-xs text-[var(--text-muted)]">
-                        {language === "ar" ? "التعليم (JSON array)" : "Education (JSON array)"}
-                      </label>
-                      <textarea
-                        className="field mt-1 min-h-[90px] font-mono text-xs"
-                        value={JSON.stringify(builderSections.education?.data || [], null, 2)}
-                        onChange={(e) => {
-                          try {
-                            updateBuilderSection("education", JSON.parse(e.target.value));
-                            setBuilderSyncError("");
-                          } catch {
-                            setBuilderSyncError(language === "ar" ? "صيغة JSON غير صحيحة في التعليم." : "Invalid JSON in education.");
-                          }
-                        }}
-                      />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-[var(--text-muted)]">
+                          {language === "ar" ? "المشاريع" : "Projects"}
+                        </label>
+                        <button
+                          type="button"
+                          className="btn-ghost text-xs"
+                          onClick={() => addSectionArrayItem("projects", EMPTY_PROJECT)}
+                        >
+                          {language === "ar" ? "إضافة مشروع" : "Add Project"}
+                        </button>
+                      </div>
+                      {projectRows.length === 0 && (
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {language === "ar" ? "لا توجد مشاريع مضافة." : "No project entries yet."}
+                        </p>
+                      )}
+                      {projectRows.map((row: any, idx: number) => (
+                        <div key={`proj-${idx}`} className="rounded-lg border border-[var(--border)] p-2 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "عنوان المشروع" : "Project Title"}
+                              value={row?.title || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("projects", idx, { ...row, title: e.target.value })
+                              }
+                            />
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "الدور" : "Role"}
+                              value={row?.role || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("projects", idx, { ...row, role: e.target.value })
+                              }
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "من (YYYY-MM)" : "Start (YYYY-MM)"}
+                              value={row?.start_date || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("projects", idx, { ...row, start_date: e.target.value })
+                              }
+                            />
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "إلى (YYYY-MM)" : "End (YYYY-MM)"}
+                              value={row?.end_date || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("projects", idx, { ...row, end_date: e.target.value })
+                              }
+                            />
+                          </div>
+                          <textarea
+                            className="field min-h-[70px]"
+                            placeholder={language === "ar" ? "هدف المشروع" : "Project objective"}
+                            value={row?.objective || ""}
+                            onChange={(e) =>
+                              updateSectionArrayItem("projects", idx, { ...row, objective: e.target.value })
+                            }
+                          />
+                          <input
+                            className="field"
+                            placeholder={language === "ar" ? "التقنيات (مفصولة بفواصل)" : "Tech stack (comma-separated)"}
+                            value={Array.isArray(row?.tech_stack) ? row.tech_stack.join(", ") : ""}
+                            onChange={(e) =>
+                              updateSectionArrayItem("projects", idx, {
+                                ...row,
+                                tech_stack: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+                              })
+                            }
+                          />
+                          <textarea
+                            className="field min-h-[70px]"
+                            placeholder={language === "ar" ? "نقاط الإنجاز (سطر لكل نقطة)" : "Bullet achievements (one line each)"}
+                            value={toLines(row?.bullets)}
+                            onChange={(e) =>
+                              updateSectionArrayItem("projects", idx, {
+                                ...row,
+                                bullets: fromLines(e.target.value),
+                              })
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="btn-ghost text-xs text-red-300"
+                            onClick={() => removeSectionArrayItem("projects", idx)}
+                          >
+                            {language === "ar" ? "حذف المشروع" : "Remove Project"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-[var(--text-muted)]">
+                          {language === "ar" ? "التعليم" : "Education"}
+                        </label>
+                        <button
+                          type="button"
+                          className="btn-ghost text-xs"
+                          onClick={() => addSectionArrayItem("education", EMPTY_EDUCATION)}
+                        >
+                          {language === "ar" ? "إضافة تعليم" : "Add Education"}
+                        </button>
+                      </div>
+                      {educationRows.length === 0 && (
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {language === "ar" ? "لا توجد بيانات تعليم مضافة." : "No education entries yet."}
+                        </p>
+                      )}
+                      {educationRows.map((row: any, idx: number) => (
+                        <div key={`edu-${idx}`} className="rounded-lg border border-[var(--border)] p-2 space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "الدرجة العلمية" : "Degree"}
+                              value={row?.degree || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("education", idx, { ...row, degree: e.target.value })
+                              }
+                            />
+                            <input
+                              className="field"
+                              placeholder={language === "ar" ? "المؤسسة" : "Institution"}
+                              value={row?.institution || ""}
+                              onChange={(e) =>
+                                updateSectionArrayItem("education", idx, { ...row, institution: e.target.value })
+                              }
+                            />
+                          </div>
+                          <input
+                            className="field"
+                            placeholder={language === "ar" ? "سنة التخرج" : "Graduation Year"}
+                            value={row?.graduation_year || ""}
+                            onChange={(e) =>
+                              updateSectionArrayItem("education", idx, {
+                                ...row,
+                                graduation_year: e.target.value,
+                              })
+                            }
+                          />
+                          <textarea
+                            className="field min-h-[60px]"
+                            placeholder={language === "ar" ? "مواد ذات صلة (سطر لكل مادة)" : "Relevant coursework (one line each)"}
+                            value={toLines(row?.coursework)}
+                            onChange={(e) =>
+                              updateSectionArrayItem("education", idx, {
+                                ...row,
+                                coursework: fromLines(e.target.value),
+                              })
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="btn-ghost text-xs text-red-300"
+                            onClick={() => removeSectionArrayItem("education", idx)}
+                          >
+                            {language === "ar" ? "حذف التعليم" : "Remove Education"}
+                          </button>
+                        </div>
+                      ))}
                     </div>
 
                     <button
