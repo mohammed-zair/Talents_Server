@@ -152,6 +152,7 @@ app.use((err, req, res, next) => {
 const isProduction = process.env.NODE_ENV === "production";
 const requestedForce = process.env.DB_SYNC_FORCE === "true";
 const requestedAlter = process.env.DB_SYNC_ALTER === "true";
+const allowProductionSync = process.env.DB_SYNC_IN_PRODUCTION === "true";
 
 // Guard production from destructive/unstable sync behavior.
 const DB_SYNC_FORCE = isProduction ? false : requestedForce;
@@ -172,12 +173,20 @@ const ensureUserTypeEnum = async () => {
   });
 };
 
-sequelize
-  .sync({ force: DB_SYNC_FORCE, alter: DB_SYNC_ALTER })
-  .then(async () => {
-    await ensureUserTypeEnum();
-    console.log("Database synced successfully");
+const bootstrapDatabase = async () => {
+  if (isProduction && !allowProductionSync) {
+    await sequelize.authenticate();
+    console.log("Database connection verified (production sync disabled).");
+    return;
+  }
 
+  await sequelize.sync({ force: DB_SYNC_FORCE, alter: DB_SYNC_ALTER });
+  await ensureUserTypeEnum();
+  console.log("Database synced successfully");
+};
+
+bootstrapDatabase()
+  .then(async () => {
     if (process.env.ENABLE_AI_FEATURES === "true") {
       console.log("AI Features: Enabled");
       console.log(
@@ -190,7 +199,7 @@ sequelize
     }
   })
   .catch((err) => {
-    console.error("Database sync failed:", err);
+    console.error("Database bootstrap failed:", err);
     process.exit(1);
   });
 
