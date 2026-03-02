@@ -807,8 +807,8 @@ const JobsCommandGrid: React.FC = () => {
                   "form_fields",
                   JSON.stringify(
                     jobForm.questions.map((q) => ({
-                      label: q.label,
-                      type: q.type,
+                      title: q.label,
+                      input_type: q.type === "multi" ? "select" : q.type,
                       options: q.options ?? [],
                     }))
                   )

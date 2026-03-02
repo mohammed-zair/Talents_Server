@@ -54,12 +54,17 @@ const normalizeFormFields = (fields) => {
       return { error: "Each form field must be an object." };
     }
 
-    const title = String(field.title || "").trim();
+    // Backward-compatible mapping for older dashboards:
+    // title/label and input_type/type.
+    const title = String(field.title || field.label || "").trim();
     if (!title) {
       return { error: "Field title is required." };
     }
 
-    const inputType = String(field.input_type || "").trim().toLowerCase();
+    let inputType = String(field.input_type || field.type || "").trim().toLowerCase();
+    if (inputType === "multi") {
+      inputType = "select";
+    }
     if (!ALLOWED_FORM_INPUT_TYPES.has(inputType)) {
       return { error: `Invalid input_type: ${inputType}` };
     }

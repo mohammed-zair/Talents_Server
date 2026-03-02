@@ -39,7 +39,6 @@ const OpportunitiesPage: React.FC = () => {
   const [formValues, setFormValues] = useState<Record<string, string | string[]>>({});
   const [coverLetter, setCoverLetter] = useState("");
   const [selectedCvId, setSelectedCvId] = useState<number | "">("");
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const [showAnalyzePrompt, setShowAnalyzePrompt] = useState(false);
@@ -85,7 +84,10 @@ const OpportunitiesPage: React.FC = () => {
   const quickApply = useMutation({
     mutationFn: async (payload: { job: any; formData: FormData }) => {
       const job = payload.job;
-      await seekerApi.generatePitch({ cv_id: Number(payload.formData.get("cv_id")), job_id: job.job_id, language });
+      const cvId = Number(payload.formData.get("cv_id"));
+      if (Number.isFinite(cvId) && cvId > 0) {
+        await seekerApi.generatePitch({ cv_id: cvId, job_id: job.job_id, language });
+      }
       await seekerApi.submitApplication(payload.formData);
       return true;
     },
@@ -142,7 +144,6 @@ const OpportunitiesPage: React.FC = () => {
 
   const formFields: FormField[] = Array.isArray((formQ.data as any)?.fields) ? (formQ.data as any).fields : [];
   const formType = (formQ.data as any)?.form_type;
-  const requireCv = Boolean((formQ.data as any)?.require_cv);
   const selectedCvNumeric = selectedCvId ? Number(selectedCvId) : null;
 
   const cvAnalysisQ = useQuery({
@@ -161,7 +162,6 @@ const OpportunitiesPage: React.FC = () => {
     setFormValues({});
     setCoverLetter("");
     setSelectedCvId("");
-    setUploadFile(null);
     setFormError("");
     setFormSuccess("");
   };
@@ -175,7 +175,7 @@ const OpportunitiesPage: React.FC = () => {
     }
 
     setFormError("");
-    if (!hasAnalyzedCv || uploadFile) {
+    if (!hasAnalyzedCv) {
       setShowAnalyzePrompt(true);
       return;
     }
@@ -189,35 +189,15 @@ const OpportunitiesPage: React.FC = () => {
       setFormError(`${t("fieldRequired")}: ${missingField.title}`);
       return;
     }
-    let cvId = selectedCvId ? Number(selectedCvId) : null;
-
-    if (requireCv && !cvId && !uploadFile) {
+    const cvId = selectedCvId ? Number(selectedCvId) : null;
+    if (!cvId) {
       setFormError(t("cvRequired"));
       return;
     }
 
-    if (uploadFile) {
-      try {
-        const fd = new FormData();
-        const file = uploadFile as File;
-        fd.append("cv_file", file);
-        fd.append("cv_title", file.name);
-        const uploaded = await seekerApi.uploadCV(fd);
-        cvId = uploaded?.cv_id || null;
-        if (cvId) {
-          setSelectedCvId(cvId);
-          seekerApi.getCvAnalysis(cvId).catch(() => null);
-          queryClient.invalidateQueries({ queryKey: ["cvs"] });
-        }
-      } catch (e: any) {
-        setFormError(getApiErrorMessage(e, t("cvUploadFailed")));
-        return;
-      }
-    }
-
     const formData = new FormData();
     formData.append("job_id", String(activeJob.job_id));
-    if (cvId) formData.append("cv_id", String(cvId));
+    formData.append("cv_id", String(cvId));
     if (coverLetter) formData.append("cover_letter", coverLetter);
 
     if (formFields.length) {
@@ -515,7 +495,7 @@ const OpportunitiesPage: React.FC = () => {
 
                   <div className="rounded-xl border border-[var(--border)] p-3">
                     <div className="text-sm font-semibold">{t("chooseCv")}</div>
-                    <div className="mt-2 grid gap-2 md:grid-cols-2">
+                    <div className="mt-2">
                       <select
                         className="field"
                         value={selectedCvId}
@@ -526,14 +506,20 @@ const OpportunitiesPage: React.FC = () => {
                           <option key={cv.cv_id} value={cv.cv_id}>{cv.title || `CV #${cv.cv_id}`}</option>
                         ))}
                       </select>
-                      <input
-                        type="file"
-                        className="field"
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                      />
                     </div>
-                    {requireCv && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("cvRequired")}</p>}
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">{t("cvLabRequiredForApply")}</p>
+                    {Array.isArray(cvsQ.data) && cvsQ.data.length === 0 && (
+                      <button
+                        type="button"
+                        className="btn-ghost mt-2 px-3 py-2 text-xs"
+                        onClick={() => {
+                          setShowAnalyzePrompt(false);
+                          navigate("/cv-lab");
+                        }}
+                      >
+                        {t("goToCvLab")}
+                      </button>
+                    )}
                   </div>
 
                   {formError && <p className="text-sm text-red-300">{formError}</p>}

@@ -908,18 +908,19 @@ exports.getJobApplicationForm = async (req, res) => {
  * @access Private (يتطلب authJwt و middleware الرفع)
  */
 exports.submitApplication = async (req, res) => {
-  // دمج الحقول من كلا النموذجين
   const { job_id, cv_id, cover_letter, form_data } = req.body;
   const { user_id } = req.user;
   const uploadedFile = req.file;
 
   const t = await sequelize.transaction();
   try {
-    // 1. التحقق من الوظيفة والتقديم المسبق
-    const job = await JobPosting.findByPk(job_id, { transaction: t });
+    const job = await JobPosting.findByPk(job_id, {
+      include: [{ model: JobForm, attributes: ["form_id", "require_cv"], required: false }],
+      transaction: t,
+    });
     if (!job || job.status !== "open") {
       await t.rollback();
-      return res.status(404).json({ message: "الوظيفة غير موجودة أو مغلقة." });
+      return res.status(404).json({ message: "Job not found or closed." });
     }
 
     const existingApplication = await Application.findOne({
@@ -928,28 +929,26 @@ exports.submitApplication = async (req, res) => {
     });
     if (existingApplication) {
       await t.rollback();
-      return res.status(400).json({ message: "لقد قدمت بالفعل لهذه الوظيفة." });
+      return res.status(400).json({ message: "You already applied to this job." });
     }
 
-    let finalCvId = cv_id;
+    let finalCvId = cv_id || null;
 
-    // 2. معالجة السيرة الذاتية (ملف مرفوع جديد أو cv_id مسجل)
     if (uploadedFile) {
-      // رفع ملف جديد => إنشاء سجل CV
-      const newCV = await CV.create(
-        {
-          user_id,
-          file_url: uploadedFile.path,
-          file_type: uploadedFile.mimetype,
-          title: `مرفق لطلب وظيفة ${job_id} بتاريخ ${new Date()
-            .toISOString()
-            .slice(0, 10)}`,
-        },
-        { transaction: t }
-      );
-      finalCvId = newCV.cv_id;
-    } else if (finalCvId) {
-      // تحديد CV مُسجل => التحقق من ملكيته
+      await t.rollback();
+      return res.status(400).json({
+        message: "Upload external CVs in CV Lab, run AI analysis, then apply using a CV from CV Lab.",
+      });
+    }
+
+    if (!finalCvId) {
+      await t.rollback();
+      return res
+        .status(400)
+        .json({ message: "A CV from CV Lab is required for this application." });
+    }
+
+    if (finalCvId) {
       const userCv = await CV.findOne({
         where: { cv_id: finalCvId, user_id },
         transaction: t,
@@ -957,32 +956,37 @@ exports.submitApplication = async (req, res) => {
       if (!userCv) {
         await t.rollback();
         return res.status(403).json({
-          message: "السيرة الذاتية المحددة غير صالحة أو لا تخص المستخدم.",
+          message: "Selected CV is invalid or does not belong to this user.",
         });
       }
-    } else {
-      // لا ملف ولا CV محدد
-      await t.rollback();
-      return res
-        .status(400)
-        .json({ message: "يجب إرفاق ملف CV أو تحديد CV مسجل." });
+
+      const analyzedCv = await CVFeaturesAnalytics.findOne({
+        where: { cv_id: finalCvId },
+        attributes: ["cv_id"],
+        transaction: t,
+      });
+      if (!analyzedCv) {
+        await t.rollback();
+        return res.status(400).json({
+          message: "Please run CV analysis in CV Lab before applying.",
+        });
+      }
     }
 
-    // 3. إنشاء طلب التقديم
     const application = await Application.create(
       {
         user_id,
         job_id,
         cv_id: finalCvId,
         cover_letter: cover_letter || null,
-        form_data: form_data ? JSON.parse(form_data) : null, // دعم بيانات النموذج من النسخة الثانية
+        form_data: form_data ? JSON.parse(form_data) : null,
         status: "pending",
       },
       { transaction: t }
     );
 
     await t.commit();
-    
+
     try {
       const [jobWithCompany, applicant, cvRecord] = await Promise.all([
         JobPosting.findByPk(job_id, {
@@ -990,10 +994,12 @@ exports.submitApplication = async (req, res) => {
           attributes: ["job_id", "title", "company_id"],
         }),
         User.findByPk(user_id, { attributes: ["user_id", "full_name", "email"] }),
-        CV.findByPk(finalCvId, {
-          include: [{ model: CVFeaturesAnalytics, attributes: ["ats_score"] }],
-          attributes: ["cv_id"],
-        }),
+        finalCvId
+          ? CV.findByPk(finalCvId, {
+              include: [{ model: CVFeaturesAnalytics, attributes: ["ats_score"] }],
+              attributes: ["cv_id"],
+            })
+          : Promise.resolve(null),
       ]);
 
       const company = jobWithCompany?.Company || null;
@@ -1021,25 +1027,18 @@ exports.submitApplication = async (req, res) => {
     return successResponse(
       res,
       { application_id: application.application_id },
-      "تم إرسال طلب التوظيف بنجاح.",
+      "Application submitted successfully.",
       201
     );
   } catch (error) {
     await t.rollback();
-    // (يجب أن يتم التعامل مع حذف الملف المرفوع إذا فشلت العملية في middleware أو خدمة خارجية)
-
     console.error("Error submitting application:", error);
     return res
       .status(500)
-      .json({ message: "فشل في إرسال الطلب.", error: error.message });
+      .json({ message: "Failed to submit application.", error: error.message });
   }
 };
 
-/**
- * @desc [Private] عرض جميع طلبات التوظيف التي قدمها المستخدم الحالي
- * @route GET /api/user/applications
- * @access Private (يتطلب authJwt)
- */
 exports.listUserApplications = async (req, res) => {
   const { user_id } = req.user;
 
@@ -1110,5 +1109,6 @@ exports.listUserApplications = async (req, res) => {
     }
   }
 };
+
 
 

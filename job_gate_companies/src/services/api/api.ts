@@ -262,7 +262,15 @@ export const companyApi = {
     require_cv: boolean;
     fields: { label: string; type: "text" | "multi" | "file"; options?: string[] }[];
   }) => {
-    const { data } = await api.post("/companies/company/job-forms", payload);
+    const normalizedPayload = {
+      ...payload,
+      fields: (payload.fields || []).map((field) => ({
+        title: field.label,
+        input_type: field.type === "multi" ? "select" : field.type,
+        options: field.options || [],
+      })),
+    };
+    const { data } = await api.post("/companies/company/job-forms", normalizedPayload);
     return data;
   },
   updateJobForm: async (
@@ -272,7 +280,15 @@ export const companyApi = {
       fields: { label: string; type: "text" | "multi" | "file"; options?: string[] }[];
     }
   ) => {
-    const { data } = await api.put(`/companies/company/job-postings/${jobId}/form`, payload);
+    const normalizedPayload = {
+      ...payload,
+      fields: (payload.fields || []).map((field) => ({
+        title: field.label,
+        input_type: field.type === "multi" ? "select" : field.type,
+        options: field.options || [],
+      })),
+    };
+    const { data } = await api.put(`/companies/company/job-postings/${jobId}/form`, normalizedPayload);
     return data;
   },
   deleteJobForm: async (jobId: string) => {
