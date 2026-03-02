@@ -87,6 +87,7 @@ const CVLabPage: React.FC = () => {
   const [uploadFeedback, setUploadFeedback] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [selectedInsightId, setSelectedInsightId] = useState<number | null>(null);
+  const [enhanceUsedByCv, setEnhanceUsedByCv] = useState<Record<number, boolean>>({});
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -168,6 +169,29 @@ const CVLabPage: React.FC = () => {
   });
 
   const selectedCvHref = getCvPublicHref(selectedCv?.file_url);
+  const selectedCvIdSafe = selectedCv?.cv_id ?? null;
+  const hasUsedEnhanceForSelectedCv = Boolean(
+    selectedCvIdSafe ? enhanceUsedByCv[selectedCvIdSafe] : false
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("twt_cv_enhance_used");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        const normalized: Record<number, boolean> = {};
+        Object.entries(parsed as Record<string, unknown>).forEach(([key, value]) => {
+          const n = Number(key);
+          if (Number.isFinite(n) && value === true) normalized[n] = true;
+        });
+        setEnhanceUsedByCv(normalized);
+      }
+    } catch {
+      // ignore invalid local cache
+    }
+  }, []);
 
   useEffect(() => {
     if (!historyItems.length) {
@@ -244,6 +268,15 @@ const CVLabPage: React.FC = () => {
     onSuccess: (id: string) => {
       setEnhanceError("");
       localStorage.setItem("twt_ai_session", id);
+      if (selectedCvIdSafe) {
+        setEnhanceUsedByCv((prev) => {
+          const next = { ...prev, [selectedCvIdSafe]: true };
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem("twt_cv_enhance_used", JSON.stringify(next));
+          }
+          return next;
+        });
+      }
       navigate("/ai-consultant");
     },
     onError: (error: unknown) => {
@@ -386,9 +419,13 @@ const CVLabPage: React.FC = () => {
               <button
                 className={`btn-primary ${enhanceMutation.isPending ? "btn-loading" : ""}`}
                 onClick={() => enhanceMutation.mutate()}
-                disabled={enhanceMutation.isPending}
+                disabled={enhanceMutation.isPending || hasUsedEnhanceForSelectedCv}
               >
-                {enhanceMutation.isPending ? t("enhanceStarting") : t("enhanceNow")}
+                {enhanceMutation.isPending
+                  ? t("enhanceStarting")
+                  : hasUsedEnhanceForSelectedCv
+                    ? (language === "ar" ? "تم الاستخدام لهذه السيرة" : "Already used for this CV")
+                    : t("enhanceNow")}
               </button>
               {enhanceError && <p className="text-xs text-red-300">{enhanceError}</p>}
             </div>
