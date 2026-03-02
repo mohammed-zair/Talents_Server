@@ -49,6 +49,16 @@ const USER_REG_OTP_COOLDOWN_SECONDS = parseInt(
   process.env.USER_REG_OTP_COOLDOWN_SECONDS || "60",
   10
 );
+const CONTACT_EMAIL_TO = String(
+  process.env.CONTACT_INBOX_EMAIL || "talentswetrust@gmail.com"
+)
+  .trim()
+  .toLowerCase();
+const CONTACT_RATE_LIMIT_WINDOW_MS = parseInt(
+  process.env.CONTACT_RATE_LIMIT_WINDOW_MS || "60000",
+  10
+);
+const contactRateLimitMap = new Map();
 
 const withCompanyLogoUrl = (company) => maskCompanyIfAnonymous({ is_anonymous: false }, company);
 
@@ -255,6 +265,100 @@ const buildUserRegistrationOtpTemplate = ({ name, otpCode, language = "en" }) =>
       </div>
     `,
   };
+};
+
+exports.sendContactMessage = async (req, res) => {
+  try {
+    const subjectInput = String(req.body?.subject || "").trim();
+    const messageInput = String(req.body?.message || "").trim();
+    const language = resolveLanguage(req);
+    const requesterEmail = String(req.body?.email || req.user?.email || "")
+      .trim()
+      .toLowerCase();
+    const requesterName = String(req.body?.full_name || req.user?.full_name || "")
+      .trim();
+
+    if (!subjectInput || !messageInput) {
+      return errorResponse(res, "Subject and message are required.", null, 400);
+    }
+    if (subjectInput.length > 180) {
+      return errorResponse(res, "Subject is too long.", null, 400);
+    }
+    if (messageInput.length > 5000) {
+      return errorResponse(res, "Message is too long.", null, 400);
+    }
+
+    const requesterKey = req.user?.user_id
+      ? `user:${req.user.user_id}`
+      : `ip:${req.ip || "unknown"}`;
+    const lastSentAt = contactRateLimitMap.get(requesterKey) || 0;
+    const now = Date.now();
+    if (now - lastSentAt < CONTACT_RATE_LIMIT_WINDOW_MS) {
+      return errorResponse(
+        res,
+        "Please wait a moment before sending another message.",
+        null,
+        429
+      );
+    }
+
+    const safeSubject = subjectInput.replace(/\r?\n/g, " ").trim();
+    const introEn = "New Contact Us message from Talents platform";
+    const introAr = "رسالة جديدة من صفحة تواصل معنا في Talents";
+    const senderLabelEn = requesterName
+      ? `${requesterName}${requesterEmail ? ` <${requesterEmail}>` : ""}`
+      : requesterEmail || "Unknown";
+    const senderLabelAr = requesterName
+      ? `${requesterName}${requesterEmail ? ` <${requesterEmail}>` : ""}`
+      : requesterEmail || "غير معروف";
+    const clientMeta = `${req.ip || "unknown"} | ${req.get("user-agent") || "unknown agent"}`;
+
+    const textBody =
+      `${language === "ar" ? introAr : introEn}\n\n` +
+      `${language === "ar" ? "المرسل" : "Sender"}: ${
+        language === "ar" ? senderLabelAr : senderLabelEn
+      }\n` +
+      `${language === "ar" ? "العنوان" : "Subject"}: ${safeSubject}\n` +
+      `${language === "ar" ? "العميل" : "Client"}: ${clientMeta}\n\n` +
+      `${language === "ar" ? "الرسالة" : "Message"}:\n${messageInput}`;
+
+    const htmlBody = `
+      <div style="font-family:Arial,sans-serif;background:#f4f7fb;padding:20px;" ${
+        language === "ar" ? 'dir="rtl"' : ""
+      }>
+        <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;">
+          <h2 style="margin:0 0 14px;color:#111827;">${
+            language === "ar" ? introAr : introEn
+          }</h2>
+          <p style="margin:0 0 8px;"><strong>${
+            language === "ar" ? "المرسل" : "Sender"
+          }:</strong> ${language === "ar" ? senderLabelAr : senderLabelEn}</p>
+          <p style="margin:0 0 8px;"><strong>${
+            language === "ar" ? "العنوان" : "Subject"
+          }:</strong> ${safeSubject}</p>
+          <p style="margin:0 0 14px;"><strong>${
+            language === "ar" ? "العميل" : "Client"
+          }:</strong> ${clientMeta}</p>
+          <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;background:#f9fafb;white-space:pre-wrap;line-height:1.6;">
+            ${String(messageInput)
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")}
+          </div>
+        </div>
+      </div>
+    `;
+
+    await sendEmail(CONTACT_EMAIL_TO, `[Talents Contact] ${safeSubject}`, textBody, {
+      html: htmlBody,
+    });
+
+    contactRateLimitMap.set(requesterKey, now);
+    return successResponse(res, { sent: true, to: CONTACT_EMAIL_TO }, "Message sent.");
+  } catch (error) {
+    console.error("Contact message send error:", error);
+    return errorResponse(res, "Failed to send contact message.", error, 500);
+  }
 };
 
 exports.sendJobSeekerRegistrationOtp = async (req, res) => {

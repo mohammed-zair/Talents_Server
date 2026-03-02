@@ -75,5 +75,6 @@ router.get(
   "/job-postings/:id/form",
   userController.getJobApplicationForm
 );
+router.post("/contact", verifyToken, userController.sendContactMessage);
 
 module.exports = router;

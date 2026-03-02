@@ -159,6 +159,24 @@ const ACTION_VERBS = [
 ];
 
 const IMPACT_REGEX = /\b(\d+%|\d+\+?|\$\d+|x\d+|milliseconds?|seconds?|minutes?|hours?|days?)\b/i;
+const ATS_WARNING_LABELS: Record<string, { en: string; ar: string }> = {
+  no_bullets_found: {
+    en: "No achievement bullets found in experience/projects.",
+    ar: "لا توجد نقاط إنجاز في الخبرات أو المشاريع.",
+  },
+  low_measurable_impact_bullets: {
+    en: "Few bullets include measurable impact (numbers/percentages/results).",
+    ar: "عدد قليل من النقاط يحتوي على أثر قابل للقياس (أرقام/نِسب/نتائج).",
+  },
+  low_action_verb_bullets: {
+    en: "Use stronger action verbs at the start of bullets.",
+    ar: "استخدم أفعالًا أقوى في بداية النقاط.",
+  },
+  required_sections_missing: {
+    en: "Some required sections are still missing.",
+    ar: "بعض الأقسام المطلوبة ما زالت ناقصة.",
+  },
+};
 
 const hasContent = (value: any): boolean => {
   if (value == null) return false;
@@ -632,6 +650,8 @@ const AIConsultantPage: React.FC = () => {
   const certAwardRows = Array.isArray(builderSections.certifications_awards?.data)
     ? builderSections.certifications_awards.data
     : [];
+  const formatAtsWarning = (warning: string) =>
+    ATS_WARNING_LABELS[warning]?.[language === "ar" ? "ar" : "en"] || warning;
 
   const insights = insightsQ.data;
   const scoreValue = typeof insights?.score?.score === "number" ? insights?.score?.score : null;
@@ -1121,7 +1141,7 @@ const AIConsultantPage: React.FC = () => {
                     {atsHealth && (
                       <div className="rounded-lg border border-[var(--border)] p-2 text-xs space-y-2">
                         <div className="font-semibold">
-                          {language === "ar" ? "ATS Health" : "ATS Health"}
+                          {language === "ar" ? "صحة التوافق مع ATS" : "ATS Health"}
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="rounded border border-[var(--border)] p-2">
@@ -1159,7 +1179,7 @@ const AIConsultantPage: React.FC = () => {
                         {atsHealth.warnings.length > 0 && (
                           <div className="text-amber-300">
                             {language === "ar" ? "تحذيرات الجودة:" : "Quality warnings:"}{" "}
-                            {atsHealth.warnings.join(", ")}
+                            {atsHealth.warnings.map(formatAtsWarning).join(" | ")}
                           </div>
                         )}
                       </div>
@@ -1260,7 +1280,11 @@ const AIConsultantPage: React.FC = () => {
                       <div className="mt-2 grid grid-cols-1 gap-2">
                         <input
                           className="field"
-                          placeholder={language === "ar" ? "Frameworks (مفصولة بفواصل)" : "Frameworks (comma-separated)"}
+                          placeholder={
+                            language === "ar"
+                              ? "الأطر (مفصولة بفواصل)"
+                              : "Frameworks (comma-separated)"
+                          }
                           value={(builderSections.core_competencies?.data?.frameworks || []).join(", ")}
                           onChange={(e) =>
                             updateBuilderSection("core_competencies", {
@@ -1274,7 +1298,11 @@ const AIConsultantPage: React.FC = () => {
                         />
                         <input
                           className="field"
-                          placeholder={language === "ar" ? "Tools/Platforms (مفصولة بفواصل)" : "Tools/Platforms (comma-separated)"}
+                          placeholder={
+                            language === "ar"
+                              ? "الأدوات/المنصات (مفصولة بفواصل)"
+                              : "Tools/Platforms (comma-separated)"
+                          }
                           value={(builderSections.core_competencies?.data?.tools_platforms || []).join(", ")}
                           onChange={(e) =>
                             updateBuilderSection("core_competencies", {
@@ -1288,7 +1316,11 @@ const AIConsultantPage: React.FC = () => {
                         />
                         <input
                           className="field"
-                          placeholder={language === "ar" ? "Domain Expertise (مفصولة بفواصل)" : "Domain Expertise (comma-separated)"}
+                          placeholder={
+                            language === "ar"
+                              ? "مجال التخصص (مفصول بفواصل)"
+                              : "Domain Expertise (comma-separated)"
+                          }
                           value={(builderSections.core_competencies?.data?.domain_expertise || []).join(", ")}
                           onChange={(e) =>
                             updateBuilderSection("core_competencies", {

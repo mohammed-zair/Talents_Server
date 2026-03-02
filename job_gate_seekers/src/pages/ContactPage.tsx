@@ -1,18 +1,55 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Facebook, Instagram, Mail } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
+import { seekerApi } from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 
 const ContactPage: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(
+    null
+  );
 
-  const sendEmail = () => {
-    const to = "talentswetrust@gmail.com";
-    const subjectLine = encodeURIComponent(subject || t("contactSubjectFallback"));
-    const body = encodeURIComponent(message || t("contactMessageFallback"));
-    window.location.href = `mailto:${to}?subject=${subjectLine}&body=${body}`;
+  const sendEmail = async () => {
+    const finalSubject = (subject || t("contactSubjectFallback")).trim();
+    const finalMessage = (message || t("contactMessageFallback")).trim();
+    if (!finalSubject || !finalMessage) {
+      setFeedback({
+        type: "error",
+        text: language === "ar" ? "يرجى كتابة العنوان والرسالة." : "Please fill subject and message.",
+      });
+      return;
+    }
+
+    try {
+      setSending(true);
+      setFeedback(null);
+      await seekerApi.sendContactMessage({
+        subject: finalSubject,
+        message: finalMessage,
+        language: language === "ar" ? "ar" : "en",
+      });
+      setFeedback({
+        type: "success",
+        text:
+          language === "ar"
+            ? "تم إرسال رسالتك إلى talentswetrust@gmail.com بنجاح."
+            : "Your message was sent successfully to talentswetrust@gmail.com.",
+      });
+      setSubject("");
+      setMessage("");
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        text: getApiErrorMessage(error, language === "ar" ? "فشل إرسال الرسالة." : "Failed to send message."),
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -61,9 +98,18 @@ const ContactPage: React.FC = () => {
               />
             </div>
 
-            <button className="btn-primary w-full" onClick={sendEmail}>
-              {t("contactSend")}
+            <button className="btn-primary w-full" onClick={sendEmail} disabled={sending}>
+              {sending ? (language === "ar" ? "جاري الإرسال..." : "Sending...") : t("contactSend")}
             </button>
+
+            {feedback && (
+              <p
+                className={`text-xs ${feedback.type === "success" ? "text-emerald-300" : "text-red-300"}`}
+                aria-live="polite"
+              >
+                {feedback.text}
+              </p>
+            )}
           </div>
         </div>
 

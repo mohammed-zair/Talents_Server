@@ -70,6 +70,10 @@ export const seekerApi = {
   forgotPassword: async (data: { email: string }) => api.post("/auth/forgot-password", data),
   resetPassword: async (data: { email: string; token: string; newPassword: string }) =>
     api.post("/auth/reset-password", data),
+  sendContactMessage: async (data: { subject: string; message: string; language?: "en" | "ar" }) => {
+    const res = await api.post("/jop_seeker/contact", data);
+    return unwrap(res.data);
+  },
 
   getJobs: async (params?: { page?: number; limit?: number; companyId?: number | string }) => {
     const query: Record<string, any> = {};
