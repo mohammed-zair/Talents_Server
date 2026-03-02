@@ -2,21 +2,7 @@
 
 const { SavedJob, JobPosting, Company } = require("../models");
 const { successResponse, errorResponse } = require("../utils/responseHandler");
-
-const buildCompanyLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
-
-const withCompanyLogoUrl = (company) => {
-  if (!company) return company;
-  const data = company.toJSON ? company.toJSON() : { ...company };
-  const logoUrl = data.logo_mimetype
-    ? buildCompanyLogoUrl(data.company_id)
-    : null;
-  return {
-    ...data,
-    logo_url: logoUrl,
-    logo_mimetype: undefined,
-  };
-};
+const { maskCompanyIfAnonymous } = require("../utils/companyBranding");
 
 /**
  * @desc [Seeker] حفظ وظيفة
@@ -77,6 +63,7 @@ exports.getSavedJobs = async (req, res) => {
             "salary_min",
             "salary_max",
             "created_at",
+            "is_anonymous",
           ],
           include: [
             {
@@ -92,7 +79,10 @@ exports.getSavedJobs = async (req, res) => {
     const payload = savedJobs.map((entry) => {
       const data = entry.toJSON ? entry.toJSON() : { ...entry };
       if (data.JobPosting?.Company) {
-        data.JobPosting.Company = withCompanyLogoUrl(data.JobPosting.Company);
+        data.JobPosting.Company = maskCompanyIfAnonymous(
+          data.JobPosting,
+          data.JobPosting.Company
+        );
       }
       return data;
     });

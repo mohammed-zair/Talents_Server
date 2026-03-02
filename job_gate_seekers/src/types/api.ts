@@ -28,8 +28,9 @@ export type JobPosting = {
   form_type?: "internal_form" | "external_link";
   external_form_url?: string;
   created_at?: string;
+  is_anonymous?: boolean;
   Company?: {
-    company_id: number;
+    company_id?: number | null;
     name: string;
     logo_url?: string;
     description?: string;

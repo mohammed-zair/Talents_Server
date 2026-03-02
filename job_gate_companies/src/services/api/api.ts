@@ -89,6 +89,7 @@ export const companyApi = {
       jobImageUrl: job.job_image_url
         ? `${ASSET_BASE_URL}${job.job_image_url}`
         : job.jobImageUrl ?? null,
+      is_anonymous: Boolean(job.is_anonymous),
       status: job.status ?? "open",
       applicants: Array.isArray(job.Applications)
         ? job.Applications.length

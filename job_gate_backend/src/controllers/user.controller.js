@@ -19,6 +19,7 @@ const crypto = require("crypto");
 const { Op } = require("sequelize");
 const sendEmail = require("../utils/sendEmail");
 const { successResponse, errorResponse } = require("../utils/responseHandler"); // نفترض وجودها
+const { maskCompanyIfAnonymous } = require("../utils/companyBranding");
 
 // افترض أن ملف الإعدادات يحوي JWT_SECRET
 const JWT_SECRET = process.env.JWT_SECRET ;
@@ -49,20 +50,7 @@ const USER_REG_OTP_COOLDOWN_SECONDS = parseInt(
   10
 );
 
-const buildCompanyLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
-
-const withCompanyLogoUrl = (company) => {
-  if (!company) return company;
-  const data = company.toJSON ? company.toJSON() : { ...company };
-  const logoUrl = data.logo_mimetype
-    ? buildCompanyLogoUrl(data.company_id)
-    : null;
-  return {
-    ...data,
-    logo_url: logoUrl,
-    logo_mimetype: undefined,
-  };
-};
+const withCompanyLogoUrl = (company) => maskCompanyIfAnonymous({ is_anonymous: false }, company);
 
 const getCompanyApplicationsUrl = () => {
   const base =
@@ -704,6 +692,7 @@ exports.listJobPostings = async (req, res) => {
       "salary_max",
       "form_type",
       "job_image_url",
+      "is_anonymous",
       "created_at",
     ];
 
@@ -727,7 +716,7 @@ exports.listJobPostings = async (req, res) => {
 
       const items = rows.map((posting) => {
         const data = posting.toJSON ? posting.toJSON() : { ...posting };
-        if (data.Company) data.Company = withCompanyLogoUrl(data.Company);
+        if (data.Company) data.Company = maskCompanyIfAnonymous(data, data.Company);
         return data;
       });
 
@@ -744,7 +733,7 @@ exports.listJobPostings = async (req, res) => {
 
     const payload = jobPostings.map((posting) => {
       const data = posting.toJSON ? posting.toJSON() : { ...posting };
-      if (data.Company) data.Company = withCompanyLogoUrl(data.Company);
+      if (data.Company) data.Company = maskCompanyIfAnonymous(data, data.Company);
       return data;
     });
 
@@ -780,6 +769,7 @@ exports.getJobPostingDetails = async (req, res) => {
         "salary_max",
         "form_type",
         "job_image_url",
+        "is_anonymous",
         "created_at",
       ],
       include: [
@@ -805,7 +795,7 @@ exports.getJobPostingDetails = async (req, res) => {
 
     const payload = jobPosting.toJSON ? jobPosting.toJSON() : { ...jobPosting };
     if (payload.Company) {
-      payload.Company = withCompanyLogoUrl(payload.Company);
+      payload.Company = maskCompanyIfAnonymous(payload, payload.Company);
     }
     return successResponse(res, payload);
   } catch (error) {
@@ -1061,7 +1051,7 @@ exports.listUserApplications = async (req, res) => {
       include: [
         {
           model: JobPosting,
-          attributes: ["job_id", "title", "status", "location"],
+          attributes: ["job_id", "title", "status", "location", "is_anonymous"],
           include: [{ model: Company, attributes: ["name"] }],
         },
         {
@@ -1072,7 +1062,14 @@ exports.listUserApplications = async (req, res) => {
       order: [["submitted_at", "DESC"]],
     });
 
-    return successResponse(res, applications);
+    const payload = applications.map((application) => {
+      const data = application.toJSON ? application.toJSON() : { ...application };
+      if (data.JobPosting?.Company) {
+        data.JobPosting.Company = maskCompanyIfAnonymous(data.JobPosting, data.JobPosting.Company);
+      }
+      return data;
+    });
+    return successResponse(res, payload);
   } catch (error) {
     console.error("Error listing user applications (rich query):", error);
 

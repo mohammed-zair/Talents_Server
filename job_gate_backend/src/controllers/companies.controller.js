@@ -85,7 +85,7 @@ exports.getApprovedCompanyDetails = async (req, res) => {
       include: [
         {
           model: JobPosting,
-          where: { status: "open" },
+          where: { status: "open", is_anonymous: false },
           required: false,
           attributes: [
             "job_id",

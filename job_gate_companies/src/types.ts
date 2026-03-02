@@ -47,6 +47,7 @@ export interface JobPosting {
   description?: string;
   requirements?: string;
   jobImageUrl?: string | null;
+  is_anonymous?: boolean;
   status: "open" | "closed" | "paused";
   applicants: number;
   createdAt: string;

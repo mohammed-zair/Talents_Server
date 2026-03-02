@@ -131,6 +131,7 @@ exports.createJobPosting = async (req, res) => {
       external_form_url,
       require_cv = true,
       form_fields = [],
+      is_anonymous = false,
     } = req.body;
 
     const normalizedFormFields = safeJsonParse(form_fields, form_fields);
@@ -139,6 +140,7 @@ exports.createJobPosting = async (req, res) => {
       : [];
 
     const normalizedRequireCv = toBool(require_cv, true);
+    const normalizedIsAnonymous = toBool(is_anonymous, false);
 
     const normalizedRequirements = safeJsonParse(requirements, requirements);
     const requirementsText =
@@ -179,6 +181,7 @@ exports.createJobPosting = async (req, res) => {
         form_type,
         external_form_url,
         job_image_url: jobImageUrl,
+        is_anonymous: normalizedIsAnonymous,
         company_id: company.company_id,
         status: "open",
       },
@@ -290,13 +293,18 @@ exports.updateJobPosting = async (req, res) => {
       'salary_max',
       'location',
       'external_form_url',
-      'job_image_url'
+      'job_image_url',
+      'is_anonymous',
     ];
     
     const filteredUpdates = {};
     allowedUpdates.forEach(field => {
       if (updateData[field] !== undefined) {
-        filteredUpdates[field] = updateData[field];
+        if (field === "is_anonymous") {
+          filteredUpdates[field] = String(updateData[field]).toLowerCase() === "true" || updateData[field] === true;
+        } else {
+          filteredUpdates[field] = updateData[field];
+        }
       }
     });
 

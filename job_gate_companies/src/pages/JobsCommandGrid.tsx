@@ -87,6 +87,7 @@ const JobsCommandGrid: React.FC = () => {
     location: "",
     salaryMin: "",
     salaryMax: "",
+    isAnonymous: false,
   });
   const [jobImageFile, setJobImageFile] = useState<File | null>(null);
   const [jobImagePreview, setJobImagePreview] = useState<string | null>(null);
@@ -237,6 +238,7 @@ const JobsCommandGrid: React.FC = () => {
         location: "",
         salaryMin: "",
         salaryMax: "",
+        isAnonymous: false,
       });
       setJobImageFile(null);
       setJobImagePreview(null);
@@ -384,6 +386,8 @@ const JobsCommandGrid: React.FC = () => {
       addFile: "Add File Upload",
       saveDraft: "Save Draft",
       draftSaved: "Draft saved",
+      anonymousLabel: "Post as anonymous (show Talents branding to job seekers)",
+      anonymousBadge: "Anonymous",
       publish: "Publish Job + Form",
       deleting: "Deleting...",
       creating: "Publishing...",
@@ -415,6 +419,8 @@ const JobsCommandGrid: React.FC = () => {
       addFile: "إضافة رفع ملف",
       saveDraft: "حفظ المسودة",
       draftSaved: "تم حفظ المسودة",
+      anonymousLabel: "انشر كوظيفة مجهولة (إظهار علامة Talents للباحثين)",
+      anonymousBadge: "مجهول",
       publish: "نشر الوظيفة والنموذج",
       deleting: "جارٍ الحذف...",
       creating: "جارٍ النشر...",
@@ -492,6 +498,11 @@ const JobsCommandGrid: React.FC = () => {
                         <p className="text-xs text-[var(--text-muted)]">
                           {job.department} · {job.location}
                         </p>
+                        {job.is_anonymous && (
+                          <span className="mt-1 inline-flex rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                            {copy.anonymousBadge}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </label>
@@ -516,6 +527,7 @@ const JobsCommandGrid: React.FC = () => {
                         department: job.department,
                         industry: job.industry,
                         location: job.location,
+                        is_anonymous: Boolean(job.is_anonymous),
                       });
                     }}
                   >
@@ -680,6 +692,24 @@ const JobsCommandGrid: React.FC = () => {
                 )}
               </div>
               <div className="space-y-2 md:col-span-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="job-anonymous">
+                  {copy.anonymousLabel}
+                </label>
+                <div className="flex items-center gap-3 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3">
+                  <input
+                    id="job-anonymous"
+                    type="checkbox"
+                    checked={jobDraft.isAnonymous}
+                    onChange={(event) =>
+                      setJobDraft((prev) => ({ ...prev, isAnonymous: event.target.checked }))
+                    }
+                  />
+                  <span className="text-sm text-[var(--text-primary)]">
+                    {jobDraft.isAnonymous ? "On" : "Off"}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2 md:col-span-2">
                 <label className="text-xs text-[var(--text-muted)]" htmlFor="form-require-cv">
                   {copy.requireCv}
                 </label>
@@ -801,6 +831,7 @@ const JobsCommandGrid: React.FC = () => {
                 if (jobImageFile) {
                   payload.append("job_image", jobImageFile);
                 }
+                payload.append("is_anonymous", String(jobDraft.isAnonymous));
                 payload.append("form_type", "internal_form");
                 payload.append("require_cv", String(requireCv));
                 payload.append(
@@ -953,6 +984,27 @@ const JobsCommandGrid: React.FC = () => {
                 className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
               />
               <div className="space-y-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="edit-job-anonymous">
+                  {copy.anonymousLabel}
+                </label>
+                <div className="flex items-center gap-3 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3">
+                  <input
+                    id="edit-job-anonymous"
+                    type="checkbox"
+                    checked={Boolean(editForm.is_anonymous)}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        is_anonymous: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span className="text-sm text-[var(--text-primary)]">
+                    {Boolean(editForm.is_anonymous) ? "On" : "Off"}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
                 <label className="text-xs text-[var(--text-muted)]" htmlFor="edit-job-image">
                   {copy.jobImageLabel}
                 </label>
@@ -1018,6 +1070,9 @@ const JobsCommandGrid: React.FC = () => {
                   if (editForm.department?.trim()) payload.append("department", String(editForm.department).trim());
                   if (editForm.industry?.trim()) payload.append("industry", String(editForm.industry).trim());
                   if (editForm.location?.trim()) payload.append("location", String(editForm.location).trim());
+                  if (typeof editForm.is_anonymous === "boolean") {
+                    payload.append("is_anonymous", String(editForm.is_anonymous));
+                  }
                   if (editImageFile) payload.append("job_image", editImageFile);
                   updateJob.mutate({ id: editJob.id, payload });
                 }}

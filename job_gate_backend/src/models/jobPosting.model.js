@@ -53,6 +53,12 @@ const JobPosting = sequelize.define("JobPosting", {
     allowNull: true,
   },
 
+  is_anonymous: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
+
   status: {
     type: DataTypes.ENUM("open", "closed"),
     defaultValue: "open",
