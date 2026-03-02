@@ -22,6 +22,18 @@ import { getApiErrorMessage } from "../utils/apiError";
 const SESSION_KEY = "twt_ai_session";
 
 type ChatMessage = { role: "user" | "assistant"; text: string; id?: string; pending?: boolean };
+type BuilderSection = { exists?: boolean; data?: any };
+type BuilderSeed = {
+  message_type?: string;
+  schema_version?: number;
+  cv_id?: number;
+  cv_title?: string;
+  analyzed_at?: string | null;
+  section_order?: string[];
+  sections?: Record<string, BuilderSection>;
+  missing_required_sections?: string[];
+  validation?: { blocking_errors?: string[]; warnings?: string[] };
+};
 
 type InsightsData = {
   is_complete?: boolean;
@@ -86,11 +98,51 @@ const formatSessionLabel = (s: any, t: (key: string) => string) => {
   return date ? `${label} - ${date}` : label;
 };
 
+const BUILDER_REQUIRED_SECTIONS = [
+  "contact_information",
+  "professional_summary",
+  "core_competencies",
+  "professional_experience",
+  "education",
+];
+
+const hasContent = (value: any): boolean => {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.some((item) => hasContent(item));
+  if (typeof value === "object") return Object.values(value).some((item) => hasContent(item));
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "boolean") return value;
+  return false;
+};
+
+const extractBuilderSeed = (messages: ChatMessage[]): BuilderSeed | null => {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const msg = messages[i];
+    if (msg.role !== "user") continue;
+    try {
+      const parsed = JSON.parse(msg.text);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        (parsed.message_type === "cv_builder_v2_seed" || parsed.message_type === "cv_builder_v2_update") &&
+        parsed.sections &&
+        typeof parsed.sections === "object"
+      ) {
+        return parsed as BuilderSeed;
+      }
+    } catch {
+      // ignore non-json chat messages
+    }
+  }
+  return null;
+};
+
 const AIConsultantPage: React.FC = () => {
   const [sessionId, setSessionId] = useState<string>("");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [activeTab, setActiveTab] = useState<"preview" | "insights" | "export">("preview");
+  const [activeTab, setActiveTab] = useState<"builder" | "preview" | "insights" | "export">("preview");
   const [chatError, setChatError] = useState("");
   const [showSessions, setShowSessions] = useState(false);
   const [showRightPanel, setShowRightPanel] = useState(false);
@@ -102,6 +154,10 @@ const AIConsultantPage: React.FC = () => {
   const [menuSessionId, setMenuSessionId] = useState<string | null>(null);
   const [startMenuOpen, setStartMenuOpen] = useState(false);
   const [pendingTitle, setPendingTitle] = useState("");
+  const [builderDraft, setBuilderDraft] = useState<BuilderSeed | null>(null);
+  const [builderDirty, setBuilderDirty] = useState(false);
+  const [builderSyncInfo, setBuilderSyncInfo] = useState("");
+  const [builderSyncError, setBuilderSyncError] = useState("");
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -117,6 +173,10 @@ const AIConsultantPage: React.FC = () => {
     if (sessionId) localStorage.setItem(SESSION_KEY, sessionId);
     if (!sessionId) {
       setMessages([]);
+      setBuilderDraft(null);
+      setBuilderDirty(false);
+      setBuilderSyncInfo("");
+      setBuilderSyncError("");
     }
   }, [sessionId]);
 
@@ -191,6 +251,14 @@ const AIConsultantPage: React.FC = () => {
     const normalized = normalizeMessages(sessionQ.data);
     if (normalized.length) setMessages(normalized);
   }, [sessionQ.data]);
+
+  const builderSeed = useMemo(() => extractBuilderSeed(messages), [messages]);
+
+  useEffect(() => {
+    if (!builderSeed) return;
+    if (builderDirty) return;
+    setBuilderDraft(JSON.parse(JSON.stringify(builderSeed)));
+  }, [builderSeed, builderDirty]);
 
   const previewQ = useQuery({
     queryKey: ["chat-preview", sessionId, language],
@@ -316,6 +384,70 @@ const AIConsultantPage: React.FC = () => {
       setChatError(getApiErrorMessage(error, t("exportFailed")));
     },
   });
+
+  const builderSyncMutation = useMutation({
+    mutationFn: async () => {
+      if (!sessionId || !builderDraft) throw new Error("Builder session is not ready.");
+      const payload = {
+        ...builderDraft,
+        message_type: "cv_builder_v2_update",
+        updated_at: new Date().toISOString(),
+      };
+      await seekerApi.sendChat({ sessionId, message: JSON.stringify(payload, null, 2) });
+      return true;
+    },
+    onSuccess: () => {
+      setBuilderSyncError("");
+      setBuilderSyncInfo(language === "ar" ? "تم تحديث بيانات السيرة في المحادثة." : "Builder data synced to chat.");
+      setBuilderDirty(false);
+      queryClient.invalidateQueries({ queryKey: ["chat-preview", sessionId, language] });
+      queryClient.invalidateQueries({ queryKey: ["chat-insights", sessionId] });
+    },
+    onError: (error: unknown) => {
+      setBuilderSyncInfo("");
+      setBuilderSyncError(getApiErrorMessage(error, "Failed to sync builder data."));
+    },
+  });
+
+  const builderComputed = useMemo(() => {
+    if (!builderDraft?.sections) return null;
+    const sections = builderDraft.sections;
+    const missingRequired = BUILDER_REQUIRED_SECTIONS.filter((key) => !hasContent(sections?.[key]?.data));
+    const contact = sections.contact_information?.data || {};
+    const contactBlocking: string[] = [];
+    if (!String(contact.full_name || "").trim()) contactBlocking.push("contact_full_name_missing");
+    if (!String(contact.email || "").trim()) contactBlocking.push("contact_email_missing");
+    if (!String(contact.phone || "").trim()) contactBlocking.push("contact_phone_missing");
+    if (!String(contact.location || "").trim()) contactBlocking.push("contact_location_missing");
+    return {
+      missingRequired,
+      blocking: contactBlocking,
+      canExport: missingRequired.length === 0 && contactBlocking.length === 0,
+    };
+  }, [builderDraft]);
+
+  const exportBlockedByBuilder = Boolean(
+    builderDraft && builderComputed && !builderComputed.canExport
+  );
+  const builderSections = builderDraft?.sections || {};
+
+  const updateBuilderSection = (sectionKey: string, nextData: any) => {
+    setBuilderDraft((prev) => {
+      if (!prev) return prev;
+      const currentSections = prev.sections || {};
+      return {
+        ...prev,
+        sections: {
+          ...currentSections,
+          [sectionKey]: {
+            exists: hasContent(nextData),
+            data: nextData,
+          },
+        },
+      };
+    });
+    setBuilderDirty(true);
+  };
 
   const insights = insightsQ.data;
   const scoreValue = typeof insights?.score?.score === "number" ? insights?.score?.score : null;
@@ -723,6 +855,19 @@ const AIConsultantPage: React.FC = () => {
           <div className="mb-4 flex gap-2" role="tablist" aria-label={t("aiConsultant")}>
             <button
               role="tab"
+              aria-selected={activeTab === "builder"}
+              className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
+                activeTab === "builder"
+                  ? "bg-[var(--accent)] text-black"
+                  : "text-[var(--text-muted)] hover:bg-[var(--glass)]"
+              }`}
+              onClick={() => setActiveTab("builder")}
+            >
+              <Briefcase className="mr-1 inline h-4 w-4" />
+              {language === "ar" ? "منشئ السيرة" : "Builder"}
+            </button>
+            <button
+              role="tab"
               aria-selected={activeTab === "preview"}
               className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
                 activeTab === "preview"
@@ -763,6 +908,204 @@ const AIConsultantPage: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-auto">
+            {activeTab === "builder" && (
+              <div className="rounded-xl border border-[var(--border)] p-3 space-y-3">
+                {!builderDraft?.sections && (
+                  <p className="text-sm text-[var(--text-muted)]">
+                    {language === "ar"
+                      ? "لا توجد بيانات منشئ سيرة بعد. ابدأ من CV Lab ثم اضغط Start Improving."
+                      : "No builder seed yet. Start from CV Lab and click Start Improving."}
+                  </p>
+                )}
+
+                {builderDraft?.sections && (
+                  <>
+                    <div className="rounded-lg border border-[var(--border)] p-2 text-xs">
+                      <div className="font-semibold mb-1">
+                        {language === "ar" ? "حالة التحقق" : "Validation Status"}
+                      </div>
+                      <div>
+                        {language === "ar" ? "الأقسام المطلوبة الناقصة:" : "Missing required sections:"}{" "}
+                        {(builderComputed?.missingRequired || []).join(", ") || (language === "ar" ? "لا يوجد" : "None")}
+                      </div>
+                      <div className="mt-1">
+                        {language === "ar" ? "أخطاء مانعة:" : "Blocking errors:"}{" "}
+                        {(builderComputed?.blocking || []).join(", ") || (language === "ar" ? "لا يوجد" : "None")}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-[var(--text-muted)]">
+                        {language === "ar" ? "الاسم الكامل" : "Full Name"}
+                      </label>
+                      <input
+                        className="field"
+                        value={builderSections.contact_information?.data?.full_name || ""}
+                        onChange={(e) =>
+                          updateBuilderSection("contact_information", {
+                            ...(builderSections.contact_information?.data || {}),
+                            full_name: e.target.value,
+                          })
+                        }
+                      />
+                      <label className="text-xs text-[var(--text-muted)]">
+                        {language === "ar" ? "المسمى المهني" : "Professional Title"}
+                      </label>
+                      <input
+                        className="field"
+                        value={builderSections.contact_information?.data?.professional_title || ""}
+                        onChange={(e) =>
+                          updateBuilderSection("contact_information", {
+                            ...(builderSections.contact_information?.data || {}),
+                            professional_title: e.target.value,
+                          })
+                        }
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          className="field"
+                          placeholder={language === "ar" ? "البريد الإلكتروني" : "Email"}
+                          value={builderSections.contact_information?.data?.email || ""}
+                          onChange={(e) =>
+                            updateBuilderSection("contact_information", {
+                              ...(builderSections.contact_information?.data || {}),
+                              email: e.target.value,
+                            })
+                          }
+                        />
+                        <input
+                          className="field"
+                          placeholder={language === "ar" ? "رقم الهاتف" : "Phone"}
+                          value={builderSections.contact_information?.data?.phone || ""}
+                          onChange={(e) =>
+                            updateBuilderSection("contact_information", {
+                              ...(builderSections.contact_information?.data || {}),
+                              phone: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <input
+                        className="field"
+                        placeholder={language === "ar" ? "الموقع" : "Location"}
+                        value={builderSections.contact_information?.data?.location || ""}
+                        onChange={(e) =>
+                          updateBuilderSection("contact_information", {
+                            ...(builderSections.contact_information?.data || {}),
+                            location: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-[var(--text-muted)]">
+                        {language === "ar" ? "الملخص المهني" : "Professional Summary"}
+                      </label>
+                      <textarea
+                        className="field mt-1 min-h-[90px]"
+                        value={builderSections.professional_summary?.data || ""}
+                        onChange={(e) => updateBuilderSection("professional_summary", e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-[var(--text-muted)]">
+                        {language === "ar" ? "المهارات (Programming مفصولة بفواصل)" : "Skills (Programming comma-separated)"}
+                      </label>
+                      <textarea
+                        className="field mt-1 min-h-[70px]"
+                        value={(builderSections.core_competencies?.data?.programming || []).join(", ")}
+                        onChange={(e) =>
+                          updateBuilderSection("core_competencies", {
+                            ...(builderSections.core_competencies?.data || {}),
+                            programming: e.target.value
+                              .split(",")
+                              .map((v: string) => v.trim())
+                              .filter(Boolean),
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-[var(--text-muted)]">
+                        {language === "ar" ? "الخبرات (JSON array)" : "Professional Experience (JSON array)"}
+                      </label>
+                      <textarea
+                        className="field mt-1 min-h-[110px] font-mono text-xs"
+                        value={JSON.stringify(
+                          builderSections.professional_experience?.data || [],
+                          null,
+                          2
+                        )}
+                        onChange={(e) => {
+                          try {
+                            updateBuilderSection("professional_experience", JSON.parse(e.target.value));
+                            setBuilderSyncError("");
+                          } catch {
+                            setBuilderSyncError(language === "ar" ? "صيغة JSON غير صحيحة في الخبرات." : "Invalid JSON in experience.");
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-[var(--text-muted)]">
+                        {language === "ar" ? "المشاريع (JSON array)" : "Projects (JSON array)"}
+                      </label>
+                      <textarea
+                        className="field mt-1 min-h-[90px] font-mono text-xs"
+                        value={JSON.stringify(builderSections.projects?.data || [], null, 2)}
+                        onChange={(e) => {
+                          try {
+                            updateBuilderSection("projects", JSON.parse(e.target.value));
+                            setBuilderSyncError("");
+                          } catch {
+                            setBuilderSyncError(language === "ar" ? "صيغة JSON غير صحيحة في المشاريع." : "Invalid JSON in projects.");
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-[var(--text-muted)]">
+                        {language === "ar" ? "التعليم (JSON array)" : "Education (JSON array)"}
+                      </label>
+                      <textarea
+                        className="field mt-1 min-h-[90px] font-mono text-xs"
+                        value={JSON.stringify(builderSections.education?.data || [], null, 2)}
+                        onChange={(e) => {
+                          try {
+                            updateBuilderSection("education", JSON.parse(e.target.value));
+                            setBuilderSyncError("");
+                          } catch {
+                            setBuilderSyncError(language === "ar" ? "صيغة JSON غير صحيحة في التعليم." : "Invalid JSON in education.");
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <button
+                      className="btn-primary w-full"
+                      onClick={() => builderSyncMutation.mutate()}
+                      disabled={!sessionId || builderSyncMutation.isPending}
+                    >
+                      {builderSyncMutation.isPending
+                        ? language === "ar"
+                          ? "جاري المزامنة..."
+                          : "Syncing..."
+                        : language === "ar"
+                          ? "مزامنة مع المحادثة"
+                          : "Sync Builder to Chat"}
+                    </button>
+                    {builderSyncInfo && <p className="text-xs text-emerald-300">{builderSyncInfo}</p>}
+                    {builderSyncError && <p className="text-xs text-red-300">{builderSyncError}</p>}
+                  </>
+                )}
+              </div>
+            )}
+
             {activeTab === "preview" && (
               <div className="rounded-xl border border-[var(--border)] p-3">
                 <div className="mb-2 flex items-center justify-between">
@@ -941,7 +1284,7 @@ const AIConsultantPage: React.FC = () => {
                     setExportFormat("pdf");
                     exportMutation.mutate("pdf");
                   }}
-                  disabled={!sessionId || !previewAvailable || exportMutation.isPending}
+                  disabled={!sessionId || !previewAvailable || exportMutation.isPending || exportBlockedByBuilder}
                 >
                   {exportMutation.isPending && exportFormat === "pdf" && (
                     <Loader2 size={16} className="mr-2 inline animate-spin" />
@@ -954,7 +1297,7 @@ const AIConsultantPage: React.FC = () => {
                     setExportFormat("docx");
                     exportMutation.mutate("docx");
                   }}
-                  disabled={!sessionId || !previewAvailable || exportMutation.isPending}
+                  disabled={!sessionId || !previewAvailable || exportMutation.isPending || exportBlockedByBuilder}
                 >
                   {exportMutation.isPending && exportFormat === "docx" && (
                     <Loader2 size={16} className="mr-2 inline animate-spin" />
@@ -963,6 +1306,13 @@ const AIConsultantPage: React.FC = () => {
                 </button>
                 {!previewAvailable && sessionId && (
                   <p className="text-xs text-[var(--text-muted)]">{t("exportDisabledHint")}</p>
+                )}
+                {exportBlockedByBuilder && (
+                  <p className="text-xs text-amber-300">
+                    {language === "ar"
+                      ? "أكمل الأقسام المطلوبة في تبويب Builder ثم قم بالمزامنة قبل التصدير."
+                      : "Complete required sections in Builder and sync before exporting."}
+                  </p>
                 )}
               </div>
             )}
