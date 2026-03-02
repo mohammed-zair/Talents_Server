@@ -19,6 +19,50 @@ const parseJsonMaybe = (value: unknown) => {
   }
 };
 
+const isNonEmptyValue = (value: unknown): boolean => {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.some((entry) => isNonEmptyValue(entry));
+  if (typeof value === "object") return Object.values(value as Record<string, unknown>).some((entry) => isNonEmptyValue(entry));
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "boolean") return true;
+  return false;
+};
+
+const pickExistingSections = (structured: Record<string, unknown>, features: Record<string, unknown>) => {
+  const structuredCandidates: Record<string, unknown> = {
+    personal_info: structured?.personal_info,
+    summary: structured?.summary,
+    skills: structured?.skills,
+    experience: structured?.experience,
+    education: structured?.education,
+    projects: structured?.projects,
+    certifications: structured?.certifications,
+    achievements: structured?.achievements,
+    languages: structured?.languages,
+  };
+
+  const featuresCandidates: Record<string, unknown> = {
+    total_years_experience: features?.total_years_experience,
+    key_skills: features?.key_skills,
+    project_count: features?.project_count,
+    achievement_count: features?.achievement_count,
+    has_education: features?.has_education,
+    has_certifications: features?.has_certifications,
+    has_languages: features?.has_languages,
+  };
+
+  const structured_data = Object.fromEntries(
+    Object.entries(structuredCandidates).filter(([, value]) => isNonEmptyValue(value))
+  );
+
+  const features_analytics = Object.fromEntries(
+    Object.entries(featuresCandidates).filter(([, value]) => isNonEmptyValue(value))
+  );
+
+  return { structured_data, features_analytics };
+};
+
 const getCvPublicHref = (fileUrl?: string) => {
   if (!fileUrl) return null;
   if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
@@ -160,18 +204,29 @@ const CVLabPage: React.FC = () => {
     strategic?.summary ||
     "";
 
-  const buildEnhancePayload = () => ({
-    cv_id: selectedCv?.cv_id,
-    cv_title: selectedCv?.title,
-    analyzed_at: activeInsight?.created_at || analysis?.created_at || null,
-    ats_score: atsScore ?? analysis?.ats_score ?? null,
-    industry_ranking_score: industryScore ?? null,
-    industry_ranking_label: industryLabel ?? null,
-    structured_data: snapshotStructured || {},
-    features_analytics: snapshotFeatures || {},
-    ai_intelligence: analysisInsights || {},
-    raw_ai_response: activeInsight?.ai_raw_response || analysis?.ai_raw_response || null,
-  });
+  const buildEnhancePayload = () => {
+    const structured = (snapshotStructured && typeof snapshotStructured === "object"
+      ? snapshotStructured
+      : {}) as Record<string, unknown>;
+    const features = (snapshotFeatures && typeof snapshotFeatures === "object"
+      ? snapshotFeatures
+      : {}) as Record<string, unknown>;
+    const existingSections = pickExistingSections(structured, features);
+
+    return {
+      message_type: "cv_sections_snapshot",
+      cv_id: selectedCv?.cv_id,
+      cv_title: selectedCv?.title,
+      analyzed_at: activeInsight?.created_at || analysis?.created_at || null,
+      sections_present: Object.keys(existingSections.structured_data),
+      structured_data: existingSections.structured_data,
+      features_analytics: existingSections.features_analytics,
+      note:
+        Object.keys(existingSections.structured_data).length === 0
+          ? "No structured CV sections were detected from this analysis."
+          : undefined,
+    };
+  };
 
   const enhanceMutation = useMutation({
     mutationFn: async () => {
