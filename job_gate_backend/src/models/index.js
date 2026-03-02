@@ -23,6 +23,8 @@ const SavedJob = require("./savedJob.model");
 const ConsultationRequest = require("./consultationRequest.model");
 const ConsultationBooking = require("./consultationBooking.model");
 const CompanyRefreshToken = require("./companyRefreshToken.model");
+const CompanyEmailOtp = require("./companyEmailOtp.model");
+const UserEmailOtp = require("./userEmailOtp.model");
 
 // التقديم ينتمي لموظف (مستخدم)
 Application.belongsTo(User, { foreignKey: "user_id" });
@@ -184,6 +186,8 @@ module.exports = {
   ConsultationRequest,
   ConsultationBooking,
   CompanyRefreshToken,
+  CompanyEmailOtp,
+  UserEmailOtp,
 
 };
  

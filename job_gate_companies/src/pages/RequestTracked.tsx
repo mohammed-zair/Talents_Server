@@ -9,11 +9,13 @@ import {
 } from "lucide-react";
 import Button from "../components/shared/Button";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { authApi } from "../services/api/api";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const RequestTracked: React.FC = () => {
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const email = (location.state as { email?: string } | null)?.email ?? "";
@@ -124,6 +126,7 @@ const RequestTracked: React.FC = () => {
   }, [status, navigate]);
 
   const stepList = useMemo(() => copy.steps, [copy.steps]);
+  const nextTheme = theme === "trust" ? "ai" : theme === "ai" ? "cloud" : "trust";
 
   return (
     <div className="min-h-screen bg-[var(--app-bg)]">
@@ -131,6 +134,22 @@ const RequestTracked: React.FC = () => {
         <div className="absolute inset-0 auth-mesh opacity-70" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#1a1a40,transparent_60%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(0,168,232,0.18),transparent_55%)]" />
+        <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTheme(nextTheme)}
+            className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white/90 backdrop-blur hover:bg-white/20"
+          >
+            {language === "ar" ? `النمط: ${theme.toUpperCase()}` : `Theme: ${theme.toUpperCase()}`}
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage(language === "ar" ? "en" : "ar")}
+            className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white/90 backdrop-blur hover:bg-white/20"
+          >
+            {language === "ar" ? "EN" : "AR"}
+          </button>
+        </div>
 
         <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-12">
           <div className="flex flex-col items-center text-center">

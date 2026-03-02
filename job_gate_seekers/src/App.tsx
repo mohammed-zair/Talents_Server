@@ -9,8 +9,7 @@ const ProtectedRoute = lazy(() => import("./components/layout/ProtectedRoute"));
 const PageShell = lazy(() => import("./components/layout/PageShell"));
 const AuthLoginPage = lazy(() => import("./pages/AuthLoginPage"));
 const AuthRegisterPage = lazy(() => import("./pages/AuthRegisterPage"));
-const AuthForgotPage = lazy(() => import("./pages/AuthForgotPage"));
-const AuthResetPage = lazy(() => import("./pages/AuthResetPage"));
+const AuthPasswordPage = lazy(() => import("./pages/AuthPasswordPage"));
 const PulsePage = lazy(() => import("./pages/PulsePage"));
 const OpportunitiesPage = lazy(() => import("./pages/OpportunitiesPage"));
 const CVLabPage = lazy(() => import("./pages/CVLabPage"));
@@ -53,8 +52,8 @@ const App: React.FC = () => {
                   <Route path="/" element={<Navigate to="/pulse" replace />} />
                   <Route path="/auth/login" element={<AuthLoginPage />} />
                   <Route path="/auth/register" element={<AuthRegisterPage />} />
-                  <Route path="/auth/forgot" element={<AuthForgotPage />} />
-                  <Route path="/auth/reset" element={<AuthResetPage />} />
+                  <Route path="/auth/forgot" element={<AuthPasswordPage />} />
+                  <Route path="/auth/reset" element={<AuthPasswordPage />} />
 
                   <Route
                     element={

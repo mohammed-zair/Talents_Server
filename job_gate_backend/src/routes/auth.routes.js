@@ -9,6 +9,8 @@ const userController = require("../controllers/user.controller");
  * المسارات: /api/auth/login و /api/auth/register-jobseeker
  */
 router.post("/login", userController.login);
+router.post("/register-jobseeker/send-otp", userController.sendJobSeekerRegistrationOtp);
+router.post("/register-jobseeker/verify-otp", userController.verifyJobSeekerRegistrationOtp);
 router.post("/register-jobseeker", userController.registerJobSeeker);
 
 // Forgot / Reset Password (Public)

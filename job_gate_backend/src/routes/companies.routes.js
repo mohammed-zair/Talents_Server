@@ -30,6 +30,8 @@ router.get("/session", verifyCompanyAccess, verifyCompany, companyAuthController
 router.post("/set-password", companyAuthController.setCompanyPassword);
 router.post("/forgot-password", companyAuthController.forgotCompanyPassword);
 router.post("/reset-password", companyAuthController.resetCompanyPassword);
+router.post("/register/send-otp", companiesController.sendCompanyRegistrationOtp);
+router.post("/register/verify-otp", companiesController.verifyCompanyRegistrationOtp);
 
 // Company registration (pending approval)
 router.post(
@@ -82,6 +84,12 @@ router.get(
   verifyToken,
   verifyAdmin,
   companiesController.getCompanyLicenseDoc
+);
+router.get(
+  "/admin/:id/logo",
+  verifyToken,
+  verifyAdmin,
+  companiesController.getCompanyLogoAdmin
 );
 router.put(
   "/admin/:id",

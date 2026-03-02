@@ -59,6 +59,14 @@ export const seekerApi = {
     const res = await api.post<ApiEnvelope<{ token: string; user: User }>>("/auth/register-jobseeker", data);
     return unwrap(res.data);
   },
+  sendRegistrationOtp: async (data: { email: string; full_name?: string; language?: "en" | "ar" }) => {
+    const res = await api.post("/auth/register-jobseeker/send-otp", data);
+    return unwrap(res.data);
+  },
+  verifyRegistrationOtp: async (data: { email: string; otp: string }) => {
+    const res = await api.post("/auth/register-jobseeker/verify-otp", data);
+    return unwrap(res.data);
+  },
   forgotPassword: async (data: { email: string }) => api.post("/auth/forgot-password", data),
   resetPassword: async (data: { email: string; token: string; newPassword: string }) =>
     api.post("/auth/reset-password", data),

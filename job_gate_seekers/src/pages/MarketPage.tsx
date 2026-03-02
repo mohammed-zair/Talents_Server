@@ -1,6 +1,7 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
+import { Building2 } from "lucide-react";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
@@ -8,7 +9,7 @@ import { getApiErrorMessage } from "../utils/apiError";
 const truncate = (text: string, max = 140) => {
   if (!text) return "";
   if (text.length <= max) return text;
-  return `${text.slice(0, max - 1)}…`;
+  return `${text.slice(0, max - 1)}�`;
 };
 
 const initials = (name: string) => {
@@ -17,6 +18,13 @@ const initials = (name: string) => {
   const first = parts[0][0] || "";
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
   return `${first}${last}`.toUpperCase();
+};
+
+const resolveAssetUrl = (url?: string | null) => {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  const base = import.meta.env.VITE_ASSET_BASE_URL || import.meta.env.VITE_API_URL || "";
+  return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
 };
 
 const MarketPage: React.FC = () => {
@@ -106,33 +114,40 @@ const MarketPage: React.FC = () => {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c: any) => {
             const name = c.name || t("company");
+            const logoUrl = resolveAssetUrl(c.logo_url);
             return (
               <Link
                 key={c.company_id}
                 to={`/market/${c.company_id}`}
                 state={{ marketSearch: search }}
-                className="glass-card card-hover block p-4 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                className="glass-card card-hover block overflow-hidden rounded-2xl focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 aria-label={`${t("viewCompany")}: ${name}`}
               >
-                <div className="flex items-center gap-3">
-                  {c.logo_url ? (
-                    <img
-                      src={c.logo_url}
-                      alt={name}
-                      className="h-12 w-12 rounded-full border border-[var(--border)] object-cover"
-                    />
+                <div className="relative">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={name} className="h-32 w-full object-cover" />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--glass)] text-sm font-semibold">
-                      {initials(name)}
+                    <div className="flex h-32 items-center justify-center bg-[var(--glass)]">
+                      <div className="flex items-center gap-2 text-[var(--text-muted)]">
+                        <Building2 size={24} />
+                        <span className="rounded-full border border-[var(--border)] px-3 py-1 text-sm font-semibold">
+                          {initials(name)}
+                        </span>
+                      </div>
                     </div>
                   )}
-                  <div>
-                    <p className="text-lg font-semibold">{name}</p>
-                    <p className="text-xs text-[var(--text-muted)]">{t("ratingPending")}</p>
-                  </div>
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                  <span className="absolute right-3 top-3 rounded-full bg-sky-500/20 px-2 py-1 text-[10px] font-semibold text-sky-200">
+                    {t("ratingPending")}
+                  </span>
                 </div>
-                <p className="mt-3 text-sm text-[var(--text-muted)]">{truncate(c.description || t("noDescriptionYet"))}</p>
-                <div className="mt-4 text-xs font-semibold text-[var(--accent)]">{t("viewCompany")}</div>
+                <div className="flex h-full flex-col p-4">
+                  <p className="text-lg font-semibold">{name}</p>
+                  <p className="mt-2 text-sm text-[var(--text-muted)] line-clamp-2">
+                    {truncate(c.description || t("noDescriptionYet"))}
+                  </p>
+                  <div className="mt-4 text-xs font-semibold text-[var(--accent)]">{t("viewCompany")}</div>
+                </div>
               </Link>
             );
           })}

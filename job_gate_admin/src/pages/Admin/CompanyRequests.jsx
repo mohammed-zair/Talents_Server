@@ -13,6 +13,21 @@ const CompanyRequests = () => {
   const [companyProfile, setCompanyProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [statusFilter, setStatusFilter] = useState('pending');
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
+  const [licenseModalOpen, setLicenseModalOpen] = useState(false);
+  const [licenseLoading, setLicenseLoading] = useState(false);
+  const [licenseAssetUrl, setLicenseAssetUrl] = useState('');
+  const [licenseMimeType, setLicenseMimeType] = useState('');
+
+  const normalizeApiPath = (url) => {
+    if (!url) return '';
+    if (url.startsWith('/api/')) return url.slice(4);
+    return url;
+  };
+
+  const releaseObjectUrl = (url) => {
+    if (url) URL.revokeObjectURL(url);
+  };
 
   const fetchRequests = async () => {
     try {
@@ -32,7 +47,14 @@ const CompanyRequests = () => {
     fetchRequests();
   }, []);
 
+  useEffect(() => () => {
+    releaseObjectUrl(logoPreviewUrl);
+    releaseObjectUrl(licenseAssetUrl);
+  }, [logoPreviewUrl, licenseAssetUrl]);
+
   const openDetails = async (request) => {
+    releaseObjectUrl(logoPreviewUrl);
+    setLogoPreviewUrl('');
     setActiveRequest(request);
     setRejectNotes(request.admin_review_notes || '');
     setShowDetails(true);
@@ -48,13 +70,56 @@ const CompanyRequests = () => {
     } finally {
       setLoadingProfile(false);
     }
+
+    if (request.logo_url) {
+      try {
+        const response = await axiosInstance.get(normalizeApiPath(request.logo_url), {
+          responseType: 'blob',
+        });
+        const objectUrl = URL.createObjectURL(response.data);
+        setLogoPreviewUrl(objectUrl);
+      } catch (err) {
+        setLogoPreviewUrl('');
+      }
+    }
   };
 
   const closeDetails = () => {
+    releaseObjectUrl(logoPreviewUrl);
+    setLogoPreviewUrl('');
+    closeLicenseModal();
     setActiveRequest(null);
     setRejectNotes('');
     setCompanyProfile(null);
     setShowDetails(false);
+  };
+
+  const closeLicenseModal = () => {
+    releaseObjectUrl(licenseAssetUrl);
+    setLicenseAssetUrl('');
+    setLicenseMimeType('');
+    setLicenseModalOpen(false);
+  };
+
+  const openLicenseModal = async () => {
+    if (!activeRequest?.license_doc_url) return;
+    setLicenseLoading(true);
+    try {
+      const response = await axiosInstance.get(
+        normalizeApiPath(activeRequest.license_doc_url),
+        { responseType: 'blob' }
+      );
+      const mime = response.data?.type || activeRequest.license_mimetype || '';
+      const objectUrl = URL.createObjectURL(response.data);
+      releaseObjectUrl(licenseAssetUrl);
+      setLicenseAssetUrl(objectUrl);
+      setLicenseMimeType(mime);
+      setLicenseModalOpen(true);
+    } catch (err) {
+      setError('Failed to load license document.');
+    } finally {
+      setLicenseLoading(false);
+    }
   };
 
   const approveRequest = async (requestId) => {
@@ -89,6 +154,7 @@ const CompanyRequests = () => {
   const filteredRequests = statusFilter === 'all'
     ? requests
     : requests.filter((request) => (request.status || '').toLowerCase() === statusFilter);
+  const isLicenseImage = licenseMimeType.startsWith('image/');
 
   return (
     <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white rounded-3xl">
@@ -207,23 +273,23 @@ const CompanyRequests = () => {
               <div>
                 <p className="text-xs text-gray-500">License Document</p>
                 {activeRequest.license_doc_url ? (
-                  <a
-                    href={activeRequest.license_doc_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-blue-600 text-sm underline"
+                  <button
+                    type="button"
+                    onClick={openLicenseModal}
+                    disabled={licenseLoading}
+                    className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60"
                   >
-                    View document
-                  </a>
+                    {licenseLoading ? 'Loading...' : 'View License'}
+                  </button>
                 ) : (
                   <p className="text-sm">-</p>
                 )}
               </div>
               <div>
                 <p className="text-xs text-gray-500">Logo</p>
-                {activeRequest.logo_url ? (
+                {logoPreviewUrl ? (
                   <img
-                    src={activeRequest.logo_url}
+                    src={logoPreviewUrl}
                     alt="Company logo"
                     className="h-12 mt-1 rounded"
                   />
@@ -312,6 +378,44 @@ const CompanyRequests = () => {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {licenseModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-6 w-full max-w-3xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">License Document</h3>
+              <button
+                type="button"
+                onClick={closeLicenseModal}
+                className="px-3 py-1 bg-gray-100 text-gray-700 rounded"
+              >
+                Close
+              </button>
+            </div>
+
+            {isLicenseImage ? (
+              <img
+                src={licenseAssetUrl}
+                alt="License document"
+                className="max-h-[70vh] w-auto mx-auto rounded border"
+              />
+            ) : (
+              <div className="border rounded-lg p-4 bg-gray-50">
+                <p className="text-sm text-gray-700 mb-3">
+                  This license file is not an image. Download it to view.
+                </p>
+                <a
+                  href={licenseAssetUrl}
+                  download={`license_${activeRequest?.request_id || 'file'}`}
+                  className="inline-block px-4 py-2 bg-blue-600 text-white rounded"
+                >
+                  Download License
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}

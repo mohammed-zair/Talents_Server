@@ -27,6 +27,12 @@ const Company = sequelize.define(
       allowNull: true,
     },
 
+    preferred_language: {
+      type: DataTypes.ENUM("en", "ar"),
+      allowNull: false,
+      defaultValue: "en",
+    },
+
     logo_data: {
       type: DataTypes.BLOB("long"), // "long" لضمان مساحة كافية للصور الكبيرة
       allowNull: true,

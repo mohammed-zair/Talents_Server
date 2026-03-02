@@ -11,6 +11,7 @@ const registerSchema = z
   .object({
     name: z.string().min(2),
     email: z.string().email(),
+    preferred_language: z.enum(["en", "ar"]),
     licenseFile: z.instanceof(File),
     logoFile: z.instanceof(File).optional(),
     password: z.string().min(6),
@@ -30,6 +31,7 @@ const RegisterForm: React.FC = () => {
     name: "",
     email: "",
     phone: "",
+    preferred_language: language === "ar" ? "ar" : "en",
     description: "",
     password: "",
     confirm_password: "",
@@ -48,6 +50,7 @@ const RegisterForm: React.FC = () => {
       name: "Company Name",
       email: "Corporate Email",
       phone: "Phone (optional)",
+      preferredLanguage: "Notification Language",
       license: "License Document (PDF, DOCX, or Image)",
       description: "Description (optional)",
       logo: "Logo (optional)",
@@ -79,6 +82,7 @@ const RegisterForm: React.FC = () => {
       step3: "إعداد الحساب",
       fileTooLarge: `حجم الملف كبير (الحد ${maxFileSizeMb}MB).`,
       selectedFile: "الملف المختار",
+      preferredLanguage: "لغة الإشعارات",
     },
   }[language];
 
@@ -113,6 +117,7 @@ const RegisterForm: React.FC = () => {
       payload.append("name", form.name);
       payload.append("email", form.email);
       if (form.phone) payload.append("phone", form.phone);
+      payload.append("preferred_language", form.preferred_language);
       if (form.description) payload.append("description", form.description);
       payload.append("password", form.password);
       payload.append("confirm_password", form.confirm_password);
@@ -192,6 +197,23 @@ const RegisterForm: React.FC = () => {
               onChange={(event) => setForm({ ...form, phone: event.target.value })}
               className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
             />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="reg-preferred-language" className="text-xs text-[var(--text-muted)]">
+              {labels.preferredLanguage}
+            </label>
+            <select
+              id="reg-preferred-language"
+              name="preferred_language"
+              value={form.preferred_language}
+              onChange={(event) =>
+                setForm({ ...form, preferred_language: event.target.value as "en" | "ar" })
+              }
+              className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+            >
+              <option value="en">English</option>
+              <option value="ar">العربية</option>
+            </select>
           </div>
         </div>
       )}

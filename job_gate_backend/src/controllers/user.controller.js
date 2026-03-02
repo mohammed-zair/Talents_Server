@@ -6,6 +6,8 @@ const {
   JobPosting,
   Application,
   CV,
+  CVFeaturesAnalytics,
+  UserEmailOtp,
   sequelize,
   Admin,
   JobForm,
@@ -14,6 +16,7 @@ const {
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const { Op } = require("sequelize");
 const sendEmail = require("../utils/sendEmail");
 const { successResponse, errorResponse } = require("../utils/responseHandler"); // نفترض وجودها
 
@@ -33,6 +36,18 @@ const RESET_PASSWORD_TOKEN_EXPIRES_MIN = parseInt(
 );
 
 const generateOtpCode = () => String(crypto.randomInt(100000, 1000000));
+const USER_REG_OTP_EXPIRES_MINUTES = parseInt(
+  process.env.USER_REG_OTP_EXPIRES_MINUTES || "10",
+  10
+);
+const USER_REG_OTP_MAX_ATTEMPTS = parseInt(
+  process.env.USER_REG_OTP_MAX_ATTEMPTS || "5",
+  10
+);
+const USER_REG_OTP_COOLDOWN_SECONDS = parseInt(
+  process.env.USER_REG_OTP_COOLDOWN_SECONDS || "60",
+  10
+);
 
 const buildCompanyLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
 
@@ -47,6 +62,327 @@ const withCompanyLogoUrl = (company) => {
     logo_url: logoUrl,
     logo_mimetype: undefined,
   };
+};
+
+const getCompanyApplicationsUrl = () => {
+  const base =
+    process.env.TALENTS_COMPANY_PORTAL_URL ||
+    process.env.TALENTS_PORTAL_URL ||
+    "https://companies.talents-we-trust.tech";
+  return `${String(base).replace(/\/+$/, "")}/applications`;
+};
+
+const resolveCompanyNotificationLanguage = (req, company) => {
+  const companyLangCandidates = [
+    company?.language,
+    company?.preferred_language,
+    company?.locale,
+  ]
+    .map((value) => String(value || "").toLowerCase())
+    .filter(Boolean);
+  const companyLang = companyLangCandidates.find((value) => value.startsWith("ar"));
+  if (companyLang) return "ar";
+
+  const bodyLang = String(req.body?.language || req.body?.lang || "").toLowerCase();
+  const headerCompanyLang = String(req.headers["x-company-language"] || "").toLowerCase();
+  const headerLang = String(req.headers["x-language"] || "").toLowerCase();
+  const acceptLanguage = String(req.headers["accept-language"] || "").toLowerCase();
+  const candidate = bodyLang || headerCompanyLang || headerLang || acceptLanguage;
+  return candidate.startsWith("ar") ? "ar" : "en";
+};
+
+const buildCompanyApplicationNotificationTemplate = ({
+  companyName,
+  jobTitle,
+  applicantName,
+  cvPower,
+  language = "en",
+}) => {
+  const safeCompanyName = String(companyName || "Team").trim();
+  const safeApplicantName = String(applicantName || "A candidate").trim();
+  const safeJobTitle = String(jobTitle || "your job post").trim();
+  const applicationsUrl = getCompanyApplicationsUrl();
+  const cvPowerLabel =
+    typeof cvPower === "number" ? `${Math.round(cvPower)} / 100` : "Processing";
+  const isArabic = language === "ar";
+
+  if (isArabic) {
+    const subject = "طلب توظيف جديد على Talents";
+    const textBody =
+      `مرحباً ${safeCompanyName}،\n\n` +
+      `لديك طلب توظيف جديد على "${safeJobTitle}".\n\n` +
+      `المرشح: ${safeApplicantName}\n` +
+      `قوة السيرة: ${cvPowerLabel}\n\n` +
+      "افتح صفحة الطلبات لمراجعة الملف، واستخدم الفلاتر وتوصيات وتحليلات الذكاء الاصطناعي لتكوين قائمة مختصرة دقيقة.\n\n" +
+      `فتح صفحة الطلبات: ${applicationsUrl}\n\n` +
+      "نتمنى لكم عملية توظيف ناجحة وسلسة.\n\n" +
+      "فريق Talents";
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;" dir="rtl">
+        <div style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+            <h2 style="margin:0; font-size:20px;">طلب توظيف جديد</h2>
+            <p style="margin:6px 0 0; opacity:.9;">تنبيهات Talents</p>
+          </div>
+          <div style="padding:22px; color:#111827;">
+            <p style="margin:0 0 12px;">مرحباً <strong>${safeCompanyName}</strong>،</p>
+            <p style="margin:0 0 12px;">
+              وصل مرشح جديد إلى <strong>${safeJobTitle}</strong>.
+            </p>
+            <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:12px; margin:0 0 14px;">
+              <p style="margin:0 0 6px;"><strong>المرشح:</strong> ${safeApplicantName}</p>
+              <p style="margin:0;"><strong>قوة السيرة:</strong> ${cvPowerLabel}</p>
+            </div>
+            <p style="margin:0 0 14px; color:#374151;">
+              افتح صفحة الطلبات لتصفية المرشحين والاعتماد على توصيات وتحليلات الذكاء الاصطناعي لاختيار المرشح الأنسب بسرعة.
+            </p>
+            <p style="margin:0 0 14px;">
+              <a href="${applicationsUrl}" style="display:inline-block; background:#111827; color:#ffffff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:600;">
+                فتح صفحة الطلبات
+              </a>
+            </p>
+            <p style="margin:0; color:#6b7280;">نتمنى لكم عملية توظيف ناجحة وسلسة.</p>
+            <p style="margin:14px 0 0; color:#111827;">فريق Talents</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    return { subject, textBody, htmlBody };
+  }
+
+  const subject = "New application received on Talents";
+  const textBody =
+    `Hello ${safeCompanyName},\n\n` +
+    `You received a new application for "${safeJobTitle}".\n\n` +
+    `Candidate: ${safeApplicantName}\n` +
+    `CV Power: ${cvPowerLabel}\n\n` +
+    "Open your Applications page to review this profile, use filters, and check AI recommendations and insights before making your shortlist.\n\n" +
+    `Open Applications: ${applicationsUrl}\n\n` +
+    "Wishing you a smooth and successful hiring process.\n\n" +
+    "Talents Team";
+
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;">
+      <div style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+          <h2 style="margin:0; font-size:20px;">New Application Received</h2>
+          <p style="margin:6px 0 0; opacity:.9;">Talents Hiring Alerts</p>
+        </div>
+        <div style="padding:22px; color:#111827;">
+          <p style="margin:0 0 12px;">Hello <strong>${safeCompanyName}</strong>,</p>
+          <p style="margin:0 0 12px;">
+            A new candidate applied to <strong>${safeJobTitle}</strong>.
+          </p>
+          <div style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:12px; margin:0 0 14px;">
+            <p style="margin:0 0 6px;"><strong>Candidate:</strong> ${safeApplicantName}</p>
+            <p style="margin:0;"><strong>CV Power:</strong> ${cvPowerLabel}</p>
+          </div>
+          <p style="margin:0 0 14px; color:#374151;">
+            Open your Applications page to filter profiles and use AI recommendations and insights to choose the right candidate faster.
+          </p>
+          <p style="margin:0 0 14px;">
+            <a href="${applicationsUrl}" style="display:inline-block; background:#111827; color:#ffffff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:600;">
+              Open Applications Page
+            </a>
+          </p>
+          <p style="margin:0; color:#6b7280;">Wishing you a smooth and successful hiring process.</p>
+          <p style="margin:14px 0 0; color:#111827;">Talents Team</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return { subject, textBody, htmlBody };
+};
+
+const resolveLanguage = (req) => {
+  const bodyLang = String(req.body?.language || req.body?.lang || "").toLowerCase();
+  const headerLang = String(req.headers["x-language"] || "").toLowerCase();
+  const acceptLanguage = String(req.headers["accept-language"] || "").toLowerCase();
+  const candidate = bodyLang || headerLang || acceptLanguage;
+  return candidate.startsWith("ar") ? "ar" : "en";
+};
+
+const buildUserRegistrationOtpTemplate = ({ name, otpCode, language = "en" }) => {
+  const safeName = String(name || "there").trim();
+  const isArabic = language === "ar";
+  if (isArabic) {
+    return {
+      subject: "رمز التحقق لتسجيل حسابك - Talents",
+      text:
+        `مرحباً ${safeName}،\n\n` +
+        "استخدم رمز التحقق التالي لإكمال إنشاء حسابك:\n" +
+        `${otpCode}\n\n` +
+        `صلاحية الرمز: ${USER_REG_OTP_EXPIRES_MINUTES} دقيقة.\n` +
+        "إذا لم تطلب التسجيل، تجاهل هذه الرسالة.\n\n" +
+        "فريق Talents",
+      html: `
+        <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;" dir="rtl">
+          <div style="max-width:600px; margin:0 auto; background:#fff; border:1px solid #e5e7eb; border-radius:14px;">
+            <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+              <h2 style="margin:0; font-size:20px;">Talents</h2>
+              <p style="margin:6px 0 0; opacity:.9;">التحقق من البريد الإلكتروني</p>
+            </div>
+            <div style="padding:22px; color:#111827;">
+              <p style="margin:0 0 12px;">مرحباً <strong>${safeName}</strong>،</p>
+              <p style="margin:0 0 16px;">استخدم الرمز التالي لإكمال التسجيل:</p>
+              <div style="background:#f9fafb; border:1px dashed #d1d5db; border-radius:12px; padding:16px; text-align:center;">
+                <div style="font-size:32px; font-weight:700; letter-spacing:6px; color:#111827;">${otpCode}</div>
+              </div>
+              <p style="margin:16px 0 0; color:#374151;">صلاحية الرمز: <strong>${USER_REG_OTP_EXPIRES_MINUTES} دقيقة</strong>.</p>
+            </div>
+          </div>
+        </div>
+      `,
+    };
+  }
+
+  return {
+    subject: "Verification code for your account registration - Talents",
+    text:
+      `Hello ${safeName},\n\n` +
+      "Use the following OTP code to complete your account registration:\n" +
+      `${otpCode}\n\n` +
+      `This code expires in ${USER_REG_OTP_EXPIRES_MINUTES} minutes.\n` +
+      "If this wasn't you, please ignore this email.\n\n" +
+      "Talents Team",
+    html: `
+      <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;">
+        <div style="max-width:600px; margin:0 auto; background:#fff; border:1px solid #e5e7eb; border-radius:14px;">
+          <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+            <h2 style="margin:0; font-size:20px;">Talents</h2>
+            <p style="margin:6px 0 0; opacity:.9;">Email Verification</p>
+          </div>
+          <div style="padding:22px; color:#111827;">
+            <p style="margin:0 0 12px;">Hello <strong>${safeName}</strong>,</p>
+            <p style="margin:0 0 16px;">Use this OTP code to complete your registration:</p>
+            <div style="background:#f9fafb; border:1px dashed #d1d5db; border-radius:12px; padding:16px; text-align:center;">
+              <div style="font-size:32px; font-weight:700; letter-spacing:6px; color:#111827;">${otpCode}</div>
+            </div>
+            <p style="margin:16px 0 0; color:#374151;">This code expires in <strong>${USER_REG_OTP_EXPIRES_MINUTES} minutes</strong>.</p>
+          </div>
+        </div>
+      </div>
+    `,
+  };
+};
+
+exports.sendJobSeekerRegistrationOtp = async (req, res) => {
+  try {
+    const { email, full_name } = req.body || {};
+    if (!email) {
+      return errorResponse(res, "Email is required.", null, 400);
+    }
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const language = resolveLanguage(req);
+
+    const existingUser = await User.findOne({ where: { email: normalizedEmail } });
+    if (existingUser) {
+      return errorResponse(res, "Email is already registered.", null, 409);
+    }
+
+    const latestOtp = await UserEmailOtp.findOne({
+      where: { email: normalizedEmail, consumed_at: null },
+      order: [["created_at", "DESC"]],
+    });
+    if (latestOtp) {
+      const cooldownUntil =
+        latestOtp.created_at.getTime() + USER_REG_OTP_COOLDOWN_SECONDS * 1000;
+      if (Date.now() < cooldownUntil) {
+        return errorResponse(
+          res,
+          `Please wait ${USER_REG_OTP_COOLDOWN_SECONDS} seconds before requesting another OTP.`,
+          null,
+          429
+        );
+      }
+    }
+
+    const otpCode = generateOtpCode();
+    const otpHash = crypto.createHash("sha256").update(otpCode).digest("hex");
+    const expiresAt = new Date(Date.now() + USER_REG_OTP_EXPIRES_MINUTES * 60 * 1000);
+
+    await UserEmailOtp.create({
+      email: normalizedEmail,
+      otp_hash: otpHash,
+      expires_at: expiresAt,
+      attempts: 0,
+      created_by_ip: req.ip,
+      user_agent: req.get("user-agent") || null,
+    });
+
+    const { subject, text, html } = buildUserRegistrationOtpTemplate({
+      name: full_name || normalizedEmail.split("@")[0],
+      otpCode,
+      language,
+    });
+    await sendEmail(normalizedEmail, subject, text, { html });
+
+    return successResponse(
+      res,
+      { email: normalizedEmail, expires_in_minutes: USER_REG_OTP_EXPIRES_MINUTES },
+      "Verification OTP sent."
+    );
+  } catch (error) {
+    console.error("Send registration OTP error:", error);
+    return errorResponse(res, "Failed to send registration OTP.", error, 500);
+  }
+};
+
+exports.verifyJobSeekerRegistrationOtp = async (req, res) => {
+  try {
+    const { email, otp, code } = req.body || {};
+    if (!email || (!otp && !code)) {
+      return errorResponse(res, "Email and OTP code are required.", null, 400);
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const providedOtp = String(otp || code).trim();
+
+    const otpRecord = await UserEmailOtp.findOne({
+      where: { email: normalizedEmail, consumed_at: null },
+      order: [["created_at", "DESC"]],
+    });
+
+    if (!otpRecord) {
+      return errorResponse(res, "No OTP request found for this email.", null, 400);
+    }
+    if (otpRecord.verified_at) {
+      return successResponse(res, { verified: true }, "Email already verified.");
+    }
+    if (otpRecord.expires_at < new Date()) {
+      return errorResponse(res, "OTP expired. Please request a new code.", null, 400);
+    }
+    if (otpRecord.attempts >= USER_REG_OTP_MAX_ATTEMPTS) {
+      return errorResponse(
+        res,
+        "Too many invalid attempts. Please request a new OTP.",
+        null,
+        429
+      );
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(providedOtp).digest("hex");
+    if (hashedToken !== otpRecord.otp_hash) {
+      otpRecord.attempts += 1;
+      await otpRecord.save();
+      return errorResponse(res, "Invalid OTP code.", null, 400);
+    }
+
+    otpRecord.verified_at = new Date();
+    await otpRecord.save();
+
+    return successResponse(
+      res,
+      { verified: true, email: normalizedEmail },
+      "Email verified successfully."
+    );
+  } catch (error) {
+    console.error("Verify registration OTP error:", error);
+    return errorResponse(res, "Failed to verify registration OTP.", error, 500);
+  }
 };
 //   دوال المصادقة (Authentication Functions)
 
@@ -109,20 +445,40 @@ exports.registerJobSeeker = async (req, res) => {
 
   try {
     // 1. التحقق من وجود المستخدم مسبقاً
-    let existingUser = await User.findOne({ where: { email } });
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    let existingUser = await User.findOne({ where: { email: normalizedEmail } });
     if (existingUser) {
       await t.rollback();
       return errorResponse(res, "المستخدم مسجل مسبقاً.", null, 400);
     }
 
     // 2. تشفير كلمة المرور
+    const verifiedOtp = await UserEmailOtp.findOne({
+      where: {
+        email: normalizedEmail,
+        verified_at: { [Op.ne]: null },
+        consumed_at: null,
+        expires_at: { [Op.gt]: new Date() },
+      },
+      order: [["created_at", "DESC"]],
+    });
+    if (!verifiedOtp) {
+      await t.rollback();
+      return errorResponse(
+        res,
+        "Please verify your email with OTP before registration.",
+        null,
+        400
+      );
+    }
+
     const hashed_password = await bcrypt.hash(password, 10);
 
     // 3. إنشاء السجل في جدول المستخدمين العام (User)
     const user = await User.create(
       {
         full_name,
-        email,
+        email: normalizedEmail,
         hashed_password,
         phone,
         user_type: user_type === "admin" ? "admin" : "seeker",
@@ -138,7 +494,7 @@ exports.registerJobSeeker = async (req, res) => {
         {
           user_id: user.user_id,
           full_name,
-          email,
+          email: normalizedEmail,
           hashed_password,
           phone, // ربط السجل بالمستخدم الذي أنشئ للتو
           // أضف أي حقول إضافية خاصة بالأدمن هنا
@@ -149,6 +505,8 @@ exports.registerJobSeeker = async (req, res) => {
 
     // تأكيد العملية وحفظ البيانات نهائياً
     await t.commit();
+    verifiedOtp.consumed_at = new Date();
+    await verifiedOtp.save();
 
     // 5. إنشاء JWT
     const token = jwt.sign(
@@ -192,9 +550,10 @@ exports.forgotPassword = async (req, res) => {
     if (!email) {
       return errorResponse(res, "Please provide your email address.", null, 400);
     }
+    const normalizedEmail = String(email).trim().toLowerCase();
 
     const genericMsg = "If the email is registered, an OTP reset code has been sent.";
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ where: { email: normalizedEmail } });
 
     // Security: do not reveal whether the email exists.
     if (!user) {
@@ -218,7 +577,7 @@ exports.forgotPassword = async (req, res) => {
       `This code expires in ${RESET_PASSWORD_TOKEN_EXPIRES_MIN} minutes.\n\n` +
       "If you did not request this, please ignore this email.\n";
 
-    await sendEmail(email, subject, text);
+    await sendEmail(normalizedEmail, subject, text);
 
     return successResponse(res, null, genericMsg);
   } catch (error) {
@@ -239,9 +598,10 @@ exports.resetPassword = async (req, res) => {
   const { email, token, newPassword, code, password } = req.body;
   const providedToken = String(token || code || "").trim();
   const providedNewPassword = String(newPassword || password || "");
+  const normalizedEmail = String(email || "").trim().toLowerCase();
 
   try {
-    if (!email || !providedToken || !providedNewPassword) {
+    if (!normalizedEmail || !providedToken || !providedNewPassword) {
       return errorResponse(
         res,
         "Please provide email, OTP code, and new password.",
@@ -258,7 +618,7 @@ exports.resetPassword = async (req, res) => {
 
     const user = await User.findOne({
       where: {
-        email,
+        email: normalizedEmail,
         reset_password_token: hashedToken,
       },
     });
@@ -622,6 +982,41 @@ exports.submitApplication = async (req, res) => {
     );
 
     await t.commit();
+    
+    try {
+      const [jobWithCompany, applicant, cvRecord] = await Promise.all([
+        JobPosting.findByPk(job_id, {
+          include: [{ model: Company, attributes: ["company_id", "name", "email"] }],
+          attributes: ["job_id", "title", "company_id"],
+        }),
+        User.findByPk(user_id, { attributes: ["user_id", "full_name", "email"] }),
+        CV.findByPk(finalCvId, {
+          include: [{ model: CVFeaturesAnalytics, attributes: ["ats_score"] }],
+          attributes: ["cv_id"],
+        }),
+      ]);
+
+      const company = jobWithCompany?.Company || null;
+      const cvPowerRaw = cvRecord?.CVFeaturesAnalytics?.ats_score;
+      const cvPower =
+        typeof cvPowerRaw === "number" && Number.isFinite(cvPowerRaw)
+          ? cvPowerRaw
+          : null;
+
+      if (company?.email) {
+        const language = resolveCompanyNotificationLanguage(req, company);
+        const { subject, textBody, htmlBody } = buildCompanyApplicationNotificationTemplate({
+          companyName: company.name,
+          jobTitle: jobWithCompany?.title,
+          applicantName: applicant?.full_name || applicant?.email || "Candidate",
+          cvPower,
+          language,
+        });
+        await sendEmail(company.email, subject, textBody, { html: htmlBody });
+      }
+    } catch (emailError) {
+      console.error("Company new-application email failed:", emailError);
+    }
 
     return successResponse(
       res,
@@ -715,4 +1110,5 @@ exports.listUserApplications = async (req, res) => {
     }
   }
 };
+
 

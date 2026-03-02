@@ -1,4 +1,6 @@
 import React from "react";
+import { useLanguage } from "../../contexts/LanguageContext";
+import { useTheme } from "../../contexts/ThemeContext";
 
 interface AuthLayoutProps {
   title: string;
@@ -7,6 +9,22 @@ interface AuthLayoutProps {
 }
 
 const AuthLayout: React.FC<AuthLayoutProps> = ({ title, subtitle, children }) => {
+  const { language, setLanguage } = useLanguage();
+  const { theme, setTheme } = useTheme();
+  const nextTheme = theme === "trust" ? "ai" : theme === "ai" ? "cloud" : "trust";
+  const copy = {
+    en: {
+      language: "AR",
+      theme: `Theme: ${theme.toUpperCase()}`,
+      portal: "Company Portal",
+    },
+    ar: {
+      language: "EN",
+      theme: `النمط: ${theme.toUpperCase()}`,
+      portal: "بوابة الشركات",
+    },
+  }[language];
+
   return (
     <div className="min-h-screen bg-[#070A0F]">
       <div className="relative min-h-screen overflow-hidden bg-[#070A0F]">
@@ -14,6 +32,22 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ title, subtitle, children }) =>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#1a1a40,transparent_60%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(0,168,232,0.18),transparent_55%)]" />
         <div className="relative z-10 flex min-h-screen items-center justify-center px-6 py-12">
+          <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setTheme(nextTheme)}
+              className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white/90 backdrop-blur hover:bg-white/20"
+            >
+              {copy.theme}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage(language === "ar" ? "en" : "ar")}
+              className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white/90 backdrop-blur hover:bg-white/20"
+            >
+              {copy.language}
+            </button>
+          </div>
           <div className="glass-card auth-card w-full max-w-4xl rounded-3xl border border-white/20 p-8 shadow-[0_0_35px_rgba(0,168,232,0.18)] backdrop-blur-xl lg:p-12">
             <div className="mb-6 flex flex-col items-center text-center">
               <div
@@ -22,7 +56,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ title, subtitle, children }) =>
               >
                 <img src="/favicon.ico" alt="Talents We Trust" className="h-7 w-7" />
               </div>
-              <p className="text-xs uppercase tracking-[0.2em] text-white/60">Company Portal</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-white/60">{copy.portal}</p>
               <h2 className="heading-serif mt-2 text-3xl text-white">{title}</h2>
               <p className="mt-2 text-sm text-white/70">{subtitle}</p>
             </div>

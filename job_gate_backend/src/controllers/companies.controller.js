@@ -1,10 +1,13 @@
 // file: src/controllers/companies.controller.js (الملف المُحدث والنهائي)
 
-const { Company, CompanyUser, JobPosting, Application, User, CV, CVAIInsights, CVStructuredData, CVFeaturesAnalytics } = require("../models");
+const { Company, CompanyUser, CompanyEmailOtp, JobPosting, Application, User, CV, CVAIInsights, CVStructuredData, CVFeaturesAnalytics } = require("../models");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { Op } = require("sequelize");
 const { successResponse } = require("../utils/responseHandler");
+const sendEmail = require("../utils/sendEmail");
 const aiService = require("../services/aiService");
 
 //   O_U^O
@@ -142,6 +145,434 @@ const toPublicCompany = (company) => {
   };
 };
 
+const resolveLanguage = (req) => {
+  const bodyLang = String(req.body?.language || req.body?.lang || "").toLowerCase();
+  const headerLang = String(req.headers["x-language"] || "").toLowerCase();
+  const acceptLanguage = String(req.headers["accept-language"] || "").toLowerCase();
+  const candidate = bodyLang || headerLang || acceptLanguage;
+  return candidate.startsWith("ar") ? "ar" : "en";
+};
+
+const normalizePreferredLanguage = (value, fallback = "en") => {
+  const candidate = String(value || "").toLowerCase();
+  if (candidate.startsWith("ar")) return "ar";
+  if (candidate.startsWith("en")) return "en";
+  return fallback === "ar" ? "ar" : "en";
+};
+
+const escapeHtml = (value) =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const buildCompanyPendingApprovalTemplate = ({ companyName, language = "en" }) => {
+  const safeCompanyName = String(companyName || "there").trim();
+  const safeCompanyNameHtml = escapeHtml(safeCompanyName);
+  const isArabic = language === "ar";
+
+  if (isArabic) {
+    const subject = "مرحباً بك في Talents - تم استلام تسجيل شركتك";
+    const textBody =
+      `مرحباً ${safeCompanyName}،\n\n` +
+      "أهلاً بك في Talents. تم استلام تسجيل شركتك وهو الآن قيد المراجعة.\n\n" +
+      "ماذا سيحدث بعد ذلك:\n" +
+      "- سيقوم فريقنا بالتحقق من بيانات الشركة والوثائق المرفوعة.\n" +
+      "- بعد الموافقة، يمكنك نشر الوظائف وإدارة طلبات التوظيف مباشرة.\n\n" +
+      "كيف ستستفيد شركتك من Talents:\n" +
+      "- الوصول بسرعة إلى مرشحين مؤهلين.\n" +
+      "- إدارة عملية التوظيف كاملة من مكان واحد.\n" +
+      "- تحسين جودة الاختيار عبر تحليلات السيرة الذاتية ودعم المطابقة.\n\n" +
+      "شكراً لثقتك. سنرسل لك رسالة جديدة فور اكتمال المراجعة.\n\n" +
+      "مع تحياتنا،\n" +
+      "فريق Talents";
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;" dir="rtl">
+        <div style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+            <h2 style="margin:0; font-size:20px;">مرحباً بك في Talents</h2>
+            <p style="margin:6px 0 0; opacity:.9;">تسجيل شركتك قيد الموافقة</p>
+          </div>
+          <div style="padding:22px; color:#111827;">
+            <p style="margin:0 0 12px;">مرحباً <strong>${safeCompanyNameHtml}</strong>،</p>
+            <p style="margin:0 0 14px;">
+              شكراً لتسجيل شركتك في Talents. تم إنشاء حساب شركتك وهو الآن
+              <strong>قيد المراجعة</strong>.
+            </p>
+            <p style="margin:0 0 10px;">الخطوات القادمة:</p>
+            <ul style="margin:0 0 14px 18px; padding:0; color:#374151;">
+              <li>مراجعة بيانات الشركة والوثائق المرفوعة.</li>
+              <li>بعد الموافقة يمكنك البدء فوراً بنشر الوظائف.</li>
+              <li>ستصلك رسالة تأكيد بمجرد اعتماد الحساب.</li>
+            </ul>
+            <p style="margin:0 0 10px;">كيف يساعد Talents شركتك:</p>
+            <ul style="margin:0 0 14px 18px; padding:0; color:#374151;">
+              <li>الوصول السريع إلى مرشحين مؤهلين.</li>
+              <li>إدارة التوظيف بالكامل من النشر حتى الاختيار.</li>
+              <li>قرارات توظيف أدق عبر تحليلات السيرة الذاتية.</li>
+            </ul>
+            <p style="margin:0; color:#6b7280;">
+              سعداء بانضمامكم إلينا، ونتطلع لدعم نمو فريقكم بثقة.
+            </p>
+            <p style="margin:14px 0 0; color:#111827;">مع تحياتنا،<br/>فريق Talents</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    return { subject, textBody, htmlBody };
+  }
+
+  const subject = "Welcome to Talents - Registration Received";
+  const textBody =
+    `Hello ${safeCompanyName},\n\n` +
+    "Welcome to Talents. We have received your company registration and it is currently under review.\n\n" +
+    "What you can expect next:\n" +
+    "- Our team will verify your company details and documents.\n" +
+    "- Once approved, you can immediately post jobs and manage applications.\n\n" +
+    "How Talents will help your company:\n" +
+    "- Reach a qualified pool of candidates faster.\n" +
+    "- Manage hiring in one place with structured applicant workflows.\n" +
+    "- Improve hiring quality using CV insights and matching support.\n\n" +
+    "We appreciate your patience. You will receive another email as soon as your account is approved.\n\n" +
+    "Best regards,\n" +
+    "Talents Team";
+
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;">
+      <div style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+          <h2 style="margin:0; font-size:20px;">Welcome to Talents</h2>
+          <p style="margin:6px 0 0; opacity:.9;">Your registration is pending approval</p>
+        </div>
+        <div style="padding:22px; color:#111827;">
+          <p style="margin:0 0 12px;">Hello <strong>${safeCompanyNameHtml}</strong>,</p>
+          <p style="margin:0 0 14px;">
+            Thank you for registering with Talents. Your company account has been created and is now
+            <strong>under review</strong>.
+          </p>
+          <p style="margin:0 0 10px;">What happens next:</p>
+          <ul style="margin:0 0 14px 18px; padding:0; color:#374151;">
+            <li>We verify your company details and submitted documents.</li>
+            <li>Once approved, you can start posting jobs right away.</li>
+            <li>You will receive an approval email as soon as review is complete.</li>
+          </ul>
+          <p style="margin:0 0 10px;">How Talents supports your hiring growth:</p>
+          <ul style="margin:0 0 14px 18px; padding:0; color:#374151;">
+            <li>Faster access to qualified candidates.</li>
+            <li>Centralized hiring workflow from posting to shortlist.</li>
+            <li>Smarter screening with CV insights and better matching.</li>
+          </ul>
+          <p style="margin:0; color:#6b7280;">
+            We are excited to have you with us and look forward to helping your team hire with confidence.
+          </p>
+          <p style="margin:14px 0 0; color:#111827;">Best regards,<br/>Talents Team</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return { subject, textBody, htmlBody };
+};
+
+const getAdminPortalUrl = () =>
+  process.env.TALENTS_ADMIN_PORTAL_URL || "https://admin.talents-we-trust.tech";
+
+const buildAdminPendingCompanyTemplate = ({ companyName, companyEmail, companyPhone }) => {
+  const safeName = escapeHtml(companyName || "Company");
+  const safeEmail = escapeHtml(companyEmail || "-");
+  const safePhone = escapeHtml(companyPhone || "-");
+  const adminPortalUrl = getAdminPortalUrl();
+  const subject = "New Company Registration Pending Approval";
+  const textBody =
+    "Hello Admin,\n\n" +
+    "A new company registration is waiting for approval on Talents.\n\n" +
+    `Company: ${companyName || "-"}\n` +
+    `Email: ${companyEmail || "-"}\n` +
+    `Phone: ${companyPhone || "-"}\n\n` +
+    `Review now: ${adminPortalUrl}\n\n` +
+    "Talents Team";
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;">
+      <div style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+          <h2 style="margin:0; font-size:20px;">New Company Awaiting Approval</h2>
+          <p style="margin:6px 0 0; opacity:.9;">Talents Admin Notification</p>
+        </div>
+        <div style="padding:22px; color:#111827;">
+          <p style="margin:0 0 12px;">A company has completed registration and is now pending admin approval:</p>
+          <table style="width:100%; border-collapse:collapse; margin:0 0 14px;">
+            <tr>
+              <td style="padding:8px; border:1px solid #e5e7eb; width:160px; color:#6b7280;">Company</td>
+              <td style="padding:8px; border:1px solid #e5e7eb;">${safeName}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px; border:1px solid #e5e7eb; color:#6b7280;">Email</td>
+              <td style="padding:8px; border:1px solid #e5e7eb;">${safeEmail}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px; border:1px solid #e5e7eb; color:#6b7280;">Phone</td>
+              <td style="padding:8px; border:1px solid #e5e7eb;">${safePhone}</td>
+            </tr>
+          </table>
+          <p style="margin:0;">
+            <a href="${adminPortalUrl}" style="display:inline-block; background:#111827; color:#ffffff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:600;">
+              Open Admin Dashboard
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+  return { subject, textBody, htmlBody };
+};
+
+const notifyAdminsAboutPendingCompany = async ({ companyName, companyEmail, companyPhone }) => {
+  try {
+    const adminWhere = { user_type: "admin" };
+    if (Object.prototype.hasOwnProperty.call(User.rawAttributes || {}, "is_active")) {
+      adminWhere.is_active = true;
+    }
+
+    const admins = await User.findAll({
+      where: adminWhere,
+      attributes: ["user_id", "email"],
+    });
+    const recipients = Array.from(
+      new Set(
+        admins
+          .map((admin) => String(admin.email || "").trim().toLowerCase())
+          .filter(Boolean)
+      )
+    );
+    if (recipients.length === 0) return;
+
+    const { subject, textBody, htmlBody } = buildAdminPendingCompanyTemplate({
+      companyName,
+      companyEmail,
+      companyPhone,
+    });
+
+    await Promise.allSettled(
+      recipients.map((recipient) =>
+        sendEmail(recipient, subject, textBody, { html: htmlBody })
+      )
+    );
+  } catch (error) {
+    console.error("Failed to notify admins about pending company:", error);
+  }
+};
+
+const COMPANY_REG_OTP_EXPIRES_MINUTES = parseInt(
+  process.env.COMPANY_REG_OTP_EXPIRES_MINUTES || "10",
+  10
+);
+const COMPANY_REG_OTP_MAX_ATTEMPTS = parseInt(
+  process.env.COMPANY_REG_OTP_MAX_ATTEMPTS || "5",
+  10
+);
+const COMPANY_REG_OTP_COOLDOWN_SECONDS = parseInt(
+  process.env.COMPANY_REG_OTP_COOLDOWN_SECONDS || "60",
+  10
+);
+
+const hashOtp = (code) =>
+  crypto.createHash("sha256").update(String(code || "")).digest("hex");
+
+const generateOtpCode = () => String(crypto.randomInt(100000, 1000000));
+
+const buildCompanyRegistrationOtpTemplate = ({ companyName, otpCode, language = "en" }) => {
+  const safeCompanyName = String(companyName || "there").trim();
+  const safeCompanyNameHtml = escapeHtml(safeCompanyName);
+  const isArabic = language === "ar";
+
+  if (isArabic) {
+    const subject = "رمز التحقق لتسجيل شركة جديدة - Talents";
+    const textBody =
+      `مرحباً ${safeCompanyName}،\n\n` +
+      "لإكمال تسجيل شركتك في Talents، استخدم رمز التحقق التالي:\n" +
+      `${otpCode}\n\n` +
+      `صلاحية الرمز: ${COMPANY_REG_OTP_EXPIRES_MINUTES} دقيقة.\n` +
+      "إذا لم تطلب هذا الرمز، يمكنك تجاهل هذه الرسالة.\n\n" +
+      "فريق Talents";
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;" dir="rtl">
+        <div style="max-width:600px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+            <h2 style="margin:0; font-size:20px;">Talents</h2>
+            <p style="margin:6px 0 0; opacity:.9;">رمز التحقق لتسجيل الشركة</p>
+          </div>
+          <div style="padding:22px; color:#111827;">
+            <p style="margin:0 0 12px;">مرحباً <strong>${safeCompanyNameHtml}</strong>،</p>
+            <p style="margin:0 0 14px;">استخدم رمز التحقق التالي لإكمال تسجيل شركتك:</p>
+            <div style="background:#f9fafb; border:1px dashed #d1d5db; border-radius:12px; padding:16px; text-align:center; margin:0 0 16px;">
+              <div style="font-size:13px; color:#6b7280; margin-bottom:8px;">رمز التحقق</div>
+              <div style="font-size:32px; font-weight:700; letter-spacing:6px; color:#111827;">${otpCode}</div>
+            </div>
+            <p style="margin:0 0 12px; color:#374151;">صلاحية الرمز: <strong>${COMPANY_REG_OTP_EXPIRES_MINUTES} دقيقة</strong>.</p>
+            <p style="margin:0; color:#6b7280;">إذا لم تطلب هذا الرمز، يمكنك تجاهل هذه الرسالة.</p>
+            <p style="margin:14px 0 0; color:#111827;">فريق Talents</p>
+          </div>
+        </div>
+      </div>
+    `;
+    return { subject, textBody, htmlBody };
+  }
+
+  const subject = "Company Registration Verification Code - Talents";
+  const textBody =
+    `Hello ${safeCompanyName},\n\n` +
+    "Use this OTP code to complete your company registration on Talents:\n" +
+    `${otpCode}\n\n` +
+    `This code expires in ${COMPANY_REG_OTP_EXPIRES_MINUTES} minutes.\n` +
+    "If you did not request this code, you can ignore this email.\n\n" +
+    "Talents Team";
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;">
+      <div style="max-width:600px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+          <h2 style="margin:0; font-size:20px;">Talents</h2>
+          <p style="margin:6px 0 0; opacity:.9;">Company Registration Verification</p>
+        </div>
+        <div style="padding:22px; color:#111827;">
+          <p style="margin:0 0 12px;">Hello <strong>${safeCompanyNameHtml}</strong>,</p>
+          <p style="margin:0 0 14px;">Use this OTP code to complete your company registration:</p>
+          <div style="background:#f9fafb; border:1px dashed #d1d5db; border-radius:12px; padding:16px; text-align:center; margin:0 0 16px;">
+            <div style="font-size:13px; color:#6b7280; margin-bottom:8px;">OTP Code</div>
+            <div style="font-size:32px; font-weight:700; letter-spacing:6px; color:#111827;">${otpCode}</div>
+          </div>
+          <p style="margin:0 0 12px; color:#374151;">This code expires in <strong>${COMPANY_REG_OTP_EXPIRES_MINUTES} minutes</strong>.</p>
+          <p style="margin:0; color:#6b7280;">If you did not request this code, you can ignore this email.</p>
+          <p style="margin:14px 0 0; color:#111827;">Talents Team</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return { subject, textBody, htmlBody };
+};
+
+exports.sendCompanyRegistrationOtp = async (req, res) => {
+  try {
+    const { email, company_name, companyName, name } = req.body || {};
+    if (!email) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const language = resolveLanguage(req);
+    const latestOtp = await CompanyEmailOtp.findOne({
+      where: {
+        email: normalizedEmail,
+        consumed_at: null,
+      },
+      order: [["created_at", "DESC"]],
+    });
+
+    if (latestOtp) {
+      const cooldownUntil = latestOtp.created_at.getTime() + COMPANY_REG_OTP_COOLDOWN_SECONDS * 1000;
+      if (Date.now() < cooldownUntil) {
+        return res.status(429).json({
+          message: `Please wait ${COMPANY_REG_OTP_COOLDOWN_SECONDS} seconds before requesting another OTP.`,
+        });
+      }
+    }
+
+    const otpCode = generateOtpCode();
+    const expiresAt = new Date(Date.now() + COMPANY_REG_OTP_EXPIRES_MINUTES * 60 * 1000);
+    await CompanyEmailOtp.create({
+      email: normalizedEmail,
+      otp_hash: hashOtp(otpCode),
+      expires_at: expiresAt,
+      attempts: 0,
+      created_by_ip: req.ip,
+      user_agent: req.get("user-agent") || null,
+    });
+
+    const { subject, textBody, htmlBody } = buildCompanyRegistrationOtpTemplate({
+      companyName: company_name || companyName || name || normalizedEmail.split("@")[0],
+      otpCode,
+      language,
+    });
+    await sendEmail(normalizedEmail, subject, textBody, { html: htmlBody });
+
+    return successResponse(
+      res,
+      {
+        email: normalizedEmail,
+        expires_in_minutes: COMPANY_REG_OTP_EXPIRES_MINUTES,
+      },
+      "Verification OTP has been sent to your email."
+    );
+  } catch (error) {
+    console.error("Error sending company registration OTP:", error);
+    return res.status(500).json({
+      message: "Failed to send verification OTP.",
+      error: error.message,
+    });
+  }
+};
+
+exports.verifyCompanyRegistrationOtp = async (req, res) => {
+  try {
+    const { email, otp, code } = req.body || {};
+    if (!email || (!otp && !code)) {
+      return res.status(400).json({ message: "Email and OTP code are required." });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const providedOtp = String(otp || code).trim();
+    const otpRecord = await CompanyEmailOtp.findOne({
+      where: {
+        email: normalizedEmail,
+        consumed_at: null,
+      },
+      order: [["created_at", "DESC"]],
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({ message: "No OTP request found for this email." });
+    }
+    if (otpRecord.verified_at) {
+      return successResponse(res, { verified: true }, "Email already verified.");
+    }
+    if (otpRecord.expires_at < new Date()) {
+      return res.status(400).json({ message: "OTP expired. Please request a new code." });
+    }
+    if (otpRecord.attempts >= COMPANY_REG_OTP_MAX_ATTEMPTS) {
+      return res.status(429).json({ message: "Too many invalid attempts. Please request a new code." });
+    }
+
+    const matches = hashOtp(providedOtp) === otpRecord.otp_hash;
+    if (!matches) {
+      otpRecord.attempts += 1;
+      await otpRecord.save();
+      return res.status(400).json({ message: "Invalid OTP code." });
+    }
+
+    otpRecord.verified_at = new Date();
+    await otpRecord.save();
+
+    return successResponse(
+      res,
+      {
+        verified: true,
+        email: normalizedEmail,
+      },
+      "Email verified successfully."
+    );
+  } catch (error) {
+    console.error("Error verifying company registration OTP:", error);
+    return res.status(500).json({
+      message: "Failed to verify OTP.",
+      error: error.message,
+    });
+  }
+};
+
 /**
  * @desc [Public] Company registration (pending approval)
  * @route POST /api/companies/register
@@ -157,6 +588,7 @@ exports.registerCompany = async (req, res) => {
     email,
     phone,
     description,
+    preferred_language,
     password,
     confirm_password,
   } = req.body;
@@ -179,9 +611,25 @@ exports.registerCompany = async (req, res) => {
   }
 
   try {
+    const language = resolveLanguage(req);
+    const preferredLanguage = normalizePreferredLanguage(preferred_language, language);
     const normalizedEmail = String(email).trim().toLowerCase();
     const logoFile = req.files?.logo?.[0] || null;
     const licenseFile = req.files?.license_doc?.[0] || null;
+    const verifiedOtp = await CompanyEmailOtp.findOne({
+      where: {
+        email: normalizedEmail,
+        verified_at: { [Op.ne]: null },
+        consumed_at: null,
+        expires_at: { [Op.gt]: new Date() },
+      },
+      order: [["created_at", "DESC"]],
+    });
+    if (!verifiedOtp) {
+      return res.status(400).json({
+        message: "Please verify your email with OTP before registration.",
+      });
+    }
 
     const existingCompany = await Company.findOne({
       where: { email: normalizedEmail },
@@ -214,6 +662,7 @@ exports.registerCompany = async (req, res) => {
           name,
           phone,
           description,
+          preferred_language: preferredLanguage,
           password: hashedPassword,
           password_set_at: new Date(),
           is_approved: false,
@@ -254,6 +703,24 @@ exports.registerCompany = async (req, res) => {
           });
         }
 
+        try {
+          const { subject, textBody, htmlBody } = buildCompanyPendingApprovalTemplate({
+            companyName: existingCompany.name,
+            language: preferredLanguage,
+          });
+          await sendEmail(existingCompany.email, subject, textBody, { html: htmlBody });
+        } catch (emailError) {
+          console.error("Pending approval email failed (resubmission):", emailError);
+        }
+        await notifyAdminsAboutPendingCompany({
+          companyName: existingCompany.name,
+          companyEmail: existingCompany.email,
+          companyPhone: existingCompany.phone,
+        });
+
+        verifiedOtp.consumed_at = new Date();
+        await verifiedOtp.save();
+
         return successResponse(
           res,
           {
@@ -281,6 +748,7 @@ exports.registerCompany = async (req, res) => {
       email: normalizedEmail,
       phone,
       description,
+      preferred_language: preferredLanguage,
       password: hashedPassword,
       password_set_at: new Date(),
       logo_data: logoFile ? logoFile.buffer : null,
@@ -301,6 +769,24 @@ exports.registerCompany = async (req, res) => {
       is_primary: true,
       is_active: true,
     });
+
+    try {
+      const { subject, textBody, htmlBody } = buildCompanyPendingApprovalTemplate({
+        companyName: company.name,
+        language: preferredLanguage,
+      });
+      await sendEmail(company.email, subject, textBody, { html: htmlBody });
+    } catch (emailError) {
+      console.error("Pending approval email failed (new registration):", emailError);
+    }
+    await notifyAdminsAboutPendingCompany({
+      companyName: company.name,
+      companyEmail: company.email,
+      companyPhone: company.phone,
+    });
+
+    verifiedOtp.consumed_at = new Date();
+    await verifiedOtp.save();
 
     return successResponse(
       res,
@@ -337,8 +823,9 @@ exports.submitCompanyRequest = exports.registerCompany;
  * @access Private (يتطلب دور Admin)
  */
 exports.createCompany = async (req, res) => {
-  const { name, email, phone, description, is_approved = true } = req.body;
+  const { name, email, phone, description, preferred_language, is_approved = true } = req.body;
   try {
+    const preferredLanguage = normalizePreferredLanguage(preferred_language, "en");
     const logoFile = req.files?.logo?.[0] || null;
     const licenseFile = req.files?.license_doc?.[0] || null;
 
@@ -352,6 +839,7 @@ exports.createCompany = async (req, res) => {
       name,
       email,
       phone,
+      preferred_language: preferredLanguage,
       logo_data: logoFile ? logoFile.buffer : null,
       logo_mimetype: logoFile ? logoFile.mimetype : null,
       description,
@@ -1171,6 +1659,35 @@ exports.getCompanyApplications = async (req, res) => {
     console.error("Error fetching company applications:", error);
     return res.status(500).json({
       message: "Failed to fetch applications.",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc [Admin] Get company logo (including pending/rejected)
+ * @route GET /api/companies/admin/:id/logo
+ * @access Admin
+ */
+exports.getCompanyLogoAdmin = async (req, res) => {
+  try {
+    const company = await Company.findByPk(req.params.id, {
+      attributes: ["company_id", "logo_data", "logo_mimetype"],
+    });
+
+    if (!company || !company.logo_data) {
+      return res.status(404).json({ message: "Company logo not found." });
+    }
+
+    res.setHeader(
+      "Content-Type",
+      company.logo_mimetype || "application/octet-stream"
+    );
+    return res.send(company.logo_data);
+  } catch (error) {
+    console.error("Error fetching admin company logo:", error);
+    return res.status(500).json({
+      message: "Server error while fetching company logo.",
       error: error.message,
     });
   }

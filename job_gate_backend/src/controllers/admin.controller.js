@@ -17,7 +17,22 @@ const { successResponse } = require("../utils/responseHandler");
 const sendEmail = require("../utils/sendEmail");
 const fs = require("fs");
 const util = require("util");
-const buildCompanyLogoUrl = (companyId) => `/api/companies/${companyId}/logo`;
+const getCompanyPortalUrl = () =>
+  process.env.TALENTS_COMPANY_PORTAL_URL ||
+  process.env.TALENTS_PORTAL_URL ||
+  "https://companies.talents-we-trust.tech";
+const escapeHtml = (value) =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+const normalizeCompanyLanguage = (value) => {
+  const candidate = String(value || "").toLowerCase();
+  return candidate.startsWith("ar") ? "ar" : "en";
+};
+const buildCompanyLogoUrl = (companyId) => `/api/companies/admin/${companyId}/logo`;
 const buildCompanyLicenseUrl = (companyId) =>
   `/api/companies/admin/${companyId}/license`;
 const unlinkFile = util.promisify(fs.unlink); // دالة لمسح الملفات (افتراضياً)
@@ -603,8 +618,10 @@ exports.listCompanyRequests = async (req, res) => {
         email: company.email,
         phone: company.phone,
         license_doc_url: licenseUrl,
+        license_mimetype: company.license_mimetype || null,
         description: company.description,
         logo_url: logoUrl,
+        logo_mimetype: company.logo_mimetype || null,
         status,
         admin_review_notes: company.rejection_reason,
         approved_company_id: company.is_approved ? company.company_id : null,
@@ -666,8 +683,10 @@ exports.getCompanyRequestById = async (req, res) => {
       email: company.email,
       phone: company.phone,
       license_doc_url: licenseUrl,
+      license_mimetype: company.license_mimetype || null,
       description: company.description,
       logo_url: logoUrl,
+      logo_mimetype: company.logo_mimetype || null,
       status,
       admin_review_notes: company.rejection_reason,
       approved_company_id: company.is_approved ? company.company_id : null,
@@ -709,22 +728,110 @@ exports.approveCompanyRequest = async (req, res) => {
 
     await t.commit();
 
-    const subject = "Talents - Company Approved";
-    const textBody = `Hello ${company.name},
+    const portalUrl = getCompanyPortalUrl();
+    const language = normalizeCompanyLanguage(company.preferred_language);
+    const isArabic = language === "ar";
+    const safeCompanyName = String(company.name || "Team").trim();
+    const safeCompanyNameHtml = escapeHtml(safeCompanyName);
+    const subject = isArabic
+      ? "مرحباً بك في Talents - تم اعتماد شركتك"
+      : "Welcome to Talents - Your Company Is Approved";
+    const textBody = isArabic
+      ? `مرحباً ${safeCompanyName}،\n\n` +
+        "خبر رائع. تم اعتماد حساب شركتك على Talents.\n\n" +
+        "يمكنك الآن الدخول إلى لوحة التحكم والبدء مباشرة.\n" +
+        `لوحة الشركة: ${portalUrl}\n\n` +
+        "الخطوة الأولى المقترحة:\n" +
+        "- انشر أول فرصة وظيفية الآن.\n\n" +
+        "مع Talents يمكنك:\n" +
+        "- الاستفادة من توصيات وتحليلات الذكاء الاصطناعي للوصول للمرشح الأنسب بسرعة.\n" +
+        "- إدارة مسار التوظيف بالكامل من التقديم حتى القائمة المختصرة.\n" +
+        "- اتخاذ قرارات أفضل عبر مؤشرات أوضح لكل مرشح.\n\n" +
+        "نحن أيضاً نعمل على تجهيز الباحثين عن عمل بطرق أفضل عبر تحسين السير الذاتية وتطوير المهارات.\n\n" +
+        "سعداء بدعم رحلة التوظيف لديكم.\n\n" +
+        "مع تحياتنا،\n" +
+        "فريق Talents"
+      : `Hello ${safeCompanyName},\n\n` +
+        "Great news. Your company account has been approved on Talents.\n\n" +
+        "You can now open your dashboard and start working right away.\n" +
+        `Company dashboard: ${portalUrl}\n\n` +
+        "Recommended first step:\n" +
+        "- Publish your first job offer today.\n\n" +
+        "With Talents, you can:\n" +
+        "- Use AI recommendations and insights to find the best candidates faster.\n" +
+        "- Manage your hiring pipeline in one place, from application to shortlist.\n" +
+        "- Review profiles with clearer signals to support better hiring decisions.\n\n" +
+        "We are also continuously preparing our job seekers for real market needs by helping them improve their resumes, strengthen their skills, and present their experience in the best possible way.\n\n" +
+        "We are excited to support your hiring success.\n\n" +
+        "Best regards,\n" +
+        "Talents Team";
 
-Your company has been approved on Talents. You can now log in and start using the platform.
-
-If you need any help, reply to this email or contact support.
-
-Thanks,
-Talents Team`;
-
-    const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Welcome to Talents, ${company.name}</h2>
-        <p>Your company has been approved. You can now log in and start using the platform.</p>
-        <p>If you need any help, reply to this email or contact support.</p>
-        <p>Thanks,<br/>Talents Team</p>
+    const htmlBody = isArabic
+      ? `
+      <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;" dir="rtl">
+        <div style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+            <h2 style="margin:0; font-size:20px;">تم اعتماد شركتك</h2>
+            <p style="margin:6px 0 0; opacity:.9;">مرحباً بك في Talents</p>
+          </div>
+          <div style="padding:22px; color:#111827;">
+            <p style="margin:0 0 12px;">مرحباً <strong>${safeCompanyNameHtml}</strong>،</p>
+            <p style="margin:0 0 12px;">تم اعتماد حساب شركتك ولوحة التحكم أصبحت جاهزة.</p>
+            <p style="margin:0 0 14px;">
+              <a href="${portalUrl}" style="display:inline-block; background:#111827; color:#ffffff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:600;">
+                فتح لوحة الشركة
+              </a>
+            </p>
+            <p style="margin:0 0 10px;"><strong>الخطوة الأولى المقترحة:</strong> انشر أول فرصة وظيفية اليوم.</p>
+            <p style="margin:0 0 10px;">مع Talents يمكن لفريقك:</p>
+            <ul style="margin:0 0 14px 18px; padding:0; color:#374151;">
+              <li>استخدام توصيات وتحليلات الذكاء الاصطناعي لتحديد أفضل المرشحين بسرعة.</li>
+              <li>إدارة التوظيف من الطلبات حتى القائمة المختصرة في مسار واحد.</li>
+              <li>اتخاذ قرارات توظيف أدق عبر مؤشرات أوضح.</li>
+            </ul>
+            <p style="margin:0 0 12px; color:#374151;">
+              نعمل أيضاً على تجهيز الباحثين عن عمل عبر تحسين السير الذاتية وتطوير المهارات.
+            </p>
+            <p style="margin:0; color:#6b7280;">سعداء بدعمكم ومتحمسون لنجاح توظيفكم.</p>
+            <p style="margin:14px 0 0; color:#111827;">فريق Talents</p>
+          </div>
+        </div>
+      </div>
+    `
+      : `
+      <div style="font-family: Arial, sans-serif; background:#f4f7fb; padding:24px;">
+        <div style="max-width:640px; margin:0 auto; background:#ffffff; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#0f172a,#1f2937); color:#fff; padding:18px 22px;">
+            <h2 style="margin:0; font-size:20px;">Your Company Is Approved</h2>
+            <p style="margin:6px 0 0; opacity:.9;">Welcome to Talents</p>
+          </div>
+          <div style="padding:22px; color:#111827;">
+            <p style="margin:0 0 12px;">Hello <strong>${safeCompanyNameHtml}</strong>,</p>
+            <p style="margin:0 0 12px;">
+              Great news. Your company account has been approved and your dashboard is now active.
+            </p>
+            <p style="margin:0 0 14px;">
+              <a href="${portalUrl}" style="display:inline-block; background:#111827; color:#ffffff; text-decoration:none; padding:10px 16px; border-radius:8px; font-weight:600;">
+                Open Company Dashboard
+              </a>
+            </p>
+            <p style="margin:0 0 10px;"><strong>Recommended first step:</strong> publish your first job offer today.</p>
+            <p style="margin:0 0 10px;">With Talents, your team can:</p>
+            <ul style="margin:0 0 14px 18px; padding:0; color:#374151;">
+              <li>Use AI recommendations and insights to identify top candidates faster.</li>
+              <li>Manage hiring in one workflow from incoming applications to final shortlist.</li>
+              <li>Make smarter hiring decisions with clearer profile signals.</li>
+            </ul>
+            <p style="margin:0 0 12px; color:#374151;">
+              We also prepare job seekers for real hiring needs by improving their resumes,
+              strengthening their skills, and helping them present their value more clearly.
+            </p>
+            <p style="margin:0; color:#6b7280;">
+              We are excited to support your team and help you hire with confidence.
+            </p>
+            <p style="margin:14px 0 0; color:#111827;">Best regards,<br/>Talents Team</p>
+          </div>
+        </div>
       </div>
     `;
 
@@ -809,8 +916,20 @@ exports.rejectCompanyRequest = async (req, res) => {
       console.error("Failed to sync rejected company to user:", userError);
     }
 
-    const subject = "Talents - Company Registration Update";
-    const textBody = `Hello ${company.name},
+    const language = normalizeCompanyLanguage(company.preferred_language);
+    const isArabic = language === "ar";
+    const subject = isArabic
+      ? "Talents - تحديث على تسجيل الشركة"
+      : "Talents - Company Registration Update";
+    const textBody = isArabic
+      ? `مرحباً ${company.name},\n\n` +
+        "راجعنا تسجيل شركتك على Talents، لكن لا يمكن اعتماد الطلب حالياً.\n\n" +
+        "ملاحظة الإدارة:\n" +
+        `${admin_review_notes}\n\n` +
+        "يرجى تحديث البيانات وإعادة التقديم بشكل صحيح.\n" +
+        "إذا احتجت مساعدة، يمكنك الرد على هذه الرسالة.\n\n" +
+        "فريق Talents"
+      : `Hello ${company.name},
 
 We reviewed your company registration on Talents, but we cannot approve it yet.
 
@@ -823,7 +942,21 @@ If you need help, reply to this email or contact support.
 Thanks,
 Talents Team`;
 
-    const htmlBody = `
+    const htmlBody = isArabic
+      ? `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;" dir="rtl">
+        <h2>تحديث تسجيل Talents</h2>
+        <p>راجعنا تسجيل شركتك، لكن لا يمكن الاعتماد حالياً.</p>
+        <p><strong>ملاحظة الإدارة:</strong></p>
+        <blockquote style="background: #f5f5f5; padding: 12px; border-right: 4px solid #ddd;">
+          ${admin_review_notes}
+        </blockquote>
+        <p>يرجى تحديث البيانات وإعادة المحاولة.</p>
+        <p>إذا احتجت مساعدة، يمكنك الرد على هذه الرسالة.</p>
+        <p>فريق Talents</p>
+      </div>
+    `
+      : `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Talents Registration Update</h2>
         <p>We reviewed your company registration, but we cannot approve it yet.</p>

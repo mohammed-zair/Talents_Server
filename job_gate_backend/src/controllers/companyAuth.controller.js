@@ -104,6 +104,15 @@ const resolveLanguage = (req) => {
   return candidate.startsWith("ar") ? "ar" : "en";
 };
 
+const resolveCompanyLanguage = (req, company) => {
+  const companyLang = String(
+    company?.preferred_language || company?.language || company?.locale || ""
+  ).toLowerCase();
+  if (companyLang.startsWith("ar")) return "ar";
+  if (companyLang.startsWith("en")) return "en";
+  return resolveLanguage(req);
+};
+
 const buildCompanyOtpTemplate = ({
   language,
   companyName,
@@ -184,7 +193,6 @@ const buildCompanyOtpTemplate = ({
 exports.forgotCompanyPassword = async (req, res) => {
   try {
     const { email } = req.body || {};
-    const language = resolveLanguage(req);
     if (!email) {
       return errorResponse(res, "Email is required.", null, 400);
     }
@@ -197,6 +205,7 @@ exports.forgotCompanyPassword = async (req, res) => {
     if (companyUser && companyUser.is_active === false) {
       return successResponse(res, null, genericMessage);
     }
+    const language = resolveCompanyLanguage(req, company);
 
     const otpCode = generateOtpCode();
     const otpHash = hashToken(otpCode);
