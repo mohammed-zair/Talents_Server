@@ -30,6 +30,82 @@ const normalizeAiIntelligence = (raw) => {
   };
 };
 
+const isObject = (value) => value && typeof value === "object" && !Array.isArray(value);
+
+const hasNonEmptyValue = (value) => {
+  if (value == null) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.some((entry) => hasNonEmptyValue(entry));
+  if (isObject(value)) return Object.values(value).some((entry) => hasNonEmptyValue(entry));
+  if (typeof value === "number") return Number.isFinite(value) && value !== 0;
+  if (typeof value === "boolean") return value;
+  return false;
+};
+
+const hasMeaningfulStructuredData = (structuredData) => {
+  if (!isObject(structuredData)) return false;
+  const criticalSections = [
+    structuredData.personal_info,
+    structuredData.summary,
+    structuredData.skills,
+    structuredData.experience,
+    structuredData.education,
+    structuredData.projects,
+  ];
+  return criticalSections.some((section) => hasNonEmptyValue(section));
+};
+
+const getStructuredDataCompleteness = (structuredData) => {
+  if (!isObject(structuredData)) return 0;
+  const trackedSections = [
+    structuredData.personal_info,
+    structuredData.summary,
+    structuredData.skills,
+    structuredData.experience,
+    structuredData.education,
+    structuredData.projects,
+    structuredData.certifications,
+    structuredData.achievements,
+    structuredData.languages,
+  ];
+  return trackedSections.reduce(
+    (count, section) => count + (hasNonEmptyValue(section) ? 1 : 0),
+    0
+  );
+};
+
+const normalizeFeaturesFromAnalysis = (analysisResult) => {
+  const raw = analysisResult?.features || analysisResult?.features_analytics || {};
+  return isObject(raw) ? raw : {};
+};
+
+const buildFeaturesPayload = (cvId, features, atsScore, structuredData) => {
+  const hasEducation =
+    typeof features.has_education === "boolean"
+      ? features.has_education
+      : Array.isArray(structuredData?.education) && structuredData.education.length > 0;
+  const hasExperience =
+    typeof features.has_experience === "boolean"
+      ? features.has_experience
+      : Array.isArray(structuredData?.experience) && structuredData.experience.length > 0;
+  const hasContactInfo =
+    typeof features.has_contact_info === "boolean"
+      ? features.has_contact_info
+      : hasNonEmptyValue(structuredData?.personal_info);
+
+  return {
+    cv_id: cvId,
+    ats_score: Number.isFinite(Number(atsScore)) ? Number(atsScore) : 0,
+    total_years_experience: Number(features.total_years_experience) || 0,
+    key_skills: Array.isArray(features.key_skills) ? features.key_skills : [],
+    achievement_count: Number(features.achievement_count) || 0,
+    has_contact_info: hasContactInfo,
+    has_education: hasEducation,
+    has_experience: hasExperience,
+    is_ats_compliant: Number(atsScore) >= 70,
+  };
+};
+
 /**
  * @desc ØªØ­Ù„ÙŠÙ„ CV Ù†ØµÙŠ Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… AI (Ù…Ø¹ Normalization ÙˆRequest ID)
  * @route POST /api/ai/cv/analyze-text
@@ -470,7 +546,7 @@ exports.analyzeExistingCV = async (req, res) => {
       mimetype: cvRecord.file_type || "application/pdf",
     };
 
-    const analysisResult = await aiService.analyzeCVFile(userId, fileObj, useAI);
+    let analysisResult = await aiService.analyzeCVFile(userId, fileObj, useAI);
     try {
       console.log(
         `[${requestId}] AI raw result`,
@@ -492,13 +568,54 @@ exports.analyzeExistingCV = async (req, res) => {
       });
     }
 
-    const structuredData = analysisResult.structured_data || analysisResult.structuredData || {};
-    const features = analysisResult.features || {};
-    const ats_score = analysisResult.ats_score ?? analysisResult.score ?? 0;
-    const analysis_method = analysisResult.analysis_method || analysisResult.analysisMethod || "ai_core";
-    const processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
-    const rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
-    const competency_matrix = analysisResult.competency_matrix || null;
+    let structuredData = analysisResult.structured_data || analysisResult.structuredData || {};
+    let features = normalizeFeaturesFromAnalysis(analysisResult);
+    let ats_score = analysisResult.ats_score ?? analysisResult.score ?? 0;
+    let analysis_method = analysisResult.analysis_method || analysisResult.analysisMethod || "ai_core";
+    let processing_time = analysisResult.processing_time || analysisResult.processingTime || null;
+    let rawAIIntelligence = analysisResult.ai_intelligence || analysisResult.ai_insights || null;
+    let competency_matrix = analysisResult.competency_matrix || null;
+    const warnings = [];
+
+    const initialCompleteness = getStructuredDataCompleteness(structuredData);
+    if (!hasMeaningfulStructuredData(structuredData)) {
+      warnings.push("structured_data_weak_from_file_analysis");
+      try {
+        const extractedText = await extractTextFromFile(filePath);
+        const extractedLength = String(extractedText || "").trim().length;
+        if (extractedLength >= 80) {
+          const textAnalysisResult = await aiService.analyzeCVText(
+            userId,
+            extractedText,
+            useAI
+          );
+          const textStructured =
+            textAnalysisResult?.structured_data || textAnalysisResult?.structuredData || {};
+          const textCompleteness = getStructuredDataCompleteness(textStructured);
+          if (textCompleteness > initialCompleteness) {
+            analysisResult = textAnalysisResult;
+            structuredData = textStructured;
+            features = normalizeFeaturesFromAnalysis(textAnalysisResult);
+            ats_score = textAnalysisResult.ats_score ?? textAnalysisResult.score ?? ats_score;
+            analysis_method = `${analysis_method}+text_fallback`;
+            processing_time =
+              textAnalysisResult.processing_time || textAnalysisResult.processingTime || processing_time;
+            rawAIIntelligence =
+              textAnalysisResult.ai_intelligence || textAnalysisResult.ai_insights || rawAIIntelligence;
+            competency_matrix = textAnalysisResult.competency_matrix || competency_matrix;
+            warnings.push("fallback_text_analysis_applied");
+          } else {
+            warnings.push("fallback_text_analysis_not_better");
+          }
+        } else {
+          warnings.push("extracted_text_too_short_for_fallback");
+        }
+      } catch (fallbackError) {
+        warnings.push("fallback_text_analysis_failed");
+        console.warn(`[${requestId}] Fallback text analysis failed:`, fallbackError?.message || fallbackError);
+      }
+    }
+
     let ai_intelligence = null;
     if (rawAIIntelligence) {
       const normalized = normalizeAiIntelligence(rawAIIntelligence);
@@ -509,9 +626,23 @@ exports.analyzeExistingCV = async (req, res) => {
     } else if (competency_matrix) {
       ai_intelligence = { competency_matrix };
     }
-    const cleaned_job_description = analysisResult.cleaned_job_description || null;
-    const industry_ranking_score = analysisResult.industry_ranking_score ?? null;
-    const industry_ranking_label = analysisResult.industry_ranking_label ?? null;
+    let cleaned_job_description = analysisResult.cleaned_job_description || null;
+    let industry_ranking_score = analysisResult.industry_ranking_score ?? null;
+    let industry_ranking_label = analysisResult.industry_ranking_label ?? null;
+
+    if (!hasMeaningfulStructuredData(structuredData)) {
+      warnings.push("insufficient_structured_data");
+      ai_intelligence = null;
+      cleaned_job_description = null;
+      industry_ranking_score = null;
+      industry_ranking_label = null;
+    }
+
+    if (Number(ats_score) <= 0 && industry_ranking_label) {
+      warnings.push("industry_label_removed_due_to_inconsistent_score");
+      industry_ranking_label = null;
+      industry_ranking_score = null;
+    }
 
     const structuredRecord = await CVStructuredData.findOne({ where: { cv_id: cvId } });
     if (structuredRecord) {
@@ -521,17 +652,7 @@ exports.analyzeExistingCV = async (req, res) => {
     }
 
     const featuresRecord = await CVFeaturesAnalytics.findOne({ where: { cv_id: cvId } });
-    const featuresPayload = {
-      cv_id: cvId,
-      ats_score,
-      total_years_experience: features.total_years_experience || 0,
-      key_skills: features.key_skills || [],
-      achievement_count: features.achievement_count || 0,
-      has_contact_info: features.has_contact_info || false,
-      has_education: features.has_education || false,
-      has_experience: features.has_experience || false,
-      is_ats_compliant: ats_score >= 70,
-    };
+    const featuresPayload = buildFeaturesPayload(cvId, features, ats_score, structuredData);
     if (featuresRecord) {
       await featuresRecord.update(featuresPayload);
     } else {
@@ -564,8 +685,8 @@ exports.analyzeExistingCV = async (req, res) => {
       structured_data: structuredData,
       features_analytics: featuresPayload,
       ai_insights: aiInsights,
-      partial: false,
-      warnings: [],
+      partial: warnings.length > 0,
+      warnings,
       requestId,
       analysis_method,
       processing_time,

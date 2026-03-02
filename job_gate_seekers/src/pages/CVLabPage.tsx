@@ -19,6 +19,24 @@ const parseJsonMaybe = (value: unknown) => {
   }
 };
 
+const CANONICAL_SECTION_ORDER = [
+  "contact_information",
+  "professional_summary",
+  "core_competencies",
+  "professional_experience",
+  "projects",
+  "education",
+  "certifications_awards",
+] as const;
+
+const REQUIRED_SECTIONS = [
+  "contact_information",
+  "professional_summary",
+  "core_competencies",
+  "professional_experience",
+  "education",
+] as const;
+
 const isNonEmptyValue = (value: unknown): boolean => {
   if (value == null) return false;
   if (typeof value === "string") return value.trim().length > 0;
@@ -29,38 +47,182 @@ const isNonEmptyValue = (value: unknown): boolean => {
   return false;
 };
 
-const pickExistingSections = (structured: Record<string, unknown>, features: Record<string, unknown>) => {
-  const structuredCandidates: Record<string, unknown> = {
-    personal_info: structured?.personal_info,
-    summary: structured?.summary,
-    skills: structured?.skills,
-    experience: structured?.experience,
-    education: structured?.education,
-    projects: structured?.projects,
-    certifications: structured?.certifications,
-    achievements: structured?.achievements,
-    languages: structured?.languages,
+const asString = (value: unknown) => String(value ?? "").trim();
+const asArray = (value: unknown) => (Array.isArray(value) ? value : []);
+
+const normalizeContact = (value: unknown) => {
+  const obj = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const full_name = asString(obj.name || obj.full_name);
+  const professional_title = asString(obj.title || obj.professional_title || obj.role);
+  const email = asString(obj.email);
+  const phone = asString(obj.phone);
+  const location = asString(obj.location);
+  const linkedin_url = asString(obj.linkedin || obj.linkedin_url || obj.linkedin_profile);
+  return {
+    full_name,
+    professional_title,
+    email,
+    phone,
+    location,
+    linkedin_url,
+  };
+};
+
+const normalizeExperience = (value: unknown) =>
+  asArray(value)
+    .map((item) => {
+      const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+      const bullets = asArray(row.achievements || row.bullets || row.responsibilities)
+        .map((b) => asString(b))
+        .filter(Boolean);
+      return {
+        job_title: asString(row.title || row.job_title || row.role),
+        company: asString(row.company || row.organization),
+        location: asString(row.location),
+        start_date: asString(row.start_date || row.start || row.from),
+        end_date: asString(row.end_date || row.end || row.to),
+        is_current: Boolean(row.is_current || row.current),
+        bullets,
+      };
+    })
+    .filter((row) => isNonEmptyValue(row));
+
+const normalizeProjects = (value: unknown) =>
+  asArray(value)
+    .map((item) => {
+      const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+      const bullets = asArray(row.achievements || row.bullets || row.highlights)
+        .map((b) => asString(b))
+        .filter(Boolean);
+      const tech_stack = asArray(row.tech_stack || row.technologies || row.stack)
+        .map((tech) => asString(tech))
+        .filter(Boolean);
+      return {
+        title: asString(row.title || row.name),
+        role: asString(row.role),
+        start_date: asString(row.start_date || row.start || row.from),
+        end_date: asString(row.end_date || row.end || row.to),
+        objective: asString(row.objective || row.description || row.summary),
+        tech_stack,
+        bullets,
+      };
+    })
+    .filter((row) => isNonEmptyValue(row));
+
+const normalizeEducation = (value: unknown) =>
+  asArray(value)
+    .map((item) => {
+      const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+      return {
+        degree: asString(row.degree || row.title),
+        institution: asString(row.school || row.institution || row.university),
+        graduation_year: asString(row.graduation_year || row.year || row.years),
+        coursework: asArray(row.coursework).map((c) => asString(c)).filter(Boolean),
+      };
+    })
+    .filter((row) => isNonEmptyValue(row));
+
+const normalizeCertificationsAwards = (structured: Record<string, unknown>) => {
+  const certs = asArray(structured.certifications).map((item) => ({
+    type: "certification",
+    name: asString(item),
+    acronym: "",
+    issuer: "",
+    date: "",
+  }));
+  const awards = asArray((structured as any).awards).map((item) => ({
+    type: "award",
+    name: asString(item),
+    acronym: "",
+    issuer: "",
+    date: "",
+  }));
+  return [...certs, ...awards].filter((entry) => isNonEmptyValue(entry.name));
+};
+
+const normalizeSkills = (structured: Record<string, unknown>, features: Record<string, unknown>) => {
+  const skillPool = [
+    ...asArray(structured.skills).map((s) => asString(s)),
+    ...asArray(features.key_skills).map((s) => asString(s)),
+  ].filter(Boolean);
+  const unique = Array.from(new Set(skillPool));
+  return {
+    programming: unique,
+    frameworks: [],
+    tools_platforms: [],
+    domain_expertise: [],
+    other: [],
+  };
+};
+
+const buildCvBuilderSchemaV2 = (
+  structured: Record<string, unknown>,
+  features: Record<string, unknown>
+) => {
+  const contact_information = normalizeContact(structured.personal_info);
+  const professional_summary = asString(structured.summary);
+  const core_competencies = normalizeSkills(structured, features);
+  const professional_experience = normalizeExperience(structured.experience);
+  const projects = normalizeProjects(structured.projects);
+  const education = normalizeEducation(structured.education);
+  const certifications_awards = normalizeCertificationsAwards(structured);
+
+  const sections = {
+    contact_information: {
+      exists: isNonEmptyValue(contact_information),
+      data: contact_information,
+    },
+    professional_summary: {
+      exists: isNonEmptyValue(professional_summary),
+      data: professional_summary,
+    },
+    core_competencies: {
+      exists: isNonEmptyValue(core_competencies),
+      data: core_competencies,
+    },
+    professional_experience: {
+      exists: isNonEmptyValue(professional_experience),
+      data: professional_experience,
+    },
+    projects: {
+      exists: isNonEmptyValue(projects),
+      data: projects,
+    },
+    education: {
+      exists: isNonEmptyValue(education),
+      data: education,
+    },
+    certifications_awards: {
+      exists: isNonEmptyValue(certifications_awards),
+      data: certifications_awards,
+    },
   };
 
-  const featuresCandidates: Record<string, unknown> = {
-    total_years_experience: features?.total_years_experience,
-    key_skills: features?.key_skills,
-    project_count: features?.project_count,
-    achievement_count: features?.achievement_count,
-    has_education: features?.has_education,
-    has_certifications: features?.has_certifications,
-    has_languages: features?.has_languages,
+  const missing_required_sections = REQUIRED_SECTIONS.filter(
+    (sectionKey) => !sections[sectionKey].exists
+  );
+
+  const blocking_errors: string[] = [];
+  if (!sections.contact_information.exists) {
+    blocking_errors.push("contact_information_missing");
+  } else {
+    const contactData = sections.contact_information.data;
+    if (!contactData.full_name) blocking_errors.push("contact_full_name_missing");
+    if (!contactData.email) blocking_errors.push("contact_email_missing");
+    if (!contactData.phone) blocking_errors.push("contact_phone_missing");
+    if (!contactData.location) blocking_errors.push("contact_location_missing");
+  }
+
+  return {
+    schema_version: 2,
+    section_order: [...CANONICAL_SECTION_ORDER],
+    sections,
+    missing_required_sections,
+    validation: {
+      blocking_errors,
+      warnings: missing_required_sections.map((key) => `${key}_missing`),
+    },
   };
-
-  const structured_data = Object.fromEntries(
-    Object.entries(structuredCandidates).filter(([, value]) => isNonEmptyValue(value))
-  );
-
-  const features_analytics = Object.fromEntries(
-    Object.entries(featuresCandidates).filter(([, value]) => isNonEmptyValue(value))
-  );
-
-  return { structured_data, features_analytics };
 };
 
 const getCvPublicHref = (fileUrl?: string) => {
@@ -235,19 +397,25 @@ const CVLabPage: React.FC = () => {
     const features = (snapshotFeatures && typeof snapshotFeatures === "object"
       ? snapshotFeatures
       : {}) as Record<string, unknown>;
-    const existingSections = pickExistingSections(structured, features);
+    const builderSchema = buildCvBuilderSchemaV2(structured, features);
+    const sections_present = CANONICAL_SECTION_ORDER.filter(
+      (section) => builderSchema.sections[section].exists
+    );
 
     return {
-      message_type: "cv_sections_snapshot",
+      message_type: "cv_builder_v2_seed",
       cv_id: selectedCv?.cv_id,
       cv_title: selectedCv?.title,
       analyzed_at: activeInsight?.created_at || analysis?.created_at || null,
-      sections_present: Object.keys(existingSections.structured_data),
-      structured_data: existingSections.structured_data,
-      features_analytics: existingSections.features_analytics,
+      schema_version: builderSchema.schema_version,
+      section_order: builderSchema.section_order,
+      sections_present,
+      missing_required_sections: builderSchema.missing_required_sections,
+      sections: builderSchema.sections,
+      validation: builderSchema.validation,
       note:
-        Object.keys(existingSections.structured_data).length === 0
-          ? "No structured CV sections were detected from this analysis."
+        sections_present.length === 0
+          ? "No structured CV sections were detected from this analysis. Ask the user to upload a clearer ATS-friendly CV."
           : undefined,
     };
   };
