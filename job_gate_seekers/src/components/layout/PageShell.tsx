@@ -155,7 +155,7 @@ const PageShell: React.FC = () => {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="glass-panel relative z-1 mt-4 flex flex-wrap items-center gap-3 rounded-2xl p-3">
+          <header className="glass-panel relative z-[9990] mt-4 flex flex-wrap items-center gap-3 rounded-2xl p-3">
             <div className="flex items-center gap-2 md:hidden">
               <button
                 className="rounded-xl border border-[var(--border)] p-2"
@@ -174,7 +174,7 @@ const PageShell: React.FC = () => {
                 {theme === "light" ? <MoonStar size={16} /> : <Sun size={16} />}
               </button>
 
-              <div className="relative">
+              <div className="relative z-[9995]">
                 <button
                   className="relative rounded-xl border border-[var(--border)] p-2"
                   onClick={() => setNotificationsOpen((v) => !v)}
@@ -190,7 +190,7 @@ const PageShell: React.FC = () => {
 
                 {notificationsOpen && (
                   <div
-                    className={`absolute top-full left-1/2 z-50 mt-2 w-[92vw] max-w-80 -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--popout)] p-2 shadow-xl backdrop-blur sm:w-80 sm:translate-x-0 ${
+                    className={`absolute top-full left-1/2 z-[9999] mt-2 w-[92vw] max-w-80 -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[var(--popout)] p-2 shadow-xl backdrop-blur sm:w-80 sm:translate-x-0 ${
                       isRtl ? "sm:left-0 sm:right-auto" : "sm:right-0 sm:left-auto"
                     }`}
                   >

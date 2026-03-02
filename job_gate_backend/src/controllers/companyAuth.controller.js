@@ -43,6 +43,35 @@ const refreshCookieOptions = {
 const hashToken = (token) =>
   crypto.createHash("sha256").update(token).digest("hex");
 
+const extractMissingColumn = (error) => {
+  const raw = String(error?.parent?.sqlMessage || error?.message || "");
+  const mysqlMatch = raw.match(/Unknown column '([^']+)'/i);
+  if (mysqlMatch?.[1]) return mysqlMatch[1];
+  const pgMatch = raw.match(/column "([^"]+)" does not exist/i);
+  if (pgMatch?.[1]) return pgMatch[1];
+  return null;
+};
+
+const createRefreshTokenRecordCompat = async (payload) => {
+  const recordPayload = { ...payload };
+
+  while (true) {
+    try {
+      return await CompanyRefreshToken.create(recordPayload);
+    } catch (error) {
+      const missingColumn = extractMissingColumn(error);
+      if (
+        missingColumn &&
+        Object.prototype.hasOwnProperty.call(recordPayload, missingColumn)
+      ) {
+        delete recordPayload[missingColumn];
+        continue;
+      }
+      throw error;
+    }
+  }
+};
+
 const issueAccessToken = (companyId, email) =>
   jwt.sign(
     {
@@ -59,7 +88,7 @@ const createRefreshToken = async (companyId, loginEmail, req) => {
   const tokenHash = hashToken(refreshToken);
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
 
-  await CompanyRefreshToken.create({
+  await createRefreshTokenRecordCompat({
     company_id: companyId,
     token_hash: tokenHash,
     expires_at: expiresAt,
@@ -537,6 +566,7 @@ exports.refreshCompanySession = async (req, res) => {
 
     const tokenHash = hashToken(refreshToken);
     const stored = await CompanyRefreshToken.findOne({
+      attributes: ["token_id", "company_id", "token_hash", "expires_at", "revoked_at"],
       where: {
         token_hash: tokenHash,
         revoked_at: null,
@@ -558,9 +588,9 @@ exports.refreshCompanySession = async (req, res) => {
       return errorResponse(res, "Company not found.", null, 404);
     }
 
-    const accessToken = issueAccessToken(company.company_id, stored.login_email || company.email);
+    const accessToken = issueAccessToken(company.company_id, company.email);
     const { refreshToken: nextRefreshToken, tokenHash: nextTokenHash } =
-      await createRefreshToken(company.company_id, stored.login_email || company.email, req);
+      await createRefreshToken(company.company_id, company.email, req);
 
     stored.revoked_at = new Date();
     stored.replaced_by_token_hash = nextTokenHash;
@@ -587,6 +617,7 @@ exports.logoutCompany = async (req, res) => {
     if (refreshToken) {
       const tokenHash = hashToken(refreshToken);
       const stored = await CompanyRefreshToken.findOne({
+        attributes: ["token_id", "token_hash", "revoked_at"],
         where: { token_hash: tokenHash, revoked_at: null },
       });
       if (stored) {
