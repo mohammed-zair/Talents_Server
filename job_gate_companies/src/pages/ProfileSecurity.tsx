@@ -3,6 +3,7 @@ import { useDropzone } from "react-dropzone";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { ShieldCheck, UploadCloud } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import SectionHeader from "../components/shared/SectionHeader";
 import Card from "../components/shared/Card";
 import Button from "../components/shared/Button";
@@ -10,10 +11,12 @@ import Skeleton from "../components/shared/Skeleton";
 import { companyApi } from "../services/api/api";
 import type { CompanyProfile } from "../types";
 import { useLanguage } from "../contexts/LanguageContext";
+import { clearToken } from "../services/auth";
 
 const ProfileSecurity: React.FC = () => {
   const queryClient = useQueryClient();
   const { language } = useLanguage();
+  const navigate = useNavigate();
   const { data: profile, isLoading } = useQuery({
     queryKey: ["company-profile"],
     queryFn: companyApi.getCompanyProfile,
@@ -24,24 +27,58 @@ const ProfileSecurity: React.FC = () => {
   const [passwords, setPasswords] = useState({ currentPassword: "", newPassword: "" });
   const [showCredentials, setShowCredentials] = useState(false);
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteOtp, setDeleteOtp] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+
   const updateProfile = useMutation({
     mutationFn: companyApi.updateCompanyProfile,
     onSuccess: () => {
-      toast.success(language === "ar" ? "تم تحديث الملف" : "Profile updated");
+      toast.success(language === "ar" ? "?? ????? ?????" : "Profile updated");
       queryClient.invalidateQueries({ queryKey: ["company-profile"] });
     },
     onError: () =>
-      toast.error(language === "ar" ? "تعذر تحديث الملف" : "Failed to update profile"),
+      toast.error(language === "ar" ? "???? ????? ?????" : "Failed to update profile"),
   });
 
   const changePassword = useMutation({
     mutationFn: companyApi.changeCompanyPassword,
     onSuccess: () => {
-      toast.success(language === "ar" ? "تم تحديث كلمة المرور" : "Password updated");
+      toast.success(language === "ar" ? "?? ????? ???? ??????" : "Password updated");
       setPasswords({ currentPassword: "", newPassword: "" });
     },
     onError: () =>
-      toast.error(language === "ar" ? "تعذر تحديث كلمة المرور" : "Failed to update password"),
+      toast.error(language === "ar" ? "???? ????? ???? ??????" : "Failed to update password"),
+  });
+
+  const requestDelete = useMutation({
+    mutationFn: companyApi.requestDeleteAccount,
+    onSuccess: () => {
+      setDeleteStep(2);
+      setDeleteError("");
+    },
+    onError: (error: any) => {
+      setDeleteError(error?.response?.data?.message || copy.deleteRequestFailed);
+    },
+  });
+
+  const confirmDelete = useMutation({
+    mutationFn: companyApi.confirmDeleteAccount,
+    onSuccess: async () => {
+      clearToken();
+      try {
+        await companyApi.getSession();
+      } catch (_) {
+        // Session is expected to be invalid after deletion.
+      }
+      navigate("/login", { replace: true });
+    },
+    onError: (error: any) => {
+      setDeleteError(error?.response?.data?.message || copy.deleteConfirmFailed);
+    },
   });
 
   const strengthScore = useMemo(() => {
@@ -74,6 +111,39 @@ const ProfileSecurity: React.FC = () => {
     changePassword.mutate(passwords);
   };
 
+  const resetDeleteFlow = () => {
+    setDeleteStep(1);
+    setDeletePassword("");
+    setDeleteReason("");
+    setDeleteOtp("");
+    setDeleteError("");
+  };
+
+  const openDeleteModal = () => {
+    resetDeleteFlow();
+    setShowDeleteModal(true);
+  };
+
+  const handleRequestDeleteOtp = () => {
+    if (!deletePassword.trim()) {
+      setDeleteError(copy.deletePasswordRequired);
+      return;
+    }
+    requestDelete.mutate({
+      current_password: deletePassword,
+      reason: deleteReason.trim() || undefined,
+      language,
+    });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteOtp.trim()) {
+      setDeleteError(copy.deleteOtpRequired);
+      return;
+    }
+    confirmDelete.mutate({ otp: deleteOtp.trim() });
+  };
+
   const copy = {
     en: {
       headerEyebrow: "Profile & Security",
@@ -97,29 +167,55 @@ const ProfileSecurity: React.FC = () => {
       strengthHint: "Min 8 chars, 1 uppercase, 1 number",
       changePassword: "Change Password",
       saving: "Saving...",
+      dangerTitle: "Danger Zone",
+      dangerDesc:
+        "Deleting this account is irreversible. Access is blocked immediately and permanent purge happens after 30 days.",
+      deleteAccount: "Delete Account",
+      deleteReason: "Reason (optional)",
+      deleteOtp: "Deletion OTP",
+      sendDeleteOtp: "Send OTP",
+      confirmDelete: "Confirm Deletion",
+      deletePasswordRequired: "Current password is required.",
+      deleteOtpRequired: "OTP code is required.",
+      deleteRequestFailed: "Failed to send deletion OTP.",
+      deleteConfirmFailed: "Failed to delete account.",
+      cancel: "Cancel",
     },
     ar: {
-      headerEyebrow: "الملف والأمان",
-      headerTitle: "مركز الهوية",
-      headerSubtitle: "تحكم في الهوية والوصول وحالة التحقق.",
-      verification: "حالة التحقق",
-      verified: "موثّق",
-      pending: "قيد الموافقة",
-      dragDrop: "اسحب الشعار هنا أو انقر للتحميل.",
-      dragDropHint: "PNG أو JPG حتى 2MB.",
-      name: "اسم الشركة",
-      industry: "المجال",
-      phone: "الهاتف",
-      updateProfile: "تحديث الملف",
-      security: "مركز الأمان",
-      passwordControl: "إدارة كلمة المرور",
-      lastChanged: "آخر تغيير",
-      currentPassword: "كلمة المرور الحالية",
-      newPassword: "كلمة مرور جديدة",
-      updateCredentials: "تحديث البريد وكلمة المرور",
-      strengthHint: "8 أحرف على الأقل، حرف كبير ورقم",
-      changePassword: "تغيير كلمة المرور",
-      saving: "جارٍ الحفظ...",
+      headerEyebrow: "????? ???????",
+      headerTitle: "???? ??????",
+      headerSubtitle: "???? ?? ?????? ??????? ????? ??????.",
+      verification: "???? ??????",
+      verified: "?????",
+      pending: "??? ????????",
+      dragDrop: "???? ?????? ??? ?? ???? ???????.",
+      dragDropHint: "PNG ?? JPG ??? 2MB.",
+      name: "??? ??????",
+      industry: "??????",
+      phone: "??????",
+      updateProfile: "????? ?????",
+      security: "???? ??????",
+      passwordControl: "????? ???? ??????",
+      lastChanged: "??? ?????",
+      currentPassword: "???? ?????? ???????",
+      newPassword: "???? ???? ?????",
+      updateCredentials: "????? ?????? ????? ??????",
+      strengthHint: "8 ???? ??? ?????? ??? ???? ????",
+      changePassword: "????? ???? ??????",
+      saving: "???? ?????...",
+      dangerTitle: "????? ?????",
+      dangerDesc:
+        "??? ?????? ????? ?????. ???? ????? ?????? ????? ?????? ??????? ??? 30 ?????.",
+      deleteAccount: "??? ??????",
+      deleteReason: "??? ????? (???????)",
+      deleteOtp: "??? ??? ??????",
+      sendDeleteOtp: "????? ?????",
+      confirmDelete: "????? ?????",
+      deletePasswordRequired: "???? ?????? ??????? ??????.",
+      deleteOtpRequired: "??? ?????? ?????.",
+      deleteRequestFailed: "???? ????? ??? ?????.",
+      deleteConfirmFailed: "???? ??? ??????.",
+      cancel: "?????",
     },
   }[language];
 
@@ -134,7 +230,7 @@ const ProfileSecurity: React.FC = () => {
 
   const strengthLabel =
     language === "ar"
-      ? ["ضعيفة", "جيدة", "قوية"][strengthScore] ?? "ضعيفة"
+      ? ["?????", "????", "????"][strengthScore] ?? "?????"
       : ["Weak", "Good", "Strong"][strengthScore] ?? "Weak";
 
   return (
@@ -197,9 +293,7 @@ const ProfileSecurity: React.FC = () => {
               >
                 <input {...getInputProps()} />
                 <UploadCloud size={28} className="text-[var(--accent)]" />
-                <p className="mt-3 text-xs text-[var(--text-muted)]">
-                  {copy.dragDrop}
-                </p>
+                <p className="mt-3 text-xs text-[var(--text-muted)]">{copy.dragDrop}</p>
                 <p className="mt-1 text-[11px] text-[var(--text-muted)]">{copy.dragDropHint}</p>
               </div>
 
@@ -265,41 +359,40 @@ const ProfileSecurity: React.FC = () => {
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
                 {copy.security}
               </p>
-              <h3 className="heading-serif text-xl text-[var(--text-primary)]">
-                {copy.passwordControl}
-              </h3>
+              <h3 className="heading-serif text-xl text-[var(--text-primary)]">{copy.passwordControl}</h3>
               <p className="text-xs text-[var(--text-muted)]">
-                {copy.lastChanged}: {data.lastPasswordChange || "—"}
+                {copy.lastChanged}: {data.lastPasswordChange || "�"}
               </p>
             </div>
-            <Button
-              className="w-full justify-center"
-              onClick={() => setShowCredentials(true)}
-            >
+            <Button className="w-full justify-center" onClick={() => setShowCredentials(true)}>
               {copy.updateCredentials}
             </Button>
           </div>
         </Card>
       </div>
 
+      <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-5">
+        <h3 className="heading-serif text-xl text-red-300">{copy.dangerTitle}</h3>
+        <p className="mt-2 text-sm text-red-200/90">{copy.dangerDesc}</p>
+        <Button className="mt-4 border border-red-400 text-red-200" variant="ghost" onClick={openDeleteModal}>
+          {copy.deleteAccount}
+        </Button>
+      </div>
+
       {showCredentials && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
           <div className="glass-card w-full max-w-lg rounded-3xl border p-6">
-            <h3 className="heading-serif text-xl text-[var(--text-primary)]">
-              {copy.updateCredentials}
-            </h3>
+            <h3 className="heading-serif text-xl text-[var(--text-primary)]">{copy.updateCredentials}</h3>
             <div className="mt-4 space-y-3">
               <div className="space-y-2">
                 <label htmlFor="profile-email" className="text-xs text-[var(--text-muted)]">
-                  {language === "ar" ? "البريد الإلكتروني" : "Email"}
+                  {language === "ar" ? "?????? ??????????" : "Email"}
                 </label>
                 <input
                   id="profile-email"
                   name="email"
                   defaultValue={data.email}
-                  onChange={(event) =>
-                    setProfileForm((prev) => ({ ...prev, email: event.target.value }))
-                  }
+                  onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
                   className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 />
               </div>
@@ -312,9 +405,7 @@ const ProfileSecurity: React.FC = () => {
                   name="currentPassword"
                   type="password"
                   value={passwords.currentPassword}
-                  onChange={(event) =>
-                    setPasswords((prev) => ({ ...prev, currentPassword: event.target.value }))
-                  }
+                  onChange={(event) => setPasswords((prev) => ({ ...prev, currentPassword: event.target.value }))}
                   className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 />
               </div>
@@ -327,9 +418,7 @@ const ProfileSecurity: React.FC = () => {
                   name="newPassword"
                   type="password"
                   value={passwords.newPassword}
-                  onChange={(event) =>
-                    setPasswords((prev) => ({ ...prev, newPassword: event.target.value }))
-                  }
+                  onChange={(event) => setPasswords((prev) => ({ ...prev, newPassword: event.target.value }))}
                   className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 />
                 <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--panel-border)]">
@@ -346,7 +435,7 @@ const ProfileSecurity: React.FC = () => {
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <Button variant="ghost" onClick={() => setShowCredentials(false)}>
-                {language === "ar" ? "إلغاء" : "Cancel"}
+                {copy.cancel}
               </Button>
               <Button
                 onClick={() => {
@@ -360,6 +449,81 @@ const ProfileSecurity: React.FC = () => {
               >
                 {copy.changePassword}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-6">
+          <div className="glass-card w-full max-w-lg rounded-3xl border border-red-500/40 p-6">
+            <h3 className="heading-serif text-xl text-red-300">{copy.deleteAccount}</h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">{copy.dangerDesc}</p>
+
+            {deleteStep === 1 ? (
+              <div className="mt-4 space-y-3">
+                <div className="space-y-2">
+                  <label className="text-xs text-[var(--text-muted)]">{copy.currentPassword}</label>
+                  <input
+                    type="password"
+                    value={deletePassword}
+                    onChange={(event) => setDeletePassword(event.target.value)}
+                    className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-[var(--text-muted)]">{copy.deleteReason}</label>
+                  <textarea
+                    value={deleteReason}
+                    onChange={(event) => setDeleteReason(event.target.value)}
+                    rows={3}
+                    className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-2">
+                <label className="text-xs text-[var(--text-muted)]">{copy.deleteOtp}</label>
+                <input
+                  type="text"
+                  value={deleteOtp}
+                  onChange={(event) => setDeleteOtp(event.target.value)}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
+                />
+              </div>
+            )}
+
+            {deleteError && <p className="mt-3 text-sm text-red-300">{deleteError}</p>}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  resetDeleteFlow();
+                }}
+              >
+                {copy.cancel}
+              </Button>
+              {deleteStep === 1 ? (
+                <Button
+                  variant="ghost"
+                  className="border border-red-400 text-red-200"
+                  onClick={handleRequestDeleteOtp}
+                  disabled={requestDelete.isPending}
+                >
+                  {requestDelete.isPending ? copy.saving : copy.sendDeleteOtp}
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  className="border border-red-400 text-red-200"
+                  onClick={handleConfirmDelete}
+                  disabled={confirmDelete.isPending}
+                >
+                  {confirmDelete.isPending ? copy.saving : copy.confirmDelete}
+                </Button>
+              )}
             </div>
           </div>
         </div>

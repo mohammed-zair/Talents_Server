@@ -70,6 +70,18 @@ export const seekerApi = {
   forgotPassword: async (data: { email: string }) => api.post("/auth/forgot-password", data),
   resetPassword: async (data: { email: string; token: string; newPassword: string }) =>
     api.post("/auth/reset-password", data),
+  requestDeleteAccount: async (data: {
+    current_password: string;
+    reason?: string;
+    language?: "en" | "ar";
+  }) => {
+    const res = await api.post("/auth/delete-account/request", data);
+    return unwrap(res.data);
+  },
+  confirmDeleteAccount: async (data: { otp: string }) => {
+    const res = await api.post("/auth/delete-account/confirm", data);
+    return unwrap(res.data);
+  },
   sendContactMessage: async (data: { subject: string; message: string; language?: "en" | "ar" }) => {
     const res = await api.post("/jop_seeker/contact", data);
     return unwrap(res.data);

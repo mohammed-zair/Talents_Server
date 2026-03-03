@@ -34,11 +34,10 @@ const Company = sequelize.define(
     },
 
     logo_data: {
-      type: DataTypes.BLOB("long"), // "long" لضمان مساحة كافية للصور الكبيرة
+      type: DataTypes.BLOB("long"),
       allowNull: true,
     },
 
-    // يفضل إضافة نوع الملف (mimetype) لتسهيل عرضه لاحقاً
     logo_mimetype: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -51,7 +50,7 @@ const Company = sequelize.define(
 
     license_doc_data: {
       type: DataTypes.BLOB("long"),
-      allowNull: false, // حسب متطلباتك السابقة
+      allowNull: false,
     },
 
     license_doc_url: {
@@ -59,49 +58,42 @@ const Company = sequelize.define(
       allowNull: true,
     },
 
-    // حقل ضروري لمعرفة نوع الملف (مثلاً: application/pdf) عند استرجاعه
     license_mimetype: {
       type: DataTypes.STRING,
       allowNull: true,
     },
-    // 🆕 كلمة مرور الشركة (مشفّرة)
+
     password: {
       type: DataTypes.STRING,
-      allowNull: true, // null إلى أن يتم القبول وتعيين كلمة مرور
+      allowNull: true,
     },
 
-    // 🆕 تاريخ تعيين كلمة المرور (اختياري – مفيد للأمان)
     password_set_at: {
       type: DataTypes.DATE,
       allowNull: true,
     },
 
-    // 🆕 token لتعيين كلمة المرور (أول مرة)
     set_password_token: {
       type: DataTypes.STRING,
       allowNull: true,
       unique: true,
     },
 
-    // 🆕 صلاحية token تعيين كلمة المرور
     set_password_expires: {
       type: DataTypes.DATE,
       allowNull: true,
     },
 
-    // Rejection timestamp (set when admin rejects)
     rejected_at: {
       type: DataTypes.DATE,
       allowNull: true,
     },
 
-    // Admin rejection reason
     rejection_reason: {
       type: DataTypes.TEXT,
       allowNull: true,
     },
 
-    // Approval timestamp
     approved_at: {
       type: DataTypes.DATE,
       allowNull: true,
@@ -109,8 +101,29 @@ const Company = sequelize.define(
 
     is_approved: {
       type: DataTypes.BOOLEAN,
-      defaultValue: true, // مادامت في هذا الجدول فهي معتمدة
+      defaultValue: true,
       allowNull: false,
+    },
+
+    is_deleted: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+
+    deleted_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    deletion_requested_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
+    deletion_reason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
   },
   {
@@ -120,7 +133,7 @@ const Company = sequelize.define(
     updatedAt: "updatedAt",
     freezeTableName: true,
     primaryKey: "company_id",
-  },
+  }
 );
 
 Company.removeAttribute("id");

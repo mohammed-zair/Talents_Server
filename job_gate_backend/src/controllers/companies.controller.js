@@ -123,8 +123,8 @@ const getCompanyApprovalStatus = (company) => {
 
 const buildApprovedCompanyWhere = (extra = {}) => {
   const base = Company.rawAttributes?.status
-    ? { status: "approved" }
-    : { is_approved: true };
+    ? { status: "approved", is_deleted: false }
+    : { is_approved: true, is_deleted: false };
   return { ...base, ...extra };
 };
 
@@ -467,6 +467,7 @@ exports.sendCompanyRegistrationOtp = async (req, res) => {
     const latestOtp = await CompanyEmailOtp.findOne({
       where: {
         email: normalizedEmail,
+        purpose: "registration",
         consumed_at: null,
       },
       order: [["created_at", "DESC"]],
@@ -485,6 +486,7 @@ exports.sendCompanyRegistrationOtp = async (req, res) => {
     const expiresAt = new Date(Date.now() + COMPANY_REG_OTP_EXPIRES_MINUTES * 60 * 1000);
     await CompanyEmailOtp.create({
       email: normalizedEmail,
+      purpose: "registration",
       otp_hash: hashOtp(otpCode),
       expires_at: expiresAt,
       attempts: 0,
@@ -528,6 +530,7 @@ exports.verifyCompanyRegistrationOtp = async (req, res) => {
     const otpRecord = await CompanyEmailOtp.findOne({
       where: {
         email: normalizedEmail,
+        purpose: "registration",
         consumed_at: null,
       },
       order: [["created_at", "DESC"]],
@@ -619,6 +622,7 @@ exports.registerCompany = async (req, res) => {
     const verifiedOtp = await CompanyEmailOtp.findOne({
       where: {
         email: normalizedEmail,
+        purpose: "registration",
         verified_at: { [Op.ne]: null },
         consumed_at: null,
         expires_at: { [Op.gt]: new Date() },
@@ -1307,7 +1311,7 @@ exports.addCompanyUser = async (req, res) => {
 exports.getCompanyLogo = async (req, res) => {
   try {
     const company = await Company.findOne({
-      where: { company_id: req.params.id, is_approved: true },
+      where: { company_id: req.params.id, is_approved: true, is_deleted: false },
       attributes: ["company_id", "logo_data", "logo_mimetype"],
     });
 

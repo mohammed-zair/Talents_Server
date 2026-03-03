@@ -238,6 +238,18 @@ export const companyApi = {
     const { data } = await api.put("/companies/company/change-password", payload);
     return data;
   },
+  requestDeleteAccount: async (payload: {
+    current_password: string;
+    reason?: string;
+    language?: "en" | "ar";
+  }) => {
+    const { data } = await api.post("/companies/company/delete-account/request", payload);
+    return data;
+  },
+  confirmDeleteAccount: async (payload: { otp: string }) => {
+    const { data } = await api.post("/companies/company/delete-account/confirm", payload);
+    return data;
+  },
   updateJobPosting: async (id: string, payload: FormData) => {
     const { data } = await api.put(`/companies/company/job-postings/${id}`, payload, {
       headers: { "Content-Type": "multipart/form-data" },

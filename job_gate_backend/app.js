@@ -21,6 +21,7 @@ const companyRequestsRoutes = require("./src/routes/companyRequests.routes");
 const aiRoutes = require("./src/routes/ai.routes");
 const pushRoutes = require("./src/routes/push.routes");
 const emailRoutes = require("./src/routes/email.routes");
+const { startAccountPurgeScheduler } = require("./src/jobs/accountPurge.job");
 
 // CV Purchase Requests
 const companyCVRequestRoutes = require("./src/routes/companyCVRequest.routes");
@@ -197,6 +198,7 @@ bootstrapDatabase()
     } else {
       console.log("AI Features: Disabled");
     }
+    startAccountPurgeScheduler();
   })
   .catch((err) => {
     console.error("Database bootstrap failed:", err);

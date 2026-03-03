@@ -17,6 +17,11 @@ const UserEmailOtp = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    purpose: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      defaultValue: "registration",
+    },
     expires_at: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -52,6 +57,7 @@ const UserEmailOtp = sequelize.define(
     primaryKey: "otp_id",
     indexes: [
       { fields: ["email"] },
+      { fields: ["email", "purpose"] },
       { fields: ["expires_at"] },
       { fields: ["verified_at"] },
       { fields: ["consumed_at"] },

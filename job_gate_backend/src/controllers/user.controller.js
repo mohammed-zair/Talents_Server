@@ -45,6 +45,14 @@ const USER_REG_OTP_MAX_ATTEMPTS = parseInt(
   process.env.USER_REG_OTP_MAX_ATTEMPTS || "5",
   10
 );
+const ACCOUNT_DELETE_OTP_EXPIRES_MINUTES = parseInt(
+  process.env.ACCOUNT_DELETE_OTP_EXPIRES_MINUTES || "10",
+  10
+);
+const ACCOUNT_DELETE_OTP_MAX_ATTEMPTS = parseInt(
+  process.env.ACCOUNT_DELETE_OTP_MAX_ATTEMPTS || "5",
+  10
+);
 const USER_REG_OTP_COOLDOWN_SECONDS = parseInt(
   process.env.USER_REG_OTP_COOLDOWN_SECONDS || "60",
   10
@@ -274,6 +282,37 @@ const buildUserRegistrationOtpTemplate = ({ name, otpCode, language = "en" }) =>
   };
 };
 
+const buildAccountDeleteOtpTemplate = ({ name, otpCode, language = "en" }) => {
+  const safeName = String(name || "there").trim();
+  if (language === "ar") {
+    return {
+      subject: "تأكيد حذف الحساب - Talents",
+      text:
+        `مرحباً ${safeName}،\n\n` +
+        "وصلنا طلب حذف حسابك.\n" +
+        "أدخل رمز التحقق التالي لتأكيد الحذف:\n" +
+        `${otpCode}\n\n` +
+        `صلاحية الرمز: ${ACCOUNT_DELETE_OTP_EXPIRES_MINUTES} دقيقة.\n` +
+        "بعد التأكيد، سيتم تعطيل الحساب فوراً وحذفه نهائياً بعد 30 يوماً.\n\n" +
+        "فريق Talents",
+    };
+  }
+
+  return {
+    subject: "Confirm account deletion - Talents",
+    text:
+      `Hello ${safeName},\n\n` +
+      "We received a request to delete your account.\n" +
+      "Use this OTP to confirm deletion:\n" +
+      `${otpCode}\n\n` +
+      `This code expires in ${ACCOUNT_DELETE_OTP_EXPIRES_MINUTES} minutes.\n` +
+      "After confirmation, your account is blocked immediately and permanently purged after 30 days.\n\n" +
+      "Talents Team",
+  };
+};
+
+const createDeletedUserEmail = (userId) => `deleted_user_${userId}_${Date.now()}@deleted.local`;
+
 exports.sendContactMessage = async (req, res) => {
   try {
     const subjectInput = String(req.body?.subject || "").trim();
@@ -403,7 +442,7 @@ exports.sendJobSeekerRegistrationOtp = async (req, res) => {
     }
 
     const latestOtp = await UserEmailOtp.findOne({
-      where: { email: normalizedEmail, consumed_at: null },
+      where: { email: normalizedEmail, purpose: "registration", consumed_at: null },
       order: [["created_at", "DESC"]],
     });
     if (latestOtp) {
@@ -425,6 +464,7 @@ exports.sendJobSeekerRegistrationOtp = async (req, res) => {
 
     await UserEmailOtp.create({
       email: normalizedEmail,
+      purpose: "registration",
       otp_hash: otpHash,
       expires_at: expiresAt,
       attempts: 0,
@@ -461,7 +501,7 @@ exports.verifyJobSeekerRegistrationOtp = async (req, res) => {
     const providedOtp = String(otp || code).trim();
 
     const otpRecord = await UserEmailOtp.findOne({
-      where: { email: normalizedEmail, consumed_at: null },
+      where: { email: normalizedEmail, purpose: "registration", consumed_at: null },
       order: [["created_at", "DESC"]],
     });
 
@@ -522,6 +562,9 @@ exports.login = async (req, res) => {
         404
       );
     }
+    if (user.is_deleted || user.is_active === false) {
+      return errorResponse(res, "Account deleted or inactive.", null, 403);
+    }
 
     // التحقق من كلمة المرور
     const isMatch = await bcrypt.compare(password, user.hashed_password);
@@ -575,6 +618,7 @@ exports.registerJobSeeker = async (req, res) => {
     const verifiedOtp = await UserEmailOtp.findOne({
       where: {
         email: normalizedEmail,
+        purpose: "registration",
         verified_at: { [Op.ne]: null },
         consumed_at: null,
         expires_at: { [Op.gt]: new Date() },
@@ -777,6 +821,144 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
+exports.requestDeleteAccount = async (req, res) => {
+  try {
+    const userId = Number(req.user?.user_id);
+    const { current_password, reason } = req.body || {};
+    if (!userId) {
+      return errorResponse(res, "Unauthorized.", null, 401);
+    }
+    if (!current_password) {
+      return errorResponse(res, "Current password is required.", null, 400);
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user || user.is_deleted) {
+      return errorResponse(res, "Account deleted.", null, 404);
+    }
+
+    const isMatch = await bcrypt.compare(String(current_password), user.hashed_password);
+    if (!isMatch) {
+      return errorResponse(res, "Current password is incorrect.", null, 401);
+    }
+
+    const otpCode = generateOtpCode();
+    const otpHash = crypto.createHash("sha256").update(otpCode).digest("hex");
+    const expiresAt = new Date(Date.now() + ACCOUNT_DELETE_OTP_EXPIRES_MINUTES * 60 * 1000);
+    const language = resolveLanguage(req);
+
+    await UserEmailOtp.create({
+      email: String(user.email).toLowerCase(),
+      purpose: "account_delete",
+      otp_hash: otpHash,
+      expires_at: expiresAt,
+      attempts: 0,
+      created_by_ip: req.ip,
+      user_agent: req.get("user-agent") || null,
+    });
+
+    const template = buildAccountDeleteOtpTemplate({
+      name: user.full_name,
+      otpCode,
+      language,
+    });
+    await sendEmail(user.email, template.subject, template.text);
+
+    user.deletion_requested_at = new Date();
+    user.deletion_reason = reason ? String(reason).slice(0, 500) : null;
+    await user.save();
+
+    return successResponse(
+      res,
+      { expires_in_minutes: ACCOUNT_DELETE_OTP_EXPIRES_MINUTES },
+      "Deletion OTP sent."
+    );
+  } catch (error) {
+    console.error("Request delete account error:", error);
+    return errorResponse(res, "Failed to request account deletion.", error, 500);
+  }
+};
+
+exports.confirmDeleteAccount = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const userId = Number(req.user?.user_id);
+    const otp = String(req.body?.otp || "").trim();
+    if (!userId) {
+      await t.rollback();
+      return errorResponse(res, "Unauthorized.", null, 401);
+    }
+    if (!otp) {
+      await t.rollback();
+      return errorResponse(res, "OTP is required.", null, 400);
+    }
+
+    const user = await User.findByPk(userId, { transaction: t });
+    if (!user || user.is_deleted) {
+      await t.rollback();
+      return errorResponse(res, "Account deleted.", null, 404);
+    }
+
+    const otpRecord = await UserEmailOtp.findOne({
+      where: {
+        email: String(user.email).toLowerCase(),
+        purpose: "account_delete",
+        consumed_at: null,
+      },
+      order: [["created_at", "DESC"]],
+      transaction: t,
+    });
+
+    if (!otpRecord) {
+      await t.rollback();
+      return errorResponse(res, "No deletion OTP request found.", null, 400);
+    }
+    if (otpRecord.expires_at < new Date()) {
+      await t.rollback();
+      return errorResponse(res, "OTP expired. Request a new code.", null, 400);
+    }
+    if (otpRecord.attempts >= ACCOUNT_DELETE_OTP_MAX_ATTEMPTS) {
+      await t.rollback();
+      return errorResponse(res, "Too many invalid attempts.", null, 429);
+    }
+
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    if (otpHash !== otpRecord.otp_hash) {
+      otpRecord.attempts += 1;
+      await otpRecord.save({ transaction: t });
+      await t.commit();
+      return errorResponse(res, "Invalid OTP code.", null, 400);
+    }
+
+    otpRecord.verified_at = new Date();
+    otpRecord.consumed_at = new Date();
+    await otpRecord.save({ transaction: t });
+
+    user.is_deleted = true;
+    user.deleted_at = new Date();
+    user.deletion_requested_at = user.deletion_requested_at || new Date();
+    user.full_name = "Deleted User";
+    user.phone = null;
+    user.fcm_token = null;
+    user.reset_password_token = null;
+    user.reset_password_expires = null;
+    user.reset_password_sent_at = null;
+    user.email = createDeletedUserEmail(user.user_id);
+    await user.save({ transaction: t });
+
+    await t.commit();
+    return successResponse(
+      res,
+      { deleted: true, logout_required: true },
+      "Account deleted successfully."
+    );
+  } catch (error) {
+    await t.rollback();
+    console.error("Confirm delete account error:", error);
+    return errorResponse(res, "Failed to delete account.", error, 500);
+  }
+};
+
 
 //   دوال الوصول العام (Public Access Functions)
 
@@ -789,7 +971,7 @@ exports.listCompanies = async (req, res) => {
   try {
     const companies = await Company.findAll({
       attributes: ["company_id", "name", "logo_mimetype", "description"],
-      where: { is_approved: true }, // عرض الموافق عليها فقط
+      where: { is_approved: true, is_deleted: false }, // approved and active only
     });
     const payload = companies.map(withCompanyLogoUrl);
     return successResponse(res, payload);
@@ -831,6 +1013,8 @@ exports.listJobPostings = async (req, res) => {
       {
         model: Company,
         attributes: ["company_id", "name", "logo_mimetype"],
+        where: { is_deleted: false },
+        required: true,
       },
     ];
 
@@ -913,6 +1097,8 @@ exports.getJobPostingDetails = async (req, res) => {
             "description",
             "email",
           ],
+          where: { is_deleted: false },
+          required: true,
         },
         // [تضمين هيكل JobForm هنا إذا لزم الأمر، كما كان في النسخة الثانية]
       ],
@@ -1237,6 +1423,7 @@ exports.listUserApplications = async (req, res) => {
     }
   }
 };
+
 
 
 

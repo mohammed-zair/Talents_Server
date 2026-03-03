@@ -3,6 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/user.controller");
+const { verifyToken } = require("../middleware/authJwt");
 
 /**
  *   دوال المصادقة (Public)
@@ -16,6 +17,8 @@ router.post("/register-jobseeker", userController.registerJobSeeker);
 // Forgot / Reset Password (Public)
 router.post("/forgot-password", userController.forgotPassword);
 router.post("/reset-password", userController.resetPassword);
+router.post("/delete-account/request", verifyToken, userController.requestDeleteAccount);
+router.post("/delete-account/confirm", verifyToken, userController.confirmDeleteAccount);
 
 module.exports = router;
 

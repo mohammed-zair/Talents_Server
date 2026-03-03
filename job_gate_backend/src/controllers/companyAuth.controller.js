@@ -1,4 +1,4 @@
-const { Company, CompanyUser, CompanyRefreshToken } = require("../models");
+const { Company, CompanyUser, CompanyRefreshToken, CompanyEmailOtp, JobPosting } = require("../models");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -19,6 +19,14 @@ const REFRESH_TOKEN_TTL_MS = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
 const ACCESS_TOKEN_TTL_MS = ACCESS_TOKEN_TTL_MINUTES * 60 * 1000;
 const RESET_PASSWORD_OTP_EXPIRES_MINUTES = parseInt(
   process.env.COMPANY_RESET_PASSWORD_OTP_EXPIRES_MINUTES || "15",
+  10
+);
+const ACCOUNT_DELETE_OTP_EXPIRES_MINUTES = parseInt(
+  process.env.COMPANY_ACCOUNT_DELETE_OTP_EXPIRES_MINUTES || "10",
+  10
+);
+const ACCOUNT_DELETE_OTP_MAX_ATTEMPTS = parseInt(
+  process.env.COMPANY_ACCOUNT_DELETE_OTP_MAX_ATTEMPTS || "5",
   10
 );
 const IS_PROD = process.env.NODE_ENV === "production";
@@ -214,6 +222,34 @@ const buildCompanyOtpTemplate = ({
   };
 };
 
+const buildCompanyDeleteOtpTemplate = ({ language, companyName, otpCode }) => {
+  const safeName = companyName || "Team";
+  if (language === "ar") {
+    return {
+      subject: "تأكيد حذف الحساب - Talents",
+      text:
+        `مرحباً ${safeName}\n\n` +
+        "وصلنا طلب حذف حساب الشركة.\n" +
+        `رمز التحقق: ${otpCode}\n` +
+        `صلاحية الرمز: ${ACCOUNT_DELETE_OTP_EXPIRES_MINUTES} دقيقة.\n` +
+        "بعد التأكيد سيتم إيقاف الحساب فوراً وحذفه نهائياً بعد 30 يوماً.",
+    };
+  }
+
+  return {
+    subject: "Confirm account deletion - Talents",
+    text:
+      `Hello ${safeName},\n\n` +
+      "We received a request to delete your company account.\n" +
+      `OTP code: ${otpCode}\n` +
+      `This code expires in ${ACCOUNT_DELETE_OTP_EXPIRES_MINUTES} minutes.\n` +
+      "After confirmation, the account is blocked immediately and permanently purged after 30 days.",
+  };
+};
+
+const createDeletedCompanyEmail = (companyId) =>
+  `deleted_company_${companyId}_${Date.now()}@deleted.local`;
+
 /**
  * @desc [Public] تسجيل دخول الشركة
  * @route POST /api/companies/login
@@ -229,6 +265,9 @@ exports.forgotCompanyPassword = async (req, res) => {
     const genericMessage = "If this email is registered, an OTP code has been sent.";
     const { normalizedEmail, company, companyUser } = await findCompanyByLoginEmail(email);
     if (!company) {
+      return successResponse(res, null, genericMessage);
+    }
+    if (company.is_deleted) {
       return successResponse(res, null, genericMessage);
     }
     if (companyUser && companyUser.is_active === false) {
@@ -317,6 +356,11 @@ exports.resetCompanyPassword = async (req, res) => {
       await otpRecord.save();
       return errorResponse(res, "Company not found.", null, 404);
     }
+    if (company.is_deleted) {
+      otpRecord.revoked_at = new Date();
+      await otpRecord.save();
+      return errorResponse(res, "Account deleted.", null, 403);
+    }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     const companyUser = await CompanyUser.findOne({
@@ -388,6 +432,9 @@ exports.loginCompany = async (req, res) => {
         null,
         401
       );
+    }
+    if (company.is_deleted) {
+      return errorResponse(res, "Account deleted.", null, 403);
     }
 
     if (!passwordToCheck) {
@@ -550,6 +597,156 @@ exports.changeCompanyPassword = async (req, res) => {
   }
 };
 
+exports.requestDeleteCompanyAccount = async (req, res) => {
+  try {
+    const company = req.company;
+    const { current_password, reason } = req.body || {};
+    if (!company) {
+      return errorResponse(res, "Unauthorized.", null, 401);
+    }
+    if (!current_password) {
+      return errorResponse(res, "Current password is required.", null, 400);
+    }
+    if (company.is_deleted) {
+      return errorResponse(res, "Account deleted.", null, 404);
+    }
+
+    const loginEmail = String(req.user?.email || "").toLowerCase();
+    const loginUser = loginEmail
+      ? await CompanyUser.findOne({
+          where: { email: loginEmail, company_id: company.company_id },
+        })
+      : null;
+    const passwordHash = loginUser?.hashed_password || company.password;
+
+    if (!passwordHash) {
+      return errorResponse(res, "Password not set for this company account.", null, 400);
+    }
+
+    const isMatch = await bcrypt.compare(String(current_password), passwordHash);
+    if (!isMatch) {
+      return errorResponse(res, "Current password is incorrect.", null, 401);
+    }
+
+    const otpCode = generateOtpCode();
+    const otpHash = hashToken(otpCode);
+    const expiresAt = new Date(Date.now() + ACCOUNT_DELETE_OTP_EXPIRES_MINUTES * 60 * 1000);
+    const language = resolveCompanyLanguage(req, company);
+    const email = String(company.email || "").toLowerCase();
+
+    await CompanyEmailOtp.create({
+      email,
+      purpose: "account_delete",
+      otp_hash: otpHash,
+      expires_at: expiresAt,
+      attempts: 0,
+      created_by_ip: req.ip,
+      user_agent: req.get("user-agent") || null,
+    });
+
+    const template = buildCompanyDeleteOtpTemplate({
+      language,
+      companyName: company.name,
+      otpCode,
+    });
+    await sendEmail(email, template.subject, template.text);
+
+    company.deletion_requested_at = new Date();
+    company.deletion_reason = reason ? String(reason).slice(0, 500) : null;
+    await company.save();
+
+    return successResponse(
+      res,
+      { expires_in_minutes: ACCOUNT_DELETE_OTP_EXPIRES_MINUTES },
+      "Deletion OTP sent."
+    );
+  } catch (error) {
+    console.error("Request company deletion error:", error);
+    return errorResponse(res, "Failed to request account deletion.", null, 500);
+  }
+};
+
+exports.confirmDeleteCompanyAccount = async (req, res) => {
+  try {
+    const company = req.company;
+    const otp = String(req.body?.otp || "").trim();
+    if (!company) {
+      return errorResponse(res, "Unauthorized.", null, 401);
+    }
+    if (!otp) {
+      return errorResponse(res, "OTP code is required.", null, 400);
+    }
+    if (company.is_deleted) {
+      clearAuthCookies(res);
+      return errorResponse(res, "Account deleted.", null, 404);
+    }
+
+    const otpRecord = await CompanyEmailOtp.findOne({
+      where: {
+        email: String(company.email || "").toLowerCase(),
+        purpose: "account_delete",
+        consumed_at: null,
+      },
+      order: [["created_at", "DESC"]],
+    });
+
+    if (!otpRecord) {
+      return errorResponse(res, "No deletion OTP request found.", null, 400);
+    }
+    if (otpRecord.expires_at < new Date()) {
+      return errorResponse(res, "OTP has expired. Please request a new one.", null, 400);
+    }
+    if (otpRecord.attempts >= ACCOUNT_DELETE_OTP_MAX_ATTEMPTS) {
+      return errorResponse(res, "Too many invalid attempts.", null, 429);
+    }
+
+    const otpHash = hashToken(otp);
+    if (otpHash !== otpRecord.otp_hash) {
+      otpRecord.attempts += 1;
+      await otpRecord.save();
+      return errorResponse(res, "Invalid OTP code.", null, 400);
+    }
+
+    otpRecord.verified_at = new Date();
+    otpRecord.consumed_at = new Date();
+    await otpRecord.save();
+
+    await JobPosting.update(
+      { status: "closed" },
+      { where: { company_id: company.company_id } }
+    );
+
+    await CompanyRefreshToken.update(
+      { revoked_at: new Date() },
+      { where: { company_id: company.company_id, revoked_at: null } }
+    );
+
+    company.is_deleted = true;
+    company.deleted_at = new Date();
+    company.deletion_requested_at = company.deletion_requested_at || new Date();
+    company.name = "Deleted Company";
+    company.phone = null;
+    company.description = null;
+    company.email = createDeletedCompanyEmail(company.company_id);
+    company.logo_data = null;
+    company.logo_mimetype = null;
+    company.license_doc_url = null;
+    company.license_mimetype = null;
+    company.is_approved = false;
+    await company.save();
+
+    clearAuthCookies(res);
+    return successResponse(
+      res,
+      { deleted: true, logout_required: true },
+      "Account deleted successfully."
+    );
+  } catch (error) {
+    console.error("Confirm company deletion error:", error);
+    return errorResponse(res, "Failed to delete account.", null, 500);
+  }
+};
+
 
 /**
  * @desc [Private/Company] Refresh access token using refresh cookie
@@ -586,6 +783,12 @@ exports.refreshCompanySession = async (req, res) => {
     if (!company) {
       clearAuthCookies(res);
       return errorResponse(res, "Company not found.", null, 404);
+    }
+    if (company.is_deleted) {
+      stored.revoked_at = new Date();
+      await stored.save();
+      clearAuthCookies(res);
+      return errorResponse(res, "Account deleted.", null, 401);
     }
 
     const accessToken = issueAccessToken(company.company_id, company.email);
@@ -644,6 +847,10 @@ exports.getCompanySession = async (req, res) => {
     const company = req.company;
     if (!company) {
       return errorResponse(res, "Unauthorized.", null, 401);
+    }
+    if (company.is_deleted) {
+      clearAuthCookies(res);
+      return errorResponse(res, "Account deleted.", null, 401);
     }
 
     const status = company.is_approved

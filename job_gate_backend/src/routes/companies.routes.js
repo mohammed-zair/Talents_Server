@@ -114,6 +114,18 @@ router.put(
   verifyCompany,
   companyAuthController.changeCompanyPassword
 );
+router.post(
+  "/company/delete-account/request",
+  verifyCompanyAccess,
+  verifyCompany,
+  companyAuthController.requestDeleteCompanyAccount
+);
+router.post(
+  "/company/delete-account/confirm",
+  verifyCompanyAccess,
+  verifyCompany,
+  companyAuthController.confirmDeleteCompanyAccount
+);
 
 //  Dashboard
 router.get(
