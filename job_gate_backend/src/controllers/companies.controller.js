@@ -1461,21 +1461,81 @@ exports.updateApplicationStatus = async (req, res) => {
  */
 exports.getCompanyApplications = async (req, res) => {
   try {
+    const parseOptionalNumber = (value) => {
+      if (value === undefined || value === null || String(value).trim() === "") {
+        return null;
+      }
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const collectStrings = (value, bag = []) => {
+      if (value == null) return bag;
+      if (typeof value === "string") {
+        const normalized = value.trim();
+        if (normalized) bag.push(normalized);
+        return bag;
+      }
+      if (typeof value === "number" || typeof value === "boolean") {
+        bag.push(String(value));
+        return bag;
+      }
+      if (Array.isArray(value)) {
+        value.forEach((entry) => collectStrings(entry, bag));
+        return bag;
+      }
+      if (typeof value === "object") {
+        const objectValue = value;
+        if (typeof objectValue.name === "string") bag.push(objectValue.name.trim());
+        if (typeof objectValue.title === "string") bag.push(objectValue.title.trim());
+        if (typeof objectValue.skill === "string") bag.push(objectValue.skill.trim());
+        Object.values(objectValue).forEach((entry) => collectStrings(entry, bag));
+      }
+      return bag;
+    };
+
+    const getNestedValue = (obj, path) =>
+      path.reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
+
+    const extractSkillPool = (structured = {}, featureSkills = []) => {
+      const sources = [
+        featureSkills,
+        structured.skills,
+        structured.key_skills,
+        structured.core_competencies,
+        getNestedValue(structured, ["sections", "core_competencies", "data"]),
+      ];
+      const all = [];
+      sources.forEach((source) => collectStrings(source, all));
+      return Array.from(new Set(all.map((item) => String(item).trim()).filter(Boolean)));
+    };
+
+    const extractLocationValue = (structured = {}) => {
+      return (
+        getNestedValue(structured, ["personal_info", "location"]) ||
+        getNestedValue(structured, ["contact_information", "location"]) ||
+        getNestedValue(structured, ["sections", "contact_information", "data", "location"]) ||
+        null
+      );
+    };
+
+    const extractEducationText = (structured = {}) => {
+      const sources = [
+        structured.education,
+        getNestedValue(structured, ["sections", "education", "data"]),
+      ];
+      const tokens = [];
+      sources.forEach((source) => collectStrings(source, tokens));
+      return tokens.join(" ").trim() || null;
+    };
+
     const company_id = req.company.company_id;
     const jobId = req.query.job_id;
     const search = String(req.query.search || "").trim().toLowerCase();
-    const atsMin = Number.isNaN(Number(req.query.ats_min))
-      ? null
-      : Number(req.query.ats_min);
-    const atsMax = Number.isNaN(Number(req.query.ats_max))
-      ? null
-      : Number(req.query.ats_max);
-    const experienceMin = Number.isNaN(Number(req.query.experience_min))
-      ? null
-      : Number(req.query.experience_min);
-    const experienceMax = Number.isNaN(Number(req.query.experience_max))
-      ? null
-      : Number(req.query.experience_max);
+    const atsMin = parseOptionalNumber(req.query.ats_min);
+    const atsMax = parseOptionalNumber(req.query.ats_max);
+    const experienceMin = parseOptionalNumber(req.query.experience_min);
+    const experienceMax = parseOptionalNumber(req.query.experience_max);
     const skillsQuery = String(req.query.skills || "")
       .split(",")
       .map((item) => item.trim().toLowerCase())
@@ -1553,18 +1613,9 @@ exports.getCompanyApplications = async (req, res) => {
       }
 
       const structured = cv?.CVStructuredData?.data_json || {};
-      if (structured?.skills) {
-        skillPool = skillPool.concat(structured.skills);
-      }
-      if (structured?.personal_info?.location) {
-        location = structured.personal_info.location;
-      }
-      if (structured?.education?.length) {
-        education = structured.education
-          .map((item) => item.degree || item.school || "")
-          .filter(Boolean)
-          .join(" ");
-      }
+      skillPool = extractSkillPool(structured, skillPool);
+      location = extractLocationValue(structured);
+      education = extractEducationText(structured);
 
       return {
         ...data,
@@ -1643,8 +1694,10 @@ exports.getCompanyApplications = async (req, res) => {
 
     if (strengthsQuery.length) {
       payload = payload.filter((item) => {
-        const strengths =
-          item.ai_insights?.ai_intelligence?.strategic_analysis?.strengths || [];
+        const strengths = [
+          ...(item.ai_insights?.ai_intelligence?.strategic_analysis?.strengths || []),
+          ...(item.ai_insights?.ai_intelligence?.strengths || []),
+        ];
         const bag = strengths.map((value) => String(value).toLowerCase());
         return strengthsQuery.every((querySkill) => bag.some((skill) => skill.includes(querySkill)));
       });
@@ -1652,8 +1705,10 @@ exports.getCompanyApplications = async (req, res) => {
 
     if (weaknessesQuery.length) {
       payload = payload.filter((item) => {
-        const weaknesses =
-          item.ai_insights?.ai_intelligence?.strategic_analysis?.weaknesses || [];
+        const weaknesses = [
+          ...(item.ai_insights?.ai_intelligence?.strategic_analysis?.weaknesses || []),
+          ...(item.ai_insights?.ai_intelligence?.weaknesses || []),
+        ];
         const bag = weaknesses.map((value) => String(value).toLowerCase());
         return weaknessesQuery.every((querySkill) => bag.some((skill) => skill.includes(querySkill)));
       });
