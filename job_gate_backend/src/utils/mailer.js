@@ -4,8 +4,36 @@ const nodemailer = require("nodemailer");
 
 function getFrom() {
   const fromName = process.env.SMTP_FROM_NAME || "Talents We Trust";
-  const fromEmail = process.env.GMAIL_USER || "talentswetrust@gmail.com";
+  const fromEmail =
+    process.env.SMTP_FROM_EMAIL ||
+    process.env.GMAIL_USER ||
+    "talentswetrust@gmail.com";
   return `${fromName} <${fromEmail}>`;
+}
+
+/** RESEND HTTPS API */
+async function sendWithResend({ to, subject, html, text }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY missing in .env");
+  }
+
+  const from = getFrom();
+  const payload = {
+    from,
+    to: Array.isArray(to) ? to : [to],
+    subject,
+    html: html || undefined,
+    text: text || undefined,
+  };
+
+  return axios.post("https://api.resend.com/emails", payload, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 20000,
+  });
 }
 
 /** GMAIL SMTP */
@@ -100,6 +128,10 @@ async function sendWithGmailApi({ to, subject, html, text }) {
 
 async function sendEmail({ to, subject, html, text }) {
   const provider = (process.env.EMAIL_PROVIDER || "gmail_api").toLowerCase();
+  if (provider === "resend") {
+    console.log("MAILER provider = resend (https)");
+    return sendWithResend({ to, subject, html, text });
+  }
   if (provider === "gmail") {
     console.log("MAILER provider = gmail (smtp)");
     return sendWithGmail({ to, subject, html, text });
@@ -109,7 +141,12 @@ async function sendEmail({ to, subject, html, text }) {
     return sendWithGmailApi({ to, subject, html, text });
   }
 
-  console.warn(`MAILER provider "${provider}" requested; defaulting to gmail_api.`);
+  console.warn(
+    `MAILER provider "${provider}" requested; defaulting to resend/gmail_api by availability.`
+  );
+  if (process.env.RESEND_API_KEY) {
+    return sendWithResend({ to, subject, html, text });
+  }
   return sendWithGmailApi({ to, subject, html, text });
 }
 

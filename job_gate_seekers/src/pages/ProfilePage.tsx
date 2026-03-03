@@ -32,29 +32,70 @@ const ProfilePage: React.FC = () => {
     [aiCvsQ.data]
   );
 
-  const latestInsight = aiCvItems[0] || null;
+  const latestInsight = useMemo(() => {
+    if (!Array.isArray(aiCvItems) || aiCvItems.length === 0) return null;
+    const toTs = (v: any) => {
+      const t = Date.parse(String(v || ""));
+      return Number.isFinite(t) ? t : 0;
+    };
+    const hasAiData = (item: any) =>
+      Boolean(
+        item?.summary ||
+          item?.ai_intelligence ||
+          item?.ai_insights?.ai_intelligence ||
+          (Array.isArray(item?.strengths) && item.strengths.length > 0) ||
+          (Array.isArray(item?.weaknesses) && item.weaknesses.length > 0) ||
+          (Array.isArray(item?.recommendations) && item.recommendations.length > 0)
+      );
+    const withAi = aiCvItems.filter(hasAiData);
+    const source = withAi.length > 0 ? withAi : aiCvItems;
+    return [...source].sort((a: any, b: any) => {
+      const ta = Math.max(toTs(a?.insight_created_at), toTs(a?.created_at));
+      const tb = Math.max(toTs(b?.insight_created_at), toTs(b?.created_at));
+      return tb - ta;
+    })[0];
+  }, [aiCvItems]);
   const aiInsights = useMemo(() => {
-    const base = latestInsight?.ai_insights || latestInsight?.insights || {};
+    const base =
+      latestInsight?.ai_insights?.ai_intelligence ||
+      latestInsight?.ai_intelligence ||
+      latestInsight?.ai_insights ||
+      latestInsight?.insights ||
+      {};
     return typeof base === "object" && base ? base : {};
   }, [latestInsight]);
 
   const strengths = useMemo(() => {
-    const list = aiInsights?.strengths || latestInsight?.strengths || [];
+    const list =
+      aiInsights?.strengths ||
+      aiInsights?.strategic_analysis?.strengths ||
+      latestInsight?.strengths ||
+      [];
     return Array.isArray(list) ? list : [];
   }, [aiInsights, latestInsight]);
 
   const weaknesses = useMemo(() => {
-    const list = aiInsights?.weaknesses || latestInsight?.weaknesses || [];
+    const list =
+      aiInsights?.weaknesses ||
+      aiInsights?.strategic_analysis?.weaknesses ||
+      latestInsight?.weaknesses ||
+      [];
     return Array.isArray(list) ? list : [];
   }, [aiInsights, latestInsight]);
 
   const recommendations = useMemo(() => {
-    const list = aiInsights?.recommendations || latestInsight?.recommendations || [];
+    const list =
+      aiInsights?.recommendations ||
+      aiInsights?.ats_optimization_tips ||
+      latestInsight?.recommendations ||
+      [];
     return Array.isArray(list) ? list : [];
   }, [aiInsights, latestInsight]);
 
   const summary =
     aiInsights?.summary ||
+    aiInsights?.contextual_summary ||
+    aiInsights?.professional_summary ||
     latestInsight?.summary ||
     latestInsight?.analysis_summary ||
     t("noAiInsightsYet");

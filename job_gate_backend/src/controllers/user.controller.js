@@ -59,6 +59,13 @@ const CONTACT_RATE_LIMIT_WINDOW_MS = parseInt(
   10
 );
 const contactRateLimitMap = new Map();
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 const withCompanyLogoUrl = (company) => maskCompanyIfAnonymous({ is_anonymous: false }, company);
 
@@ -272,10 +279,11 @@ exports.sendContactMessage = async (req, res) => {
     const subjectInput = String(req.body?.subject || "").trim();
     const messageInput = String(req.body?.message || "").trim();
     const language = resolveLanguage(req);
-    const requesterEmail = String(req.body?.email || req.user?.email || "")
+    const requesterUserId = Number(req.user?.user_id) || null;
+    let requesterEmail = String(req.body?.email || req.user?.email || "")
       .trim()
       .toLowerCase();
-    const requesterName = String(req.body?.full_name || req.user?.full_name || "")
+    let requesterName = String(req.body?.full_name || req.user?.full_name || "")
       .trim();
 
     if (!subjectInput || !messageInput) {
@@ -288,8 +296,8 @@ exports.sendContactMessage = async (req, res) => {
       return errorResponse(res, "Message is too long.", null, 400);
     }
 
-    const requesterKey = req.user?.user_id
-      ? `user:${req.user.user_id}`
+    const requesterKey = requesterUserId
+      ? `user:${requesterUserId}`
       : `ip:${req.ip || "unknown"}`;
     const lastSentAt = contactRateLimitMap.get(requesterKey) || 0;
     const now = Date.now();
@@ -302,25 +310,39 @@ exports.sendContactMessage = async (req, res) => {
       );
     }
 
+    if (requesterUserId) {
+      try {
+        const userRecord = await User.findByPk(requesterUserId, {
+          attributes: ["user_id", "full_name", "email"],
+        });
+        if (userRecord) {
+          requesterName = String(userRecord.full_name || requesterName || "").trim();
+          requesterEmail = String(userRecord.email || requesterEmail || "")
+            .trim()
+            .toLowerCase();
+        }
+      } catch (lookupError) {
+        console.warn("Contact sender lookup failed:", lookupError?.message || lookupError);
+      }
+    }
+
     const safeSubject = subjectInput.replace(/\r?\n/g, " ").trim();
     const introEn = "New Contact Us message from Talents platform";
-    const introAr = "رسالة جديدة من صفحة تواصل معنا في Talents";
-    const senderLabelEn = requesterName
+    const introAr = "New Contact Us message from Talents platform";
+    const senderLabel = requesterName
       ? `${requesterName}${requesterEmail ? ` <${requesterEmail}>` : ""}`
       : requesterEmail || "Unknown";
-    const senderLabelAr = requesterName
-      ? `${requesterName}${requesterEmail ? ` <${requesterEmail}>` : ""}`
-      : requesterEmail || "غير معروف";
     const clientMeta = `${req.ip || "unknown"} | ${req.get("user-agent") || "unknown agent"}`;
+    const userIdMeta = requesterUserId || "n/a";
 
     const textBody =
       `${language === "ar" ? introAr : introEn}\n\n` +
-      `${language === "ar" ? "المرسل" : "Sender"}: ${
-        language === "ar" ? senderLabelAr : senderLabelEn
-      }\n` +
-      `${language === "ar" ? "العنوان" : "Subject"}: ${safeSubject}\n` +
-      `${language === "ar" ? "العميل" : "Client"}: ${clientMeta}\n\n` +
-      `${language === "ar" ? "الرسالة" : "Message"}:\n${messageInput}`;
+      `Sender: ${senderLabel}\n` +
+      `User ID: ${userIdMeta}\n` +
+      `Email: ${requesterEmail || "n/a"}\n` +
+      `Subject: ${safeSubject}\n` +
+      `Client: ${clientMeta}\n\n` +
+      `Message:\n${messageInput}`;
 
     const htmlBody = `
       <div style="font-family:Arial,sans-serif;background:#f4f7fb;padding:20px;" ${
@@ -330,20 +352,25 @@ exports.sendContactMessage = async (req, res) => {
           <h2 style="margin:0 0 14px;color:#111827;">${
             language === "ar" ? introAr : introEn
           }</h2>
-          <p style="margin:0 0 8px;"><strong>${
-            language === "ar" ? "المرسل" : "Sender"
-          }:</strong> ${language === "ar" ? senderLabelAr : senderLabelEn}</p>
-          <p style="margin:0 0 8px;"><strong>${
-            language === "ar" ? "العنوان" : "Subject"
-          }:</strong> ${safeSubject}</p>
-          <p style="margin:0 0 14px;"><strong>${
-            language === "ar" ? "العميل" : "Client"
-          }:</strong> ${clientMeta}</p>
+          <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin:0 0 14px;">
+            <p style="margin:0 0 8px;"><strong>${
+              "Sender"
+            }:</strong> ${escapeHtml(senderLabel)}</p>
+            <p style="margin:0 0 8px;"><strong>${
+              "User ID"
+            }:</strong> ${escapeHtml(String(userIdMeta))}</p>
+            <p style="margin:0 0 8px;"><strong>${
+              "Email"
+            }:</strong> ${escapeHtml(requesterEmail || "n/a")}</p>
+            <p style="margin:0 0 8px;"><strong>${
+              "Subject"
+            }:</strong> ${escapeHtml(safeSubject)}</p>
+            <p style="margin:0;"><strong>${
+              "Client"
+            }:</strong> ${escapeHtml(clientMeta)}</p>
+          </div>
           <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;background:#f9fafb;white-space:pre-wrap;line-height:1.6;">
-            ${String(messageInput)
-              .replace(/&/g, "&amp;")
-              .replace(/</g, "&lt;")
-              .replace(/>/g, "&gt;")}
+            ${escapeHtml(String(messageInput))}
           </div>
         </div>
       </div>

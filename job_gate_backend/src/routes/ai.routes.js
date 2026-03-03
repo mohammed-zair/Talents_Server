@@ -172,8 +172,43 @@ router.get("/user/cvs",
   verifyToken, // ØªÙ… Ø§Ù„ØªØµØ­ÙŠØ­ Ù‡Ù†Ø§
   async (req, res) => {
     try {
-      const { CV, CVStructuredData, CVFeaturesAnalytics } = require("../models");
+      const { Op } = require("sequelize");
+      const { CV, CVStructuredData, CVFeaturesAnalytics, CVAIInsights } = require("../models");
       const userId = req.user.user_id;
+      const normalizeAiIntelligence = (raw) => {
+        if (typeof raw === "string") {
+          try {
+            return normalizeAiIntelligence(JSON.parse(raw));
+          } catch (error) {
+            return null;
+          }
+        }
+        if (!raw || typeof raw !== "object") return null;
+        const strategic = raw.strategic_analysis || {};
+        return {
+          ...raw,
+          strengths: Array.isArray(raw.strengths)
+            ? raw.strengths
+            : Array.isArray(strategic.strengths)
+            ? strategic.strengths
+            : [],
+          weaknesses: Array.isArray(raw.weaknesses)
+            ? raw.weaknesses
+            : Array.isArray(strategic.weaknesses)
+            ? strategic.weaknesses
+            : [],
+          recommendations: Array.isArray(raw.recommendations)
+            ? raw.recommendations
+            : Array.isArray(raw.ats_optimization_tips)
+            ? raw.ats_optimization_tips
+            : [],
+          summary:
+            raw.summary ||
+            raw.contextual_summary ||
+            raw.professional_summary ||
+            null,
+        };
+      };
 
       const cvs = await CV.findAll({
         where: { user_id: userId },
@@ -190,17 +225,60 @@ router.get("/user/cvs",
         order: [['created_at', 'DESC']]
       });
 
+      const cvIds = cvs.map((cv) => cv.cv_id);
+      const insightsByCv = {};
+      if (cvIds.length > 0) {
+        const rawInsights = await CVAIInsights.findAll({
+          where: {
+            cv_id: { [Op.in]: cvIds },
+            job_id: null,
+          },
+          attributes: [
+            "insight_id",
+            "cv_id",
+            "ats_score",
+            "analysis_method",
+            "created_at",
+            "ai_intelligence",
+          ],
+          order: [["cv_id", "ASC"], ["insight_id", "DESC"]],
+        });
+
+        rawInsights.forEach((item) => {
+          const payload = item.toJSON ? item.toJSON() : item;
+          if (!insightsByCv[payload.cv_id]) {
+            const aiIntel = normalizeAiIntelligence(payload.ai_intelligence);
+            insightsByCv[payload.cv_id] = {
+              insight_id: payload.insight_id,
+              cv_id: payload.cv_id,
+              ats_score: payload.ats_score,
+              analysis_method: payload.analysis_method,
+              created_at: payload.created_at,
+              ai_intelligence: aiIntel,
+              strengths: aiIntel?.strengths || [],
+              weaknesses: aiIntel?.weaknesses || [],
+              recommendations: aiIntel?.recommendations || [],
+              summary: aiIntel?.summary || null,
+            };
+          }
+        });
+      }
+
       const formattedCVs = cvs.map(cv => ({
+        ...(insightsByCv[cv.cv_id] || {}),
         cv_id: cv.cv_id,
         title: cv.title,
         file_type: cv.file_type,
         created_at: cv.created_at,
         last_updated_at: cv.last_updated_at,
         has_structured_data: !!cv.CV_Structured_Data,
-        has_analytics: !!cv.CV_Features_Analytics,
-        ats_score: cv.CV_Features_Analytics?.ats_score || 0,
+        has_analytics: !!cv.CV_Features_Analytics || !!insightsByCv[cv.cv_id],
+        ats_score:
+          insightsByCv[cv.cv_id]?.ats_score ??
+          cv.CV_Features_Analytics?.ats_score ??
+          0,
         is_ats_compliant: cv.CV_Features_Analytics?.is_ats_compliant || false,
-        key_skills_count: cv.CV_Features_Analytics?.key_skills?.length || 0
+        key_skills_count: cv.CV_Features_Analytics?.key_skills?.length || 0,
       }));
 
       return res.status(200).json({
