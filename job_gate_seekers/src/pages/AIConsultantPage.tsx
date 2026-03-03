@@ -90,6 +90,131 @@ body{margin:0;padding:16px;font-family:${
   return `<!doctype html><html><head>${metaTag}${styleTag}</head><body>${raw}</body></html>`;
 };
 
+const hasStructuredHeadings = (raw: string) => {
+  const text = String(raw || "").toLowerCase();
+  const checks = [
+    /contact information|professional summary|core competencies|work experience|education/,
+    /full name|email|phone|linkedin/,
+  ];
+  return checks.every((pattern) => pattern.test(text));
+};
+
+const escapeHtml = (value: any) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const asList = (value: any) => (Array.isArray(value) ? value : []);
+
+const buildBuilderPreviewDoc = (draft: BuilderSeed | null, language: string) => {
+  const sections = draft?.sections || {};
+  const contact = sections.contact_information?.data || {};
+  const summary = sections.professional_summary?.data || "";
+  const skills = sections.core_competencies?.data || {};
+  const experience = asList(sections.professional_experience?.data);
+  const projects = asList(sections.projects?.data);
+  const education = asList(sections.education?.data);
+  const certs = asList(sections.certifications_awards?.data);
+
+  const heading = (valueEn: string, valueAr: string) =>
+    language === "ar" ? valueAr : valueEn;
+
+  const skillLine = (label: string, items: any[]) =>
+    items.length ? `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(items.join(", "))}</p>` : "";
+
+  const expRows = experience
+    .slice()
+    .sort((a: any, b: any) => String(b?.start_date || "").localeCompare(String(a?.start_date || "")))
+    .map((row: any) => {
+      const bullets = asList(row?.bullets)
+        .filter(Boolean)
+        .map((b: any) => `<li>${escapeHtml(b)}</li>`)
+        .join("");
+      return `<div class="block">
+        <p><strong>${escapeHtml(row?.job_title || "")}</strong> | ${escapeHtml(row?.company || "")}</p>
+        <p class="muted">${escapeHtml(row?.start_date || "")} - ${escapeHtml(row?.is_current ? "Present" : row?.end_date || "")}${row?.location ? ` | ${escapeHtml(row.location)}` : ""}</p>
+        ${bullets ? `<ul>${bullets}</ul>` : ""}
+      </div>`;
+    })
+    .join("");
+
+  const projectRows = projects
+    .map((row: any) => {
+      const bullets = asList(row?.bullets)
+        .filter(Boolean)
+        .map((b: any) => `<li>${escapeHtml(b)}</li>`)
+        .join("");
+      const tech = asList(row?.tech_stack).filter(Boolean).join(", ");
+      return `<div class="block">
+        <p><strong>${escapeHtml(row?.title || "")}</strong>${row?.role ? ` | ${escapeHtml(row.role)}` : ""}</p>
+        <p class="muted">${escapeHtml(row?.start_date || "")} - ${escapeHtml(row?.end_date || "")}</p>
+        ${row?.objective ? `<p>${escapeHtml(row.objective)}</p>` : ""}
+        ${tech ? `<p><strong>${heading("Tech Stack", "التقنيات")}:</strong> ${escapeHtml(tech)}</p>` : ""}
+        ${bullets ? `<ul>${bullets}</ul>` : ""}
+      </div>`;
+    })
+    .join("");
+
+  const eduRows = education
+    .map((row: any) => {
+      const coursework = asList(row?.coursework).filter(Boolean).join(", ");
+      return `<div class="block">
+        <p><strong>${escapeHtml(row?.degree || "")}</strong></p>
+        <p>${escapeHtml(row?.institution || "")}${row?.graduation_year ? ` | ${escapeHtml(row.graduation_year)}` : ""}</p>
+        ${coursework ? `<p class="muted"><strong>${heading("Relevant Coursework", "مواد ذات صلة")}:</strong> ${escapeHtml(coursework)}</p>` : ""}
+      </div>`;
+    })
+    .join("");
+
+  const certRows = certs
+    .map((row: any) => {
+      const parts = [row?.name, row?.acronym ? `(${row.acronym})` : "", row?.issuer, row?.date].filter(Boolean);
+      return `<li>${escapeHtml(parts.join(" - "))}</li>`;
+    })
+    .join("");
+
+  return `<!doctype html>
+<html><head><meta charset="utf-8" />
+<style>
+body{font-family:${language === "ar" ? "'Noto Sans Arabic', sans-serif" : "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"};margin:0;padding:24px;color:#111;background:#fff;${language === "ar" ? "direction:rtl;text-align:right;" : ""}}
+h1{font-size:30px;margin:0 0 6px} h2{font-size:18px;margin:20px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}
+p{margin:4px 0;line-height:1.45} ul{margin:8px 0 0 18px;padding:0} li{margin:4px 0}
+.muted{color:#555}.contact-line{font-size:14px;color:#333}.block{margin:10px 0}
+</style></head><body>
+<h1>${escapeHtml(contact.full_name || draft?.cv_title || "")}</h1>
+${contact.professional_title ? `<p>${escapeHtml(contact.professional_title)}</p>` : ""}
+<p class="contact-line">
+${[contact.phone, contact.email, contact.location].filter(Boolean).map(escapeHtml).join(" | ")}
+${contact.linkedin_url ? ` | <a href="${escapeHtml(contact.linkedin_url)}" target="_blank" rel="noreferrer">${escapeHtml(contact.linkedin_url)}</a>` : ""}
+</p>
+
+<h2>${heading("Professional Summary", "الملخص المهني")}</h2>
+<p>${escapeHtml(summary)}</p>
+
+<h2>${heading("Core Competencies", "المهارات الأساسية")}</h2>
+${skillLine(heading("Programming", "البرمجة"), asList(skills.programming))}
+${skillLine(heading("Frameworks", "الأطر"), asList(skills.frameworks))}
+${skillLine(heading("Tools & Platforms", "الأدوات والمنصات"), asList(skills.tools_platforms))}
+${skillLine(heading("Domain Expertise", "الخبرة التخصصية"), asList(skills.domain_expertise))}
+${skillLine(heading("Other", "أخرى"), asList(skills.other))}
+
+<h2>${heading("Work Experience", "الخبرة المهنية")}</h2>
+${expRows || `<p class="muted">${heading("No experience entries yet.", "لا توجد خبرات مضافة بعد.")}</p>`}
+
+<h2>${heading("Projects", "المشاريع")}</h2>
+${projectRows || `<p class="muted">${heading("No projects added yet.", "لا توجد مشاريع مضافة بعد.")}</p>`}
+
+<h2>${heading("Education", "التعليم")}</h2>
+${eduRows || `<p class="muted">${heading("No education entries yet.", "لا توجد بيانات تعليم مضافة بعد.")}</p>`}
+
+<h2>${heading("Certifications & Awards", "الشهادات والجوائز")}</h2>
+${certRows ? `<ul>${certRows}</ul>` : `<p class="muted">${heading("No certifications or awards yet.", "لا توجد شهادات أو جوائز بعد.")}</p>`}
+</body></html>`;
+};
+
 const formatSessionLabel = (s: any, t: (key: string) => string) => {
   const mode = s?.mode || s?.initial_data?.mode || s?.metadata?.mode;
   const label = mode === "mock_interview" ? t("sessionLabelMock") : t("sessionLabelCareer");
@@ -497,6 +622,15 @@ const AIConsultantPage: React.FC = () => {
       canExport: missingRequired.length === 0 && contactBlocking.length === 0,
     };
   }, [builderDraft]);
+
+  const previewDoc = useMemo(() => {
+    const raw = String(previewQ.data || "");
+    if (!raw) return "";
+    if (builderDraft && !hasStructuredHeadings(raw)) {
+      return buildBuilderPreviewDoc(builderDraft, language);
+    }
+    return buildPreviewDoc(raw, language);
+  }, [previewQ.data, builderDraft, language]);
 
   const atsHealth = useMemo(() => {
     if (!builderDraft?.sections) return null;
@@ -1745,7 +1879,7 @@ const AIConsultantPage: React.FC = () => {
                   <iframe
                     title="cv-preview"
                     className="h-[60vh] min-h-[300px] w-full rounded-lg border border-[var(--border)] bg-white"
-                    srcDoc={buildPreviewDoc(previewQ.data, language)}
+                    srcDoc={previewDoc}
                   />
                 )}
               </div>
