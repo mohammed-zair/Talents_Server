@@ -75,6 +75,7 @@ const JobsCommandGrid: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deactivateTarget, setDeactivateTarget] = useState<JobPosting | null>(null);
   const [editJob, setEditJob] = useState<JobPosting | null>(null);
   const [editForm, setEditForm] = useState<Partial<JobPosting>>({});
   const [jobForm, setJobForm] = useState<JobFormPayload>(emptyJobForm);
@@ -392,6 +393,11 @@ const JobsCommandGrid: React.FC = () => {
       anonymousBadge: "Anonymous",
       remoteLabel: "Remote from home",
       remoteBadge: "Remote",
+      confirmDeactivateTitle: "Deactivate Job Posting?",
+      confirmDeactivateMessage:
+        "This post will not be shown to job seekers anymore.",
+      keepActive: "Keep Active",
+      deactivateNow: "Deactivate",
       publish: "Publish Job + Form",
       deleting: "Deleting...",
       creating: "Publishing...",
@@ -427,6 +433,10 @@ const JobsCommandGrid: React.FC = () => {
       anonymousBadge: "مجهول",
       remoteLabel: "عن بعد من المنزل",
       remoteBadge: "عن بعد",
+      confirmDeactivateTitle: "تعطيل إعلان الوظيفة؟",
+      confirmDeactivateMessage: "لن يظهر هذا الإعلان للباحثين عن عمل بعد الآن.",
+      keepActive: "إبقاء مفعّل",
+      deactivateNow: "تعطيل",
       publish: "نشر الوظيفة والنموذج",
       deleting: "جارٍ الحذف...",
       creating: "جارٍ النشر...",
@@ -434,6 +444,14 @@ const JobsCommandGrid: React.FC = () => {
   }[language];
 
   const canPublish = Boolean(jobDraft.title.trim() && jobDraft.description.trim());
+
+  const handleJobStatusToggle = (job: JobPosting, next: boolean) => {
+    if (job.status === "open" && !next) {
+      setDeactivateTarget(job);
+      return;
+    }
+    toggleJob.mutate(job.id);
+  };
 
   return (
     <div className="space-y-8">
@@ -519,7 +537,12 @@ const JobsCommandGrid: React.FC = () => {
                   </label>
                   <ToggleSwitch
                     checked={job.status === "open"}
-                    onChange={() => toggleJob.mutate(job.id)}
+                    onChange={(next) => handleJobStatusToggle(job, next)}
+                    ariaLabel={
+                      language === "ar"
+                        ? "تبديل حالة الإعلان"
+                        : "Toggle job posting status"
+                    }
                   />
                 </div>
                 <div className="mt-4 flex items-center justify-between text-xs text-[var(--text-muted)]">
@@ -971,91 +994,147 @@ const JobsCommandGrid: React.FC = () => {
         </div>
       )}
 
-      {editJob && (
+      {deactivateTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6">
-          <div className="glass-card w-full max-w-lg rounded-3xl border p-6">
+          <div className="glass-card w-full max-w-md rounded-3xl border border-amber-300 p-6 shadow-[0_0_40px_rgba(251,191,36,0.35)]">
             <h3 className="heading-serif text-xl text-[var(--text-primary)]">
-              {language === "ar" ? "????? ?????? ???????" : "Update Job Details"}
+              {copy.confirmDeactivateTitle}
             </h3>
-            <div className="mt-4 space-y-3">
-              <input
-                value={editForm.title ?? ""}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder={language === "ar" ? "????? ???????" : "Job title"}
-                name="editJobTitle"
-                aria-label={language === "ar" ? "????? ???????" : "Job title"}
-                className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
-              />
-              <input
-                value={editForm.department ?? ""}
-                onChange={(event) =>
-                  setEditForm((prev) => ({ ...prev, department: event.target.value }))
-                }
-                placeholder={language === "ar" ? "?????" : "Department"}
-                name="editDepartment"
-                aria-label={language === "ar" ? "?????" : "Department"}
-                className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
-              />
-              <input
-                value={editForm.industry ?? ""}
-                onChange={(event) =>
-                  setEditForm((prev) => ({ ...prev, industry: event.target.value }))
-                }
-                placeholder={language === "ar" ? "???????" : "Industry"}
-                name="editIndustry"
-                aria-label={language === "ar" ? "???????" : "Industry"}
-                className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
-              />
-              <input
-                value={editForm.location ?? ""}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, location: event.target.value }))}
-                placeholder={language === "ar" ? "??????" : "Location"}
-                name="editLocation"
-                aria-label={language === "ar" ? "??????" : "Location"}
-                className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none"
-              />
-              <div className="space-y-2">
-                <label className="text-xs text-[var(--text-muted)]" htmlFor="edit-job-anonymous">
-                  {copy.anonymousLabel}
-                </label>
-                <div className="flex items-center gap-3 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3">
-                  <input
-                    id="edit-job-anonymous"
-                    type="checkbox"
-                    checked={Boolean(editForm.is_anonymous)}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        is_anonymous: event.target.checked,
-                      }))
-                    }
-                  />
-                  <span className="text-sm text-[var(--text-primary)]">
-                    {Boolean(editForm.is_anonymous) ? "On" : "Off"}
-                  </span>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
+              {copy.confirmDeactivateMessage}
+            </p>
+            <p className="mt-3 text-sm font-semibold text-[var(--text-primary)]">
+              {deactivateTarget.title}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setDeactivateTarget(null)}>
+                {copy.keepActive}
+              </Button>
+              <Button
+                className="border-amber-300 text-amber-700"
+                variant="outline"
+                onClick={() => {
+                  toggleJob.mutate(deactivateTarget.id);
+                  setDeactivateTarget(null);
+                }}
+              >
+                {copy.deactivateNow}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 md:p-6">
+          <div className="glass-card w-full max-w-3xl rounded-3xl border p-5 md:p-6">
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--panel-border)] pb-4">
+              <div>
+                <h3 className="heading-serif text-2xl text-[var(--text-primary)]">
+                  {language === "ar" ? "????? ?????? ???????" : "Update Job Details"}
+                </h3>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  {editJob.title}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditJob(null);
+                  setEditImageFile(null);
+                  setEditImagePreview(null);
+                }}
+                className="rounded-lg border border-[var(--panel-border)] px-3 py-1 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                {language === "ar" ? "?????" : "Close"}
+              </button>
+            </div>
+
+            <div className="mt-5 max-h-[65vh] space-y-5 overflow-y-auto pe-1">
+              <div className="grid gap-3 md:grid-cols-2">
+                <input
+                  value={editForm.title ?? ""}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, title: event.target.value }))}
+                  placeholder={language === "ar" ? "????? ???????" : "Job title"}
+                  name="editJobTitle"
+                  aria-label={language === "ar" ? "????? ???????" : "Job title"}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+                <input
+                  value={editForm.department ?? ""}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({ ...prev, department: event.target.value }))
+                  }
+                  placeholder={language === "ar" ? "?????" : "Department"}
+                  name="editDepartment"
+                  aria-label={language === "ar" ? "?????" : "Department"}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+                <input
+                  value={editForm.industry ?? ""}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({ ...prev, industry: event.target.value }))
+                  }
+                  placeholder={language === "ar" ? "???????" : "Industry"}
+                  name="editIndustry"
+                  aria-label={language === "ar" ? "???????" : "Industry"}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+                <input
+                  value={editForm.location ?? ""}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, location: event.target.value }))}
+                  placeholder={language === "ar" ? "??????" : "Location"}
+                  name="editLocation"
+                  aria-label={language === "ar" ? "??????" : "Location"}
+                  className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4">
+                  <label className="text-xs text-[var(--text-muted)]" htmlFor="edit-job-anonymous">
+                    {copy.anonymousLabel}
+                  </label>
+                  <div className="flex items-center justify-between">
+                    <input
+                      id="edit-job-anonymous"
+                      type="checkbox"
+                      checked={Boolean(editForm.is_anonymous)}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          is_anonymous: event.target.checked,
+                        }))
+                      }
+                    />
+                    <span className="text-sm text-[var(--text-primary)]">
+                      {Boolean(editForm.is_anonymous) ? "On" : "Off"}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-2 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4">
+                  <label className="text-xs text-[var(--text-muted)]" htmlFor="edit-job-remote">
+                    {copy.remoteLabel}
+                  </label>
+                  <div className="flex items-center justify-between">
+                    <input
+                      id="edit-job-remote"
+                      type="checkbox"
+                      checked={Boolean(editForm.is_remote)}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          is_remote: event.target.checked,
+                        }))
+                      }
+                    />
+                    <span className="text-sm text-[var(--text-primary)]">
+                      {Boolean(editForm.is_remote) ? "On" : "Off"}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs text-[var(--text-muted)]" htmlFor="edit-job-remote">
-                  {copy.remoteLabel}
-                </label>
-                <div className="flex items-center gap-3 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3">
-                  <input
-                    id="edit-job-remote"
-                    type="checkbox"
-                    checked={Boolean(editForm.is_remote)}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        is_remote: event.target.checked,
-                      }))
-                    }
-                  />
-                  <span className="text-sm text-[var(--text-primary)]">
-                    {Boolean(editForm.is_remote) ? "On" : "Off"}
-                  </span>
-                </div>
-              </div>
+
               <div className="space-y-2">
                 <label className="text-xs text-[var(--text-muted)]" htmlFor="edit-job-image">
                   {copy.jobImageLabel}
@@ -1091,7 +1170,8 @@ const JobsCommandGrid: React.FC = () => {
                 )}
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-[var(--panel-border)] pt-4">
               <Button
                 variant="ghost"
                 onClick={() => {
