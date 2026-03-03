@@ -267,6 +267,11 @@ const CVLabPage: React.FC = () => {
     queryFn: () => seekerApi.getCvAnalysisHistory(selectedCv?.cv_id ?? 0),
     enabled: !!selectedCv?.cv_id,
   });
+  const cvAnalysisQ = useQuery({
+    queryKey: ["cv-analysis", selectedCv?.cv_id],
+    queryFn: () => seekerApi.getCvAnalysis(selectedCv?.cv_id ?? 0),
+    enabled: !!selectedCv?.cv_id,
+  });
   const historyItems = useMemo(() => (Array.isArray(historyQ.data) ? historyQ.data : []), [historyQ.data]);
   const maxCvReached = cvItems.length >= 3;
   const hasAnalysisRun = historyItems.length > 0;
@@ -376,8 +381,16 @@ const CVLabPage: React.FC = () => {
   const recommendationItems = toList(
     analysisInsights?.recommendations || analysisInsights?.ats_optimization_tips
   );
-  const snapshotFeatures = activeInsight?.features_analytics || analysis?.features_analytics || {};
-  const snapshotStructured = activeInsight?.structured_data || analysis?.structured_data || {};
+  const snapshotFeatures =
+    activeInsight?.features_analytics ||
+    analysis?.features_analytics ||
+    cvAnalysisQ.data?.features_analytics ||
+    {};
+  const snapshotStructured =
+    activeInsight?.structured_data ||
+    analysis?.structured_data ||
+    cvAnalysisQ.data?.structured_data ||
+    {};
   const keySkills = toList(snapshotFeatures?.key_skills);
   const atsScore = activeInsight?.ats_score ?? snapshotFeatures?.ats_score;
   const industryScore = activeInsight?.industry_ranking_score;
