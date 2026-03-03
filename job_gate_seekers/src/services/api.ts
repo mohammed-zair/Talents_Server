@@ -283,6 +283,8 @@ export const seekerApi = {
     sessionId?: string;
     format: "pdf" | "docx";
     language?: string;
+    include_branding?: boolean;
+    brand_mode?: "footer" | "header";
   }) => {
     const res = await api.post("/ai/chatbot/export", payload, { responseType: "blob" });
     return res.data;

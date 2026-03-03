@@ -794,14 +794,28 @@ exports.getChatbotInsights = async (req, res) => {
  */
 exports.exportChatbotDocument = async (req, res) => {
   try {
-    const { session_id, sessionId, format = "pdf", language } = req.body;
+    const {
+      session_id,
+      sessionId,
+      format = "pdf",
+      language,
+      include_branding = false,
+      brand_mode = "footer",
+    } = req.body;
     const resolvedSessionId = sessionId || session_id;
 
     if (!resolvedSessionId) {
       return res.status(400).json({ message: "Session ID is required" });
     }
 
-    const response = await aiService.exportChatbotDocument(resolvedSessionId, format, language);
+    const response = await aiService.exportChatbotDocument(resolvedSessionId, format, language, {
+      branding: {
+        enabled: Boolean(include_branding),
+        mode: brand_mode === "header" ? "header" : "footer",
+        name: process.env.TALENTS_BRAND_NAME || "Talents",
+        logo_url: process.env.TALENTS_BRAND_LOGO_URL || "/logo.png",
+      },
+    });
     const contentType = response.headers["content-type"] || "application/octet-stream";
     const contentDisposition = response.headers["content-disposition"];
 

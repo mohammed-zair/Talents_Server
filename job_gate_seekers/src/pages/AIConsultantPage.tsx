@@ -355,6 +355,7 @@ const AIConsultantPage: React.FC = () => {
   const [builderDirty, setBuilderDirty] = useState(false);
   const [builderSyncInfo, setBuilderSyncInfo] = useState("");
   const [builderSyncError, setBuilderSyncError] = useState("");
+  const [includeBranding, setIncludeBranding] = useState(true);
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -566,7 +567,13 @@ const AIConsultantPage: React.FC = () => {
 
   const exportMutation = useMutation({
     mutationFn: (format: "pdf" | "docx") =>
-      seekerApi.exportChatDocument({ sessionId, format, language: language === "ar" ? "ar" : "en" }),
+      seekerApi.exportChatDocument({
+        sessionId,
+        format,
+        language: language === "ar" ? "ar" : "en",
+        include_branding: includeBranding,
+        brand_mode: "footer",
+      }),
     onSuccess: (blob: Blob, format: "pdf" | "docx") => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -2026,6 +2033,18 @@ const AIConsultantPage: React.FC = () => {
 
             {activeTab === "export" && (
               <div className="space-y-2">
+                <label className="flex items-center gap-2 rounded-lg border border-[var(--border)] p-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={includeBranding}
+                    onChange={(e) => setIncludeBranding(e.target.checked)}
+                  />
+                  <span>
+                    {language === "ar"
+                      ? "إضافة شعار Talents وتذييل بسيط (اختياري)"
+                      : "Include Talents branding footer (optional)"}
+                  </span>
+                </label>
                 <button
                   className="btn-primary w-full"
                   onClick={() => {

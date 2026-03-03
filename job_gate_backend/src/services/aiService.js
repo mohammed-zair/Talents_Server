@@ -158,11 +158,12 @@ class AIService {
     return this._requestWithRetry(url, null, "Chatbot Insights", "get");
   }
 
-  async exportChatbotDocument(sessionId, format = "pdf", language = undefined) {
+  async exportChatbotDocument(sessionId, format = "pdf", language = undefined, options = {}) {
     const payload = {
       session_id: sessionId,
       format,
       language,
+      ...(options?.branding ? { branding: options.branding } : {}),
     };
 
     const response = await this.aiClient.post("/chatbot/export", payload, {
