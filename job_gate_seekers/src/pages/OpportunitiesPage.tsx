@@ -5,15 +5,9 @@ import { Bookmark, Briefcase, Sparkles } from "lucide-react";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
+import { buildAssetUrl } from "../utils/assets";
 
 const PAGE_SIZE = 8;
-
-const resolveAssetUrl = (url?: string | null) => {
-  if (!url) return "";
-  if (url.startsWith("http")) return url;
-  const base = import.meta.env.VITE_ASSET_BASE_URL || import.meta.env.VITE_API_URL || "";
-  return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
-};
 
 const getPlaceholderScore = (job: any) => {
   const seed = Number(job?.job_id ?? 0);
@@ -261,7 +255,7 @@ const OpportunitiesPage: React.FC = () => {
             const baseLabel = score >= 90 ? t("highlyMatched") : score >= 70 ? t("forYou") : "";
             const badgeClass =
               score >= 90 ? "bg-emerald-500/20 text-emerald-200" : "bg-sky-500/20 text-sky-200";
-            const imageUrl = resolveAssetUrl(job.job_image_url);
+            const imageUrl = buildAssetUrl(job.job_image_url);
 
             const badgeLabel = baseLabel ? `${baseLabel} · ${t("aiComingSoon")}` : "";
 

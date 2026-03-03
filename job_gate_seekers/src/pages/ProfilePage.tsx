@@ -6,13 +6,7 @@ import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
 import { getStoredUser } from "../utils/auth";
-
-const resolveAssetUrl = (url?: string | null) => {
-  if (!url) return "";
-  if (url.startsWith("http")) return url;
-  const base = import.meta.env.VITE_ASSET_BASE_URL || import.meta.env.VITE_API_URL || "";
-  return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
-};
+import { buildAssetUrl } from "../utils/assets";
 
 const ProfilePage: React.FC = () => {
   const { t } = useLanguage();
@@ -254,7 +248,7 @@ const ProfilePage: React.FC = () => {
             savedItems.map((s: any) => {
               const job = s.JobPosting || s.job_posting || {};
               const jobId = Number(job.job_id || s.job_id);
-              const imageUrl = resolveAssetUrl(job.job_image_url || job.image_url);
+              const imageUrl = buildAssetUrl(job.job_image_url || job.image_url);
               return (
                 <div key={jobId} className="rounded-2xl border border-[var(--border)] p-3">
                   <div className="flex items-center gap-3">

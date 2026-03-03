@@ -5,6 +5,7 @@ import { Bookmark, Briefcase, Sparkles } from "lucide-react";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
+import { buildAssetUrl } from "../utils/assets";
 
 const initials = (name: string) => {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -17,14 +18,6 @@ const initials = (name: string) => {
 const getPlaceholderScore = (job: any) => {
   const seed = Number(job?.job_id ?? 0);
   return 45 + (seed * 13) % 56;
-};
-
-const resolveAssetUrl = (url?: string | null) => {
-  if (!url) return null;
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  const base = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/?api\/?$/, "");
-  const normalized = url.startsWith("/") ? url : `/${url}`;
-  return `${base}${normalized}`;
 };
 
 const CompanyDetailsPage: React.FC = () => {
@@ -161,7 +154,7 @@ const CompanyDetailsPage: React.FC = () => {
                 const badgeClass =
                   score >= 90 ? "bg-emerald-500/20 text-emerald-200" : "bg-sky-500/20 text-sky-200";
                 const isSaved = savedIds.has(job.job_id);
-                const imageUrl = resolveAssetUrl(job.job_image_url);
+                const imageUrl = buildAssetUrl(job.job_image_url);
 
                 const badgeLabel = baseLabel ? `${baseLabel} · ${t("aiComingSoon")}` : "";
 
