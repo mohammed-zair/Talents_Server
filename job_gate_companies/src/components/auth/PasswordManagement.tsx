@@ -6,7 +6,13 @@ import { mapAuthError } from "../../utils/authMessages";
 import OtpInput from "./OtpInput";
 import Button from "../shared/Button";
 
-const strengthLabel = (score: number) => {
+const strengthLabel = (score: number, language: "en" | "ar") => {
+  if (language === "ar") {
+    if (score >= 3) return "قوية";
+    if (score === 2) return "جيدة";
+    return "ضعيفة";
+  }
+
   if (score >= 3) return "Strong";
   if (score === 2) return "Good";
   return "Weak";
@@ -42,29 +48,47 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
       confirmPassword: "Confirm Password",
       submit: mode === "set" ? "Set Password" : "Reset Password",
       hint: "Minimum 6 characters",
+      otpSent: "OTP sent",
+      emailRequired: "Email is required",
+      otpRequired: "OTP is required",
+      allRequired: "Please fill all required fields",
+      minPassword: "Password must be at least 6 characters",
+      mismatch: "Passwords do not match",
+      updated: "Password updated",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
     },
     ar: {
-      email: "Corporate Email",
-      token: "Approval Token",
-      request: "Send OTP",
-      code: "6-digit OTP",
-      password: "New Password",
-      confirmPassword: "Confirm Password",
-      submit: mode === "set" ? "Set Password" : "Reset Password",
-      hint: "Minimum 6 characters",
+      email: "البريد الإلكتروني للشركة",
+      token: "رمز الموافقة",
+      request: "إرسال رمز التحقق",
+      code: "رمز تحقق من 6 أرقام",
+      password: "كلمة المرور الجديدة",
+      confirmPassword: "تأكيد كلمة المرور",
+      submit: mode === "set" ? "تعيين كلمة المرور" : "إعادة تعيين كلمة المرور",
+      hint: "الحد الأدنى 6 أحرف",
+      otpSent: "تم إرسال رمز التحقق",
+      emailRequired: "يرجى إدخال البريد الإلكتروني",
+      otpRequired: "يرجى إدخال رمز التحقق",
+      allRequired: "يرجى إدخال كلمة المرور وتأكيدها",
+      minPassword: "يجب أن تكون كلمة المرور 6 أحرف على الأقل",
+      mismatch: "كلمتا المرور غير متطابقتين",
+      updated: "تم تحديث كلمة المرور",
+      showPassword: "إظهار كلمة المرور",
+      hidePassword: "إخفاء كلمة المرور",
     },
   }[language];
 
   const handleRequest = async () => {
     if (!email.trim()) {
-      toast.error(language === "ar" ? "يرجى إدخال البريد الإلكتروني" : "Email is required");
+      toast.error(labels.emailRequired);
       return;
     }
 
     try {
       setLoading(true);
       await authApi.forgotPassword({ email, language });
-      toast.success("OTP sent");
+      toast.success(labels.otpSent);
       setStep("reset");
     } catch (error: any) {
       toast.error(mapAuthError(error?.response?.status, language));
@@ -75,29 +99,25 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
 
   const handleSubmit = async () => {
     if (!email.trim()) {
-      toast.error(language === "ar" ? "يرجى إدخال البريد الإلكتروني" : "Email is required");
+      toast.error(labels.emailRequired);
       return;
     }
     if (mode === "reset" && !code.trim()) {
-      toast.error(language === "ar" ? "يرجى إدخال رمز التحقق" : "OTP is required");
+      toast.error(labels.otpRequired);
       return;
     }
     if (!password.trim() || !confirmPassword.trim()) {
-      toast.error(
-        language === "ar"
-          ? "يرجى إدخال كلمة المرور وتأكيدها"
-          : "Please fill all required fields"
-      );
+      toast.error(labels.allRequired);
       return;
     }
 
     if (password.trim().length < 6) {
-      toast.error(language === "ar" ? "الحد الأدنى 6 أحرف" : "Password must be at least 6 characters");
+      toast.error(labels.minPassword);
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.error(labels.mismatch);
       return;
     }
 
@@ -108,7 +128,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
       } else {
         await authApi.resetPassword({ email, code, password });
       }
-      toast.success("Password updated");
+      toast.success(labels.updated);
     } catch (error: any) {
       toast.error(mapAuthError(error?.response?.status, language));
     } finally {
@@ -180,7 +200,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? labels.hidePassword : labels.showPassword}
             >
               <svg
                 width="18"
@@ -199,7 +219,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
           </div>
           <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
             <span>{labels.hint}</span>
-            <span className="text-[var(--accent)]">{strengthLabel(score)}</span>
+            <span className="text-[var(--accent)]">{strengthLabel(score, language)}</span>
           </div>
         </div>
       )}
@@ -222,7 +242,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
               type="button"
               onClick={() => setShowConfirmPassword((prev) => !prev)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              aria-label={showConfirmPassword ? labels.hidePassword : labels.showPassword}
             >
               <svg
                 width="18"

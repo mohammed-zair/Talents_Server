@@ -12,7 +12,29 @@ import { clearToken } from "../auth";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000/api";
-const ASSET_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, "");
+const resolveApiRoot = () => {
+  const fallbackOrigin =
+    typeof window !== "undefined" ? window.location.origin : "http://localhost:5000";
+  return new URL(API_BASE_URL, fallbackOrigin);
+};
+const API_ROOT = resolveApiRoot();
+const API_ORIGIN = API_ROOT.origin;
+const API_PREFIX = API_ROOT.pathname.replace(/\/+$/, "");
+
+const buildAssetUrl = (value?: string | null) => {
+  if (!value) return undefined;
+  if (/^https?:\/\//i.test(value)) return value;
+
+  if (value.startsWith("/uploads/")) {
+    return `${API_ORIGIN}${API_PREFIX}${value}`;
+  }
+
+  if (value.startsWith("/")) {
+    return `${API_ORIGIN}${value}`;
+  }
+
+  return `${API_ORIGIN}/${value}`;
+};
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -23,6 +45,20 @@ const authClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
 });
+
+const normalizeCompanyProfile = (raw: any): CompanyProfile => {
+  const payload = raw?.data ?? raw ?? {};
+  return {
+    id: String(payload.company_id ?? payload.id ?? ""),
+    name: payload.name ?? "",
+    industry: payload.industry ?? payload.description ?? "",
+    email: payload.email ?? "",
+    phone: payload.phone ?? "",
+    logoUrl: buildAssetUrl(payload.logo_url ?? payload.logoUrl),
+    verified: Boolean(payload.is_approved ?? payload.verified),
+    lastPasswordChange: payload.password_set_at ?? payload.lastPasswordChange ?? "",
+  };
+};
 
 api.interceptors.response.use(
   (response) => response,
@@ -86,9 +122,7 @@ export const companyApi = {
       industry: job.industry ?? "",
       description: job.description ?? "",
       requirements: job.requirements ?? "",
-      jobImageUrl: job.job_image_url
-        ? `${ASSET_BASE_URL}${job.job_image_url}`
-        : job.jobImageUrl ?? null,
+      jobImageUrl: buildAssetUrl(job.job_image_url ?? job.jobImageUrl) ?? null,
       is_anonymous: Boolean(job.is_anonymous),
       status: job.status ?? "open",
       applicants: Array.isArray(job.Applications)
@@ -222,14 +256,14 @@ export const companyApi = {
     return data;
   },
   getCompanyProfile: async () => {
-    const { data } = await api.get<CompanyProfile>("/companies/company/profile");
-    return data;
+    const { data } = await api.get("/companies/company/profile");
+    return normalizeCompanyProfile(data);
   },
   updateCompanyProfile: async (payload: FormData) => {
-    const { data } = await api.put<CompanyProfile>("/companies/company/profile", payload, {
+    const { data } = await api.put("/companies/company/profile", payload, {
       headers: { "Content-Type": "multipart/form-data" },
     });
-    return data;
+    return normalizeCompanyProfile(data);
   },
   changeCompanyPassword: async (payload: {
     currentPassword: string;

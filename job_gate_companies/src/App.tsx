@@ -53,9 +53,9 @@ const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navItems = [
     { to: "/dashboard", icon: BriefcaseBusiness, label: navLabels.dashboard },
     { to: "/applications", icon: Globe2, label: navLabels.applications },
-    { to: "/profile", icon: Shield, label: navLabels.profile },
     { to: "/jobs", icon: ClipboardCheck, label: navLabels.jobs },
     { to: "/cv-requests", icon: FileBadge, label: navLabels.cv },
+    { to: "/profile", icon: Shield, label: navLabels.profile },
     { to: "/settings", icon: Globe2, label: navLabels.settings },
   ];
 

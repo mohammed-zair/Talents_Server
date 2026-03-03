@@ -50,9 +50,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ title, subtitle, children }) =>
           </div>
           <div className="glass-card auth-card w-full max-w-4xl rounded-3xl border p-8 backdrop-blur-xl lg:p-12">
             <div className="mb-6 flex flex-col items-center text-center">
-              <div
-                className="auth-badge mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border"
-              >
+              <div className="auth-badge mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border">
                 <img src="/favicon.ico" alt="Talents We Trust" className="h-7 w-7" />
               </div>
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{copy.portal}</p>
