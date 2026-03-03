@@ -114,28 +114,31 @@ const MarketPage: React.FC = () => {
                 key={c.company_id}
                 to={`/market/${c.company_id}`}
                 state={{ marketSearch: search }}
-                className="glass-card card-hover block overflow-hidden rounded-2xl focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                className="glass-card card-hover block rounded-2xl p-5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                 aria-label={`${t("viewCompany")}: ${name}`}
               >
-                <div className="relative">
-                  {logoUrl ? (
-                    <img src={logoUrl} alt={name} className="h-32 w-full object-cover" />
-                  ) : (
-                    <div className="flex h-32 items-center justify-center bg-[var(--glass)]">
-                      <div className="flex items-center gap-2 text-[var(--text-muted)]">
-                        <Building2 size={24} />
-                        <span className="rounded-full border border-[var(--border)] px-3 py-1 text-sm font-semibold">
-                          {initials(name)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
-                  <span className="absolute right-3 top-3 rounded-full bg-sky-500/20 px-2 py-1 text-[10px] font-semibold text-sky-200">
+                <div className="flex items-center justify-between">
+                  <span className="rounded-full bg-sky-500/20 px-2 py-1 text-[10px] font-semibold text-sky-200">
                     {t("ratingPending")}
                   </span>
                 </div>
-                <div className="flex h-full flex-col p-4">
+                <div className="mt-3 flex justify-center">
+                  {logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt={name}
+                      className="h-24 w-24 rounded-full border border-[var(--border)] object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-24 w-24 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--glass)] text-[var(--text-muted)]">
+                      <div className="flex flex-col items-center gap-1">
+                        <Building2 size={20} />
+                        <span className="text-xs font-semibold">{initials(name)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 flex h-full flex-col text-center">
                   <p className="text-lg font-semibold">{name}</p>
                   <p className="mt-2 text-sm text-[var(--text-muted)] line-clamp-2">
                     {truncate(c.description || t("noDescriptionYet"))}

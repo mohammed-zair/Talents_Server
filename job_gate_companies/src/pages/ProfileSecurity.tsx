@@ -264,7 +264,7 @@ const ProfileSecurity: React.FC = () => {
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--chip-bg)]">
+                  <div className="h-14 w-14 overflow-hidden rounded-full border border-[var(--panel-border)] bg-[var(--chip-bg)]">
                     {logoFile ? (
                       <img
                         src={URL.createObjectURL(logoFile)}
