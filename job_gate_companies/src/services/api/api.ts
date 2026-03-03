@@ -124,6 +124,7 @@ export const companyApi = {
       requirements: job.requirements ?? "",
       jobImageUrl: buildAssetUrl(job.job_image_url ?? job.jobImageUrl) ?? null,
       is_anonymous: Boolean(job.is_anonymous),
+      is_remote: Boolean(job.is_remote),
       status: job.status ?? "open",
       applicants: Array.isArray(job.Applications)
         ? job.Applications.length

@@ -1006,6 +1006,7 @@ exports.listJobPostings = async (req, res) => {
       "form_type",
       "job_image_url",
       "is_anonymous",
+      "is_remote",
       "created_at",
     ];
 
@@ -1085,6 +1086,7 @@ exports.getJobPostingDetails = async (req, res) => {
         "form_type",
         "job_image_url",
         "is_anonymous",
+        "is_remote",
         "created_at",
       ],
       include: [
@@ -1368,7 +1370,7 @@ exports.listUserApplications = async (req, res) => {
       include: [
         {
           model: JobPosting,
-          attributes: ["job_id", "title", "status", "location", "is_anonymous"],
+        attributes: ["job_id", "title", "status", "location", "is_anonymous", "is_remote"],
           include: [{ model: Company, attributes: ["name"] }],
         },
         {

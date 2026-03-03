@@ -59,6 +59,12 @@ const JobPosting = sequelize.define("JobPosting", {
     defaultValue: false,
   },
 
+  is_remote: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
+
   status: {
     type: DataTypes.ENUM("open", "closed"),
     defaultValue: "open",

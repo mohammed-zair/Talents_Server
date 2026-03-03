@@ -93,6 +93,7 @@ exports.getApprovedCompanyDetails = async (req, res) => {
             "location",
             "description",
             "job_image_url",
+            "is_remote",
           ],
         },
       ],

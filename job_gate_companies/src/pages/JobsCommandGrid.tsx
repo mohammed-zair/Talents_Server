@@ -88,6 +88,7 @@ const JobsCommandGrid: React.FC = () => {
     salaryMin: "",
     salaryMax: "",
     isAnonymous: false,
+    isRemote: false,
   });
   const [jobImageFile, setJobImageFile] = useState<File | null>(null);
   const [jobImagePreview, setJobImagePreview] = useState<string | null>(null);
@@ -239,6 +240,7 @@ const JobsCommandGrid: React.FC = () => {
         salaryMin: "",
         salaryMax: "",
         isAnonymous: false,
+        isRemote: false,
       });
       setJobImageFile(null);
       setJobImagePreview(null);
@@ -388,6 +390,8 @@ const JobsCommandGrid: React.FC = () => {
       draftSaved: "Draft saved",
       anonymousLabel: "Post as anonymous (show Talents branding to job seekers)",
       anonymousBadge: "Anonymous",
+      remoteLabel: "Remote from home",
+      remoteBadge: "Remote",
       publish: "Publish Job + Form",
       deleting: "Deleting...",
       creating: "Publishing...",
@@ -421,6 +425,8 @@ const JobsCommandGrid: React.FC = () => {
       draftSaved: "تم حفظ المسودة",
       anonymousLabel: "انشر كوظيفة مجهولة (إظهار علامة Talents للباحثين)",
       anonymousBadge: "مجهول",
+      remoteLabel: "عن بعد من المنزل",
+      remoteBadge: "عن بعد",
       publish: "نشر الوظيفة والنموذج",
       deleting: "جارٍ الحذف...",
       creating: "جارٍ النشر...",
@@ -503,6 +509,11 @@ const JobsCommandGrid: React.FC = () => {
                             {copy.anonymousBadge}
                           </span>
                         )}
+                        {job.is_remote && (
+                          <span className="mt-1 ms-1 inline-flex rounded-full border border-sky-300 bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-800">
+                            {copy.remoteBadge}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </label>
@@ -528,6 +539,7 @@ const JobsCommandGrid: React.FC = () => {
                         industry: job.industry,
                         location: job.location,
                         is_anonymous: Boolean(job.is_anonymous),
+                        is_remote: Boolean(job.is_remote),
                       });
                     }}
                   >
@@ -710,6 +722,24 @@ const JobsCommandGrid: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-2 md:col-span-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="job-remote">
+                  {copy.remoteLabel}
+                </label>
+                <div className="flex items-center gap-3 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3">
+                  <input
+                    id="job-remote"
+                    type="checkbox"
+                    checked={jobDraft.isRemote}
+                    onChange={(event) =>
+                      setJobDraft((prev) => ({ ...prev, isRemote: event.target.checked }))
+                    }
+                  />
+                  <span className="text-sm text-[var(--text-primary)]">
+                    {jobDraft.isRemote ? "On" : "Off"}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2 md:col-span-2">
                 <label className="text-xs text-[var(--text-muted)]" htmlFor="form-require-cv">
                   {copy.requireCv}
                 </label>
@@ -832,6 +862,7 @@ const JobsCommandGrid: React.FC = () => {
                   payload.append("job_image", jobImageFile);
                 }
                 payload.append("is_anonymous", String(jobDraft.isAnonymous));
+                payload.append("is_remote", String(jobDraft.isRemote));
                 payload.append("form_type", "internal_form");
                 payload.append("require_cv", String(requireCv));
                 payload.append(
@@ -1005,6 +1036,27 @@ const JobsCommandGrid: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-2">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="edit-job-remote">
+                  {copy.remoteLabel}
+                </label>
+                <div className="flex items-center gap-3 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3">
+                  <input
+                    id="edit-job-remote"
+                    type="checkbox"
+                    checked={Boolean(editForm.is_remote)}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        is_remote: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span className="text-sm text-[var(--text-primary)]">
+                    {Boolean(editForm.is_remote) ? "On" : "Off"}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
                 <label className="text-xs text-[var(--text-muted)]" htmlFor="edit-job-image">
                   {copy.jobImageLabel}
                 </label>
@@ -1072,6 +1124,9 @@ const JobsCommandGrid: React.FC = () => {
                   if (editForm.location?.trim()) payload.append("location", String(editForm.location).trim());
                   if (typeof editForm.is_anonymous === "boolean") {
                     payload.append("is_anonymous", String(editForm.is_anonymous));
+                  }
+                  if (typeof editForm.is_remote === "boolean") {
+                    payload.append("is_remote", String(editForm.is_remote));
                   }
                   if (editImageFile) payload.append("job_image", editImageFile);
                   updateJob.mutate({ id: editJob.id, payload });
