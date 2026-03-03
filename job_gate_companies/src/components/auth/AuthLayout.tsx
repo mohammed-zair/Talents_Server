@@ -26,39 +26,38 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ title, subtitle, children }) =>
   }[language];
 
   return (
-    <div className="min-h-screen bg-[#070A0F]">
-      <div className="relative min-h-screen overflow-hidden bg-[#070A0F]">
+    <div className="auth-shell min-h-screen">
+      <div className="auth-shell relative min-h-screen overflow-hidden">
         <div className="absolute inset-0 auth-mesh opacity-70" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#1a1a40,transparent_60%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(0,168,232,0.18),transparent_55%)]" />
+        <div className="absolute inset-0 auth-overlay-primary" />
+        <div className="absolute inset-0 auth-overlay-secondary" />
         <div className="relative z-10 flex min-h-screen items-center justify-center px-6 py-12">
           <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
             <button
               type="button"
               onClick={() => setTheme(nextTheme)}
-              className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white/90 backdrop-blur hover:bg-white/20"
+              className="auth-pill rounded-full border px-3 py-1 text-xs backdrop-blur"
             >
               {copy.theme}
             </button>
             <button
               type="button"
               onClick={() => setLanguage(language === "ar" ? "en" : "ar")}
-              className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white/90 backdrop-blur hover:bg-white/20"
+              className="auth-pill rounded-full border px-3 py-1 text-xs backdrop-blur"
             >
               {copy.language}
             </button>
           </div>
-          <div className="glass-card auth-card w-full max-w-4xl rounded-3xl border border-white/20 p-8 shadow-[0_0_35px_rgba(0,168,232,0.18)] backdrop-blur-xl lg:p-12">
+          <div className="glass-card auth-card w-full max-w-4xl rounded-3xl border p-8 backdrop-blur-xl lg:p-12">
             <div className="mb-6 flex flex-col items-center text-center">
               <div
-                className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-white/20 bg-white/10"
-                style={{ boxShadow: "0 0 22px rgba(0,168,232,0.35)" }}
+                className="auth-badge mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border"
               >
                 <img src="/favicon.ico" alt="Talents We Trust" className="h-7 w-7" />
               </div>
-              <p className="text-xs uppercase tracking-[0.2em] text-white/60">{copy.portal}</p>
-              <h2 className="heading-serif mt-2 text-3xl text-white">{title}</h2>
-              <p className="mt-2 text-sm text-white/70">{subtitle}</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{copy.portal}</p>
+              <h2 className="heading-serif mt-2 text-3xl text-[var(--text-primary)]">{title}</h2>
+              <p className="mt-2 text-sm text-[var(--text-muted)]">{subtitle}</p>
             </div>
             {children}
           </div>
