@@ -1000,7 +1000,6 @@ exports.getCompanyDashboard = async (req, res) => {
     let aiScoreCount = 0;
     let atsScoreSum = 0;
     let atsScoreCount = 0;
-    const highQualityCandidateIds = new Set();
     const jobStatsMap = new Map();
 
     applications.forEach((application) => {
@@ -1018,12 +1017,6 @@ exports.getCompanyDashboard = async (req, res) => {
       if (typeof score === "number") {
         aiScoreSum += score;
         aiScoreCount += 1;
-        if (score >= 85) {
-          const candidateId = data.User?.user_id ?? data.user_id ?? null;
-          if (candidateId !== null && candidateId !== undefined) {
-            highQualityCandidateIds.add(String(candidateId));
-          }
-        }
       }
       if (typeof atsScore === "number") {
         atsScoreSum += atsScore;
@@ -1171,7 +1164,29 @@ exports.getCompanyDashboard = async (req, res) => {
           .sort((a, b) => b.score - a.score)
           .slice(0, 5)
       : [];
-    const highQualityJobSeekersCount = highQualityCandidateIds.size;
+    const seekerWhere = { user_type: "seeker", is_deleted: false };
+    const totalSeekersCount = await User.count({ where: seekerWhere });
+    const highQualityByAtsCount = await User.count({
+      where: seekerWhere,
+      include: [
+        {
+          model: CV,
+          required: true,
+          attributes: [],
+          include: [
+            {
+              model: CVFeaturesAnalytics,
+              required: true,
+              attributes: [],
+              where: { ats_score: { [Op.gte]: 70 } },
+            },
+          ],
+        },
+      ],
+      distinct: true,
+      col: "user_id",
+    });
+    const highQualityJobSeekersCount = Math.max(highQualityByAtsCount, totalSeekersCount);
     const highQualityJobSeekersX2 = highQualityJobSeekersCount * 2;
 
     return successResponse(res, {
@@ -1581,11 +1596,16 @@ exports.getCompanyApplications = async (req, res) => {
 
     const extractSkillPool = (structured = {}, featureSkills = []) => {
       const sources = [
-        featureSkills,
         structured.skills,
         structured.key_skills,
+        structured.projects,
+        structured.languages,
+        structured.certifications,
+        structured.achievements,
         structured.core_competencies,
+        getNestedValue(structured, ["sections", "projects", "data"]),
         getNestedValue(structured, ["sections", "core_competencies", "data"]),
+        featureSkills,
       ];
       const all = [];
       sources.forEach((source) => collectStrings(source, all));
@@ -1609,6 +1629,38 @@ exports.getCompanyApplications = async (req, res) => {
       const tokens = [];
       sources.forEach((source) => collectStrings(source, tokens));
       return tokens.join(" ").trim() || null;
+    };
+
+    const extractExperienceYearsFromStructured = (structured = {}) => {
+      const rows =
+        structured.experience ||
+        getNestedValue(structured, ["sections", "professional_experience", "data"]) ||
+        [];
+      return Array.isArray(rows) ? rows.length : 0;
+    };
+
+    const buildStructuredSearchText = (structured = {}) => {
+      const sources = [
+        structured.personal_info,
+        structured.summary,
+        structured.skills,
+        structured.education,
+        structured.experience,
+        structured.projects,
+        structured.languages,
+        structured.certifications,
+        structured.achievements,
+        getNestedValue(structured, ["sections", "contact_information", "data"]),
+        getNestedValue(structured, ["sections", "professional_summary", "data"]),
+        getNestedValue(structured, ["sections", "core_competencies", "data"]),
+        getNestedValue(structured, ["sections", "professional_experience", "data"]),
+        getNestedValue(structured, ["sections", "projects", "data"]),
+        getNestedValue(structured, ["sections", "education", "data"]),
+        getNestedValue(structured, ["sections", "certifications_awards", "data"]),
+      ];
+      const tokens = [];
+      sources.forEach((source) => collectStrings(source, tokens));
+      return tokens.join(" ").trim().toLowerCase();
     };
 
     const company_id = req.company.company_id;
@@ -1676,6 +1728,7 @@ exports.getCompanyApplications = async (req, res) => {
       let skillPool = [];
       let location = null;
       let education = null;
+      let structuredText = "";
 
       if (cv?.CVAIInsights && data.JobPosting) {
         ai_insights = cv.CVAIInsights.find(
@@ -1698,6 +1751,10 @@ exports.getCompanyApplications = async (req, res) => {
       skillPool = extractSkillPool(structured, skillPool);
       location = extractLocationValue(structured);
       education = extractEducationText(structured);
+      structuredText = buildStructuredSearchText(structured);
+      if (typeof experienceYears !== "number" || Number.isNaN(experienceYears)) {
+        experienceYears = extractExperienceYearsFromStructured(structured);
+      }
 
       return {
         ...data,
@@ -1707,6 +1764,7 @@ exports.getCompanyApplications = async (req, res) => {
         candidate_education: education,
         candidate_experience_years: experienceYears,
         candidate_skills: skillPool,
+        candidate_structured_text: structuredText,
       };
     });
 
@@ -1716,11 +1774,21 @@ exports.getCompanyApplications = async (req, res) => {
         const jobTitle = String(item.JobPosting?.title ?? item.job_title ?? "").toLowerCase();
         const jobLocation = String(item.JobPosting?.location ?? item.location ?? "").toLowerCase();
         const email = String(item.User?.email ?? item.email ?? "").toLowerCase();
+        const location = String(item.candidate_location || "").toLowerCase();
+        const education = String(item.candidate_education || "").toLowerCase();
+        const skills = (Array.isArray(item.candidate_skills) ? item.candidate_skills : [])
+          .map((skill) => String(skill).toLowerCase())
+          .join(" ");
+        const structuredText = String(item.candidate_structured_text || "").toLowerCase();
         return (
           candidateName.includes(search) ||
           jobTitle.includes(search) ||
           jobLocation.includes(search) ||
-          email.includes(search)
+          email.includes(search) ||
+          location.includes(search) ||
+          education.includes(search) ||
+          skills.includes(search) ||
+          structuredText.includes(search)
         );
       });
     }
