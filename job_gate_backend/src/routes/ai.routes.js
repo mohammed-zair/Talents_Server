@@ -60,6 +60,13 @@ router.delete("/chatbot/session/:sessionId",
   aiController.deleteChatbotSession
 );
 
+// Admin-only reset for locked users (no user delete)
+router.delete("/chatbot/admin/reset/:userId",
+  verifyToken,
+  verifyAdmin,
+  aiController.adminResetChatbotSessions
+);
+
 // List chatbot sessions
 router.get("/chatbot/sessions",
   verifyToken,

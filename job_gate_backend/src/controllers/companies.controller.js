@@ -964,7 +964,7 @@ exports.getCompanyDashboard = async (req, res) => {
       {
         model: JobPosting,
         where: { company_id: companyId },
-        attributes: ["job_id", "title", "location"],
+        attributes: ["job_id", "title", "location", "created_at"],
       },
       {
         model: User,
@@ -995,11 +995,12 @@ exports.getCompanyDashboard = async (req, res) => {
     const starredCount = applications.filter((a) => a.is_starred).length;
 
     let topApplicant = null;
-    let topScore = -1;
+    const rankedApplicants = [];
     let aiScoreSum = 0;
     let aiScoreCount = 0;
     let atsScoreSum = 0;
     let atsScoreCount = 0;
+    const highQualityCandidateIds = new Set();
     const jobStatsMap = new Map();
 
     applications.forEach((application) => {
@@ -1017,6 +1018,12 @@ exports.getCompanyDashboard = async (req, res) => {
       if (typeof score === "number") {
         aiScoreSum += score;
         aiScoreCount += 1;
+        if (score >= 85) {
+          const candidateId = data.User?.user_id ?? data.user_id ?? null;
+          if (candidateId !== null && candidateId !== undefined) {
+            highQualityCandidateIds.add(String(candidateId));
+          }
+        }
       }
       if (typeof atsScore === "number") {
         atsScoreSum += atsScore;
@@ -1034,12 +1041,15 @@ exports.getCompanyDashboard = async (req, res) => {
             avg_ats_score: null,
             first_application_at: null,
             first_high_quality_at: null,
+            created_at: job.created_at || null,
+            starred_count: 0,
             pending_count: 0,
             reviewed_count: 0,
             shortlisted_count: 0,
             accepted_count: 0,
             hired_count: 0,
             rejected_count: 0,
+            _ranked_applicants: [],
             _ai_sum: 0,
             _ai_count: 0,
             _ats_sum: 0,
@@ -1055,6 +1065,25 @@ exports.getCompanyDashboard = async (req, res) => {
         if (typeof atsScore === "number") {
           jobStat._ats_sum += atsScore;
           jobStat._ats_count += 1;
+        }
+        if (data.is_starred) {
+          jobStat.starred_count += 1;
+        }
+        if (typeof score === "number") {
+          jobStat._ranked_applicants.push({
+            application_id: data.application_id,
+            candidate: {
+              id: data.User?.user_id ?? data.user_id ?? null,
+              name: data.User?.full_name ?? data.full_name ?? "Candidate",
+              email: data.User?.email ?? data.email ?? null,
+            },
+            job: {
+              id: job?.job_id ?? null,
+              title: job?.title ?? "Job",
+            },
+            ai_insights: aiInsights,
+            score,
+          });
         }
 
         const submittedAt = data.submitted_at || data.submittedAt || null;
@@ -1094,9 +1123,8 @@ exports.getCompanyDashboard = async (req, res) => {
         }
       }
 
-      if (typeof score === "number" && score > topScore) {
-        topScore = score;
-        topApplicant = {
+      if (typeof score === "number") {
+        rankedApplicants.push({
           application_id: data.application_id,
           candidate: {
             id: data.User?.user_id ?? data.user_id ?? null,
@@ -1109,9 +1137,42 @@ exports.getCompanyDashboard = async (req, res) => {
           },
           ai_insights: aiInsights,
           score,
-        };
+        });
       }
     });
+
+    const topApplicants = rankedApplicants
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    topApplicant = topApplicants[0] ?? null;
+    const latestJobPosting = await JobPosting.findOne({
+      where: { company_id: companyId },
+      attributes: ["job_id", "title", "created_at"],
+      order: [["created_at", "DESC"]],
+    });
+
+    const latestJobStat = latestJobPosting
+      ? jobStatsMap.get(latestJobPosting.job_id) || {
+          job_id: latestJobPosting.job_id,
+          title: latestJobPosting.title ?? "Job",
+          created_at: latestJobPosting.created_at || null,
+          total_applications: 0,
+          starred_count: 0,
+          _ai_sum: 0,
+          _ai_count: 0,
+          _ats_sum: 0,
+          _ats_count: 0,
+          _ranked_applicants: [],
+        }
+      : null;
+
+    const latestJobTopApplicants = latestJobStat
+      ? latestJobStat._ranked_applicants
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5)
+      : [];
+    const highQualityJobSeekersCount = highQualityCandidateIds.size;
+    const highQualityJobSeekersX2 = highQualityJobSeekersCount * 2;
 
     return successResponse(res, {
       company_name: company.name,
@@ -1125,12 +1186,32 @@ exports.getCompanyDashboard = async (req, res) => {
       rejected_count: rejectedCount,
       starred_count: starredCount,
       top_applicant: topApplicant,
+      top_applicants: topApplicants,
+      latest_job_offer: latestJobStat
+        ? {
+            job_id: latestJobStat.job_id,
+            title: latestJobStat.title,
+            created_at: latestJobStat.created_at,
+            applications_count: latestJobStat.total_applications,
+            avg_ai_score: latestJobStat._ai_count
+              ? Number((latestJobStat._ai_sum / latestJobStat._ai_count).toFixed(2))
+              : null,
+            avg_ats_score: latestJobStat._ats_count
+              ? Number((latestJobStat._ats_sum / latestJobStat._ats_count).toFixed(2))
+              : null,
+            starred_count: latestJobStat.starred_count || 0,
+            top_applicants: latestJobTopApplicants,
+          }
+        : null,
+      high_quality_job_seekers: highQualityJobSeekersCount,
+      high_quality_job_seekers_x2: highQualityJobSeekersX2,
       avg_ai_score: aiScoreCount ? Number((aiScoreSum / aiScoreCount).toFixed(2)) : null,
       avg_ats_score: atsScoreCount ? Number((atsScoreSum / atsScoreCount).toFixed(2)) : null,
       job_stats: Array.from(jobStatsMap.values()).map((jobStat) => ({
         job_id: jobStat.job_id,
         title: jobStat.title,
         location: jobStat.location,
+        created_at: jobStat.created_at,
         total_applications: jobStat.total_applications,
         avg_ai_score: jobStat._ai_count
           ? Number((jobStat._ai_sum / jobStat._ai_count).toFixed(2))
@@ -1138,6 +1219,7 @@ exports.getCompanyDashboard = async (req, res) => {
         avg_ats_score: jobStat._ats_count
           ? Number((jobStat._ats_sum / jobStat._ats_count).toFixed(2))
           : null,
+        starred_count: jobStat.starred_count,
         first_application_at: jobStat.first_application_at,
         first_high_quality_at: jobStat.first_high_quality_at,
         pending_count: jobStat.pending_count,

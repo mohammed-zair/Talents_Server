@@ -7,6 +7,47 @@ const path = require("path");
 const fs = require("fs");
 const { extractTextFromFile } = require("../utils/cvTextExtractor");
 
+const CHAT_MAX_SESSIONS_PER_USER = 3;
+const CHAT_MAX_USER_MESSAGES_PER_SESSION = 20;
+
+const toArray = (value) => (Array.isArray(value) ? value : []);
+
+const extractSessionsList = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.sessions)) return payload.sessions;
+  if (Array.isArray(payload?.data?.sessions)) return payload.data.sessions;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+};
+
+const extractSessionPayload = (payload) => payload?.session || payload?.data?.session || payload || {};
+
+const extractConversationList = (payload) => {
+  const session = extractSessionPayload(payload);
+  return toArray(session?.conversation || session?.messages || session?.history);
+};
+
+const extractSessionId = (session) =>
+  String(session?.session_id || session?.sessionId || session?.id || "").trim();
+
+const extractSessionOwnerId = (payload) => {
+  const session = extractSessionPayload(payload);
+  const owner =
+    session?.user_id ??
+    session?.userId ??
+    session?.metadata?.user_id ??
+    session?.metadata?.userId ??
+    null;
+  if (owner === null || owner === undefined || owner === "") return null;
+  return String(owner);
+};
+
+const countUserMessages = (conversation) =>
+  toArray(conversation).filter((msg) => {
+    const role = String(msg?.role || msg?.sender || "").toLowerCase();
+    return role === "user";
+  }).length;
+
 const normalizeAiIntelligence = (raw) => {
   if (typeof raw === "string") {
     try {
@@ -408,6 +449,21 @@ exports.startChatbotSession = async (req, res) => {
   try {
     const { language = 'english', initialData = {}, output_language, job_posting_id, job_description } = req.body;
     const userId = req.user.user_id;
+    const sessionsResult = await aiService.listChatbotSessions(String(userId));
+    const sessionsCount = extractSessionsList(sessionsResult).length;
+
+    if (sessionsCount >= CHAT_MAX_SESSIONS_PER_USER) {
+      return res.status(403).json({
+        message: "Session limit reached. You can only have 3 chat sessions.",
+        code: "CHAT_SESSION_LIMIT_REACHED",
+        current_sessions: sessionsCount,
+        limits: {
+          max_sessions_per_user: CHAT_MAX_SESSIONS_PER_USER,
+          max_user_messages_per_session: CHAT_MAX_USER_MESSAGES_PER_SESSION,
+        },
+        requestId,
+      });
+    }
 
     let jobPosting = null;
     if (job_posting_id) {
@@ -445,10 +501,35 @@ exports.sendChatbotMessage = async (req, res) => {
   try {
     const { sessionId, session_id, message, job_posting_id, job_description } = req.body;
     const resolvedSessionId = sessionId || session_id;
+    const userId = String(req.user.user_id);
 
     if (!resolvedSessionId || !message) {
       return res.status(400).json({
         message: 'Ù…Ø¹Ø±Ù Ø§Ù„Ø¬Ù„Ø³Ø© ÙˆØ§Ù„Ø±Ø³Ø§Ù„Ø© Ù…Ø·Ù„ÙˆØ¨Ø§Ù†',
+        requestId,
+      });
+    }
+
+    const sessionResult = await aiService.getChatbotSession(resolvedSessionId);
+    const ownerId = extractSessionOwnerId(sessionResult);
+    if (ownerId && ownerId !== userId) {
+      return res.status(403).json({
+        message: "You are not allowed to use this chat session.",
+        code: "CHAT_SESSION_FORBIDDEN",
+        requestId,
+      });
+    }
+
+    const userMessagesCount = countUserMessages(extractConversationList(sessionResult));
+    if (userMessagesCount >= CHAT_MAX_USER_MESSAGES_PER_SESSION) {
+      return res.status(403).json({
+        message: "Message limit reached for this session (20 user messages).",
+        code: "CHAT_MESSAGE_LIMIT_REACHED",
+        current_user_messages: userMessagesCount,
+        limits: {
+          max_sessions_per_user: CHAT_MAX_SESSIONS_PER_USER,
+          max_user_messages_per_session: CHAT_MAX_USER_MESSAGES_PER_SESSION,
+        },
         requestId,
       });
     }
@@ -710,7 +791,18 @@ exports.listChatbotSessions = async (req, res) => {
   try {
     const userId = req.user.user_id;
     const result = await aiService.listChatbotSessions(String(userId));
-    return successResponse(res, result, "Chatbot sessions fetched");
+    const sessions = extractSessionsList(result);
+    return successResponse(
+      res,
+      {
+        sessions,
+        limits: {
+          max_sessions_per_user: CHAT_MAX_SESSIONS_PER_USER,
+          max_user_messages_per_session: CHAT_MAX_USER_MESSAGES_PER_SESSION,
+        },
+      },
+      "Chatbot sessions fetched"
+    );
   } catch (error) {
     return res.status(500).json({
       message: "Failed to list chatbot sessions",
@@ -751,18 +843,67 @@ exports.updateChatbotSession = async (req, res) => {
  */
 exports.deleteChatbotSession = async (req, res) => {
   try {
-    const { sessionId } = req.params;
-    const userId = req.user.user_id;
-
-    if (!sessionId) {
-      return res.status(400).json({ message: "Session ID is required" });
-    }
-
-    const result = await aiService.deleteChatbotSession(sessionId, userId);
-    return successResponse(res, result, "Chatbot session deleted");
+    return res.status(410).json({
+      message: "Deleting chat sessions is disabled for users.",
+      code: "CHAT_SESSION_DELETE_DISABLED",
+      limits: {
+        max_sessions_per_user: CHAT_MAX_SESSIONS_PER_USER,
+        max_user_messages_per_session: CHAT_MAX_USER_MESSAGES_PER_SESSION,
+      },
+    });
   } catch (error) {
     return res.status(500).json({
       message: "Failed to delete chatbot session",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc [Admin] Reset all chatbot sessions for a user
+ * @route DELETE /api/ai/chatbot/admin/reset/:userId
+ * @access Private (Admin)
+ */
+exports.adminResetChatbotSessions = async (req, res) => {
+  try {
+    const targetUserId = String(req.params.userId || req.body?.user_id || "").trim();
+    if (!targetUserId) {
+      return res.status(400).json({ message: "Target user ID is required" });
+    }
+
+    const listResult = await aiService.listChatbotSessions(targetUserId);
+    const sessions = extractSessionsList(listResult);
+    const deleted = [];
+    const failed = [];
+
+    for (const session of sessions) {
+      const sessionId = extractSessionId(session);
+      if (!sessionId) continue;
+      try {
+        await aiService.deleteChatbotSession(sessionId, targetUserId);
+        deleted.push(sessionId);
+      } catch (error) {
+        failed.push({
+          session_id: sessionId,
+          error: error?.message || "Failed to delete session",
+        });
+      }
+    }
+
+    return successResponse(
+      res,
+      {
+        user_id: targetUserId,
+        deleted_count: deleted.length,
+        failed_count: failed.length,
+        deleted_session_ids: deleted,
+        failed_sessions: failed,
+      },
+      "Chatbot sessions reset completed"
+    );
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to reset chatbot sessions",
       error: error.message,
     });
   }

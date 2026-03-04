@@ -21,6 +21,8 @@ import { getApiErrorMessage } from "../utils/apiError";
 
 const SESSION_KEY = "twt_ai_session";
 const CV_OUTPUT_LANGUAGE = "en";
+const MAX_CHAT_SESSIONS = 3;
+const MAX_USER_MESSAGES_PER_SESSION = 20;
 
 type ChatMessage = { role: "user" | "assistant"; text: string; id?: string; pending?: boolean };
 type BuilderSection = { exists?: boolean; data?: any };
@@ -568,6 +570,7 @@ const AIConsultantPage: React.FC = () => {
 
   const sessionsQ = useQuery({ queryKey: ["chat-sessions"], queryFn: seekerApi.listChatSessions });
   const sessionItems = useMemo(() => (Array.isArray(sessionsQ.data) ? sessionsQ.data : []), [sessionsQ.data]);
+  const sessionLimitReached = sessionItems.length >= MAX_CHAT_SESSIONS;
   const filteredSessions = useMemo(() => {
     if (!sessionSearch.trim()) return sessionItems;
     const needle = sessionSearch.trim().toLowerCase();
@@ -651,10 +654,11 @@ const AIConsultantPage: React.FC = () => {
     if (sessionsQ.isLoading) return;
     if (sessionId) return;
     if (sessionItems.length > 0) return;
+    if (sessionLimitReached) return;
     if (startMutation.isPending) return;
     autoStartedRef.current = true;
     startMutation.mutate({ mockInterview: false, title: t("firstChatTitle") });
-  }, [sessionId, sessionItems.length, sessionsQ.isLoading, startMutation.isPending, t, startMutation]);
+  }, [sessionId, sessionItems.length, sessionsQ.isLoading, startMutation.isPending, t, startMutation, sessionLimitReached]);
 
   const chatMutation = useMutation({
     mutationFn: ({ text }: { text: string; pendingId: string }) =>
@@ -688,23 +692,6 @@ const AIConsultantPage: React.FC = () => {
     },
     onError: (error: unknown) => {
       setTitleError(getApiErrorMessage(error, t("renameFailed")));
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => seekerApi.deleteChatSession(id),
-    onSuccess: (_data, id) => {
-      setTitleError("");
-      setSessionSuccess(t("sessionDeleted"));
-      if (sessionId === id) {
-        setSessionId("");
-        setMessages([]);
-        localStorage.removeItem(SESSION_KEY);
-      }
-      queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-    },
-    onError: (error: unknown) => {
-      setTitleError(getApiErrorMessage(error, t("deleteFailed")));
     },
   });
 
@@ -965,6 +952,8 @@ const AIConsultantPage: React.FC = () => {
         : scoreValue >= 70
           ? t("scoreHintGood")
           : t("scoreHintImprove");
+  const userMessageCount = messages.filter((m) => m.role === "user").length;
+  const messageLimitReached = userMessageCount >= MAX_USER_MESSAGES_PER_SESSION;
 
   const handleRename = (id: string, currentTitle: string) => {
     const nextTitle = window.prompt(t("sessionTitle"), currentTitle);
@@ -974,17 +963,16 @@ const AIConsultantPage: React.FC = () => {
     setMenuSessionId(null);
   };
 
-  const handleDelete = (id: string) => {
-    if (!window.confirm(t("confirmDeleteSession"))) return;
-    deleteMutation.mutate(id);
-    setMenuSessionId(null);
-  };
-
   const openStartMenu = () => {
+    if (sessionLimitReached) return;
     setStartMenuOpen(true);
   };
 
   const launchSessionFromMenu = (mockInterview: boolean) => {
+    if (sessionLimitReached) {
+      setStartMenuOpen(false);
+      return;
+    }
     const suggested = t("titlePlaceholder");
     const nextTitle = window.prompt(t("sessionTitle"), suggested);
     if (nextTitle === null) {
@@ -1006,6 +994,7 @@ const AIConsultantPage: React.FC = () => {
             <button
               className="btn-primary flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold"
               onClick={openStartMenu}
+              disabled={startMutation.isPending || sessionLimitReached}
               aria-label="New session"
               title={language === "ar" ? "جلسة جديدة" : "New session"}
             >
@@ -1019,14 +1008,14 @@ const AIConsultantPage: React.FC = () => {
                 <button
                   className="w-full rounded-lg px-3 py-2 text-start hover:bg-[var(--glass)]"
                   onClick={() => launchSessionFromMenu(false)}
-                  disabled={startMutation.isPending}
+                  disabled={startMutation.isPending || sessionLimitReached}
                 >
                   {t("startCareerAdvisor")}
                 </button>
                 <button
                   className="mt-1 w-full rounded-lg px-3 py-2 text-start hover:bg-[var(--glass)]"
                   onClick={() => launchSessionFromMenu(true)}
-                  disabled={startMutation.isPending}
+                  disabled={startMutation.isPending || sessionLimitReached}
                 >
                   {t("startMockInterview")}
                 </button>
@@ -1050,6 +1039,12 @@ const AIConsultantPage: React.FC = () => {
 
       {sessionsQ.isError && <p className="text-sm text-red-300">{t("sessionsLoadFailed")}</p>}
       {sessionsQ.isLoading && <p className="text-sm text-[var(--text-muted)]">{t("loading")}</p>}
+      {sessionLimitReached && (
+        <div className="mb-2 rounded-xl border border-amber-400/40 bg-amber-500/10 p-2 text-xs text-amber-200">
+          <div>{t("sessionLimitReached")}</div>
+          <div>{t("sessionLimitHint")}</div>
+        </div>
+      )}
 
       {!sessionsQ.isLoading && filteredSessions.length === 0 && (
         <div className="rounded-2xl border border-[var(--border)] p-4 text-sm text-[var(--text-muted)]">
@@ -1061,7 +1056,7 @@ const AIConsultantPage: React.FC = () => {
           <button
             className="btn-primary w-full"
             onClick={openStartMenu}
-            disabled={startMutation.isPending}
+            disabled={startMutation.isPending || sessionLimitReached}
           >
             {t("startCareerAdvisor")}
           </button>
@@ -1125,15 +1120,6 @@ const AIConsultantPage: React.FC = () => {
                     }}
                   >
                     {t("saveTitle")}
-                  </button>
-                  <button
-                    className="mt-1 w-full rounded-md px-2 py-1 text-start text-red-300 hover:bg-[var(--glass)]"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(id);
-                    }}
-                  >
-                    {t("deleteSession")}
                   </button>
                 </div>
               )}
@@ -1281,13 +1267,14 @@ const AIConsultantPage: React.FC = () => {
               placeholder={t("askPlaceholder")}
               ref={inputRef}
               rows={1}
+              disabled={!sessionId || chatMutation.isPending || messageLimitReached}
               onFocus={() => {
                 if (!sessionId) setShowSessions(true);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (!sessionId || !message || chatMutation.isPending) return;
+                  if (!sessionId || !message || chatMutation.isPending || messageLimitReached) return;
                   const outgoing = message.trim();
                   if (!outgoing) return;
                   const pendingId = `pending-${Date.now()}`;
@@ -1303,7 +1290,7 @@ const AIConsultantPage: React.FC = () => {
             <button
               className="btn-primary flex h-10 w-10 items-center justify-center rounded-full p-0"
               onClick={() => {
-                if (!sessionId || !message || chatMutation.isPending) return;
+                if (!sessionId || !message || chatMutation.isPending || messageLimitReached) return;
                 const outgoing = message.trim();
                 if (!outgoing) return;
                 const pendingId = `pending-${Date.now()}`;
@@ -1314,7 +1301,7 @@ const AIConsultantPage: React.FC = () => {
                 setMessage("");
                 chatMutation.mutate({ text: outgoing, pendingId });
               }}
-              disabled={!sessionId || !message || chatMutation.isPending}
+              disabled={!sessionId || !message || chatMutation.isPending || messageLimitReached}
               aria-label={t("send")}
             >
               <Send size={18} />
@@ -1322,6 +1309,14 @@ const AIConsultantPage: React.FC = () => {
           </div>
           {!sessionId && (
             <p className="mt-2 px-2 text-xs text-[var(--text-muted)]">{t("selectSessionHint")}</p>
+          )}
+          {sessionId && (
+            <p className="mt-2 px-2 text-xs text-[var(--text-muted)]">
+              {t("messageLimitCounter")}: {userMessageCount}/{MAX_USER_MESSAGES_PER_SESSION}
+            </p>
+          )}
+          {sessionId && messageLimitReached && (
+            <p className="mt-2 px-2 text-xs text-amber-300">{t("messageLimitReached")}</p>
           )}
           {chatError && <p className="mt-2 px-2 text-xs text-red-300">{chatError}</p>}
         </div>

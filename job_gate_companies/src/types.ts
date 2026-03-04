@@ -22,20 +22,37 @@ export interface CompanyDashboardData {
   accepted_count?: number;
   rejected_count?: number;
   starred_count?: number;
-  top_applicant?: {
-    application_id?: number | string;
-    candidate?: {
-      id?: number | string | null;
-      name?: string;
-      email?: string | null;
-    };
-    job?: {
-      id?: number | string | null;
-      title?: string;
-    };
-    ai_insights?: AIInsightsRecord | null;
-    score?: number | null;
+  top_applicant?: TopApplicantEntry | null;
+  top_applicants?: TopApplicantEntry[];
+  avg_ai_score?: number | null;
+  avg_ats_score?: number | null;
+  high_quality_job_seekers?: number;
+  high_quality_job_seekers_x2?: number;
+  latest_job_offer?: {
+    job_id?: number | string;
+    title?: string;
+    created_at?: string | null;
+    applications_count?: number;
+    avg_ai_score?: number | null;
+    avg_ats_score?: number | null;
+    starred_count?: number;
+    top_applicants?: TopApplicantEntry[];
   } | null;
+}
+
+export interface TopApplicantEntry {
+  application_id?: number | string;
+  candidate?: {
+    id?: number | string | null;
+    name?: string;
+    email?: string | null;
+  };
+  job?: {
+    id?: number | string | null;
+    title?: string;
+  };
+  ai_insights?: AIInsightsRecord | null;
+  score?: number | null;
 }
 
 export interface JobPosting {
