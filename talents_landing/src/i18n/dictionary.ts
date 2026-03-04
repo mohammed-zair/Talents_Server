@@ -9,6 +9,7 @@ export const dictionary = {
     subhead:
       "Connecting top talent with industry leaders through advanced matching algorithms.",
     btnDownload: "Download App",
+    appComingSoon: "App coming soon.",
     btnCompanies: "Companies Dashboard",
     btnJobSeekers: "Job Seekers Dashboard",
     aiEdgeTitle: "AI EDGE",
@@ -27,6 +28,7 @@ export const dictionary = {
     headline: "مستقبل التوظيف… بدقة مدعومة بالذكاء الاصطناعي.",
     subhead: "نربط أفضل المواهب بقادة الصناعة عبر خوارزميات مطابقة متقدمة.",
     btnDownload: "تحميل التطبيق",
+    appComingSoon: "التطبيق قريباً.",
     btnCompanies: "لوحة الشركات",
     btnJobSeekers: "لوحة الباحثين عن عمل",
     aiEdgeTitle: "ميزة الذكاء الاصطناعي",

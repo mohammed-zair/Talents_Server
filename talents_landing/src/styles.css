@@ -78,6 +78,14 @@ html[dir="rtl"] body {
   transform: translateY(-1px);
 }
 
+.hero-title {
+  background-image: linear-gradient(to right, #f8fbff, #94a3b8);
+}
+
+.secondary-btn {
+  color: rgba(248, 251, 255, 0.94);
+}
+
 .orb {
   position: absolute;
   z-index: 0;
@@ -126,6 +134,19 @@ html[dir="rtl"] body {
 
 :root[data-theme="light"] .text-slate-100 {
   color: #1b2332;
+}
+
+:root[data-theme="light"] .hero-title {
+  background-image: linear-gradient(to right, #0f2238, #2b5f8f);
+}
+
+:root[data-theme="light"] .secondary-btn {
+  color: #173251;
+  border-color: rgba(20, 48, 78, 0.2);
+}
+
+:root[data-theme="light"] .secondary-btn:hover {
+  border-color: rgba(20, 48, 78, 0.34);
 }
 
 :root[data-theme="light"] .text-white\/70,

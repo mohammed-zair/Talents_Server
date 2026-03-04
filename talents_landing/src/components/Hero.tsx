@@ -20,14 +20,14 @@ const Hero: React.FC = () => {
               <span>{t("pill")}</span>
             </div>
 
-            <h1 className="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-3xl font-bold leading-tight text-transparent md:text-5xl">
+            <h1 className="hero-title bg-gradient-to-r from-white to-slate-400 bg-clip-text text-3xl font-bold leading-tight text-transparent md:text-5xl">
               {t("headline")}
             </h1>
 
-            <p className="mt-4 text-white/70 dark:text-white/70">{t("subhead")}</p>
+            <p className="mt-4 text-white/70">{t("subhead")}</p>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <GlassButton href="https://talents-we-trust.tech/download/app-release.apk" label={t("btnDownload")} primary />
+              <GlassButton label={t("btnDownload")} primary onClick={() => window.alert(t("appComingSoon"))} />
               <GlassButton href="https://companies.talents-we-trust.tech/" label={t("btnCompanies")} />
               <GlassButton href="https://job-seekers.talents-we-trust.tech/" label={t("btnJobSeekers")} />
             </div>
@@ -39,8 +39,8 @@ const Hero: React.FC = () => {
             transition={{ duration: 0.65, delay: 0.15 }}
             className="glass rounded-2xl p-6"
           >
-            <p className="text-xs uppercase tracking-[0.3em] text-white/60 dark:text-white/60">{t("aiEdgeTitle")}</p>
-            <p className="mt-3 text-sm text-white/70 dark:text-white/70">{t("aiEdgeBody")}</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-white/60">{t("aiEdgeTitle")}</p>
+            <p className="mt-3 text-sm text-white/70">{t("aiEdgeBody")}</p>
           </motion.div>
         </div>
       </div>
