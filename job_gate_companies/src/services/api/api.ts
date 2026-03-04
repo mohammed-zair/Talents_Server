@@ -193,7 +193,13 @@ export const companyApi = {
           }
         : undefined,
       ai_insights: item.ai_insights ?? null,
-      ai_score: item.ai_score ?? null,
+      ai_score:
+        item.ai_score ??
+        item.candidate_ats_score ??
+        item.CV?.CVFeaturesAnalytics?.ats_score ??
+        item.CV?.CV_Features_Analytic?.ats_score ??
+        item.CV?.CV_Features_Analytics?.ats_score ??
+        null,
       candidate_location: item.candidate_location ?? null,
       candidate_education: item.candidate_education ?? null,
       candidate_experience_years: item.candidate_experience_years ?? null,

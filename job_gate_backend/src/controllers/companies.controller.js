@@ -33,6 +33,24 @@ const resolveApplicationScore = (aiInsights, featuresAtsScore) => {
   return toFiniteNumber(featuresAtsScore);
 };
 
+const resolveCvFeaturesAnalytics = (cv) =>
+  cv?.CVFeaturesAnalytics ||
+  cv?.CV_Features_Analytic ||
+  cv?.CV_Features_Analytics ||
+  null;
+
+const resolveCvStructuredData = (cv) =>
+  cv?.CVStructuredData ||
+  cv?.CV_Structured_Datum ||
+  cv?.CV_Structured_Data ||
+  null;
+
+const resolveCvAiInsights = (cv) =>
+  cv?.CVAIInsights ||
+  cv?.CVAIInsight ||
+  cv?.CV_AI_Insights ||
+  [];
+
 /**
  * @desc [Public] List approved companies
  * @route GET /api/companies
@@ -1722,32 +1740,37 @@ exports.getCompanyApplications = async (req, res) => {
     let payload = applications.map((application) => {
       const data = application.toJSON ? application.toJSON() : application;
       const cv = data.CV;
+      const cvFeatures = resolveCvFeaturesAnalytics(cv);
+      const cvStructured = resolveCvStructuredData(cv);
+      const cvAiInsightsList = resolveCvAiInsights(cv);
       let ai_insights = null;
       let ai_score = null;
+      let atsScore = null;
       let experienceYears = null;
       let skillPool = [];
       let location = null;
       let education = null;
       let structuredText = "";
 
-      if (cv?.CVAIInsights && data.JobPosting) {
-        ai_insights = cv.CVAIInsights.find(
+      if (Array.isArray(cvAiInsightsList) && data.JobPosting) {
+        ai_insights = cvAiInsightsList.find(
           (item) => item.job_id === data.JobPosting.job_id
         ) || null;
       }
 
-      if (cv?.CVFeaturesAnalytics) {
+      if (cvFeatures) {
+        atsScore = toFiniteNumber(cvFeatures.ats_score);
         ai_score = resolveApplicationScore(
           ai_insights,
-          cv.CVFeaturesAnalytics.ats_score
+          cvFeatures.ats_score
         );
-        experienceYears = cv.CVFeaturesAnalytics.total_years_experience ?? null;
-        skillPool = Array.isArray(cv.CVFeaturesAnalytics.key_skills)
-          ? cv.CVFeaturesAnalytics.key_skills
+        experienceYears = cvFeatures.total_years_experience ?? null;
+        skillPool = Array.isArray(cvFeatures.key_skills)
+          ? cvFeatures.key_skills
           : [];
       }
 
-      const structured = cv?.CVStructuredData?.data_json || {};
+      const structured = cvStructured?.data_json || {};
       skillPool = extractSkillPool(structured, skillPool);
       location = extractLocationValue(structured);
       education = extractEducationText(structured);
@@ -1760,6 +1783,7 @@ exports.getCompanyApplications = async (req, res) => {
         ...data,
         ai_insights,
         ai_score,
+        candidate_ats_score: atsScore,
         candidate_location: location,
         candidate_education: education,
         candidate_experience_years: experienceYears,
@@ -1799,11 +1823,27 @@ exports.getCompanyApplications = async (req, res) => {
     }
 
     if (typeof atsMin === "number") {
-      payload = payload.filter((item) => typeof item.ai_score === "number" && item.ai_score >= atsMin);
+      payload = payload.filter((item) => {
+        const effectiveScore =
+          typeof item.ai_score === "number"
+            ? item.ai_score
+            : typeof item.candidate_ats_score === "number"
+            ? item.candidate_ats_score
+            : null;
+        return typeof effectiveScore === "number" && effectiveScore >= atsMin;
+      });
     }
 
     if (typeof atsMax === "number") {
-      payload = payload.filter((item) => typeof item.ai_score === "number" && item.ai_score <= atsMax);
+      payload = payload.filter((item) => {
+        const effectiveScore =
+          typeof item.ai_score === "number"
+            ? item.ai_score
+            : typeof item.candidate_ats_score === "number"
+            ? item.candidate_ats_score
+            : null;
+        return typeof effectiveScore === "number" && effectiveScore <= atsMax;
+      });
     }
 
     if (typeof experienceMin === "number") {

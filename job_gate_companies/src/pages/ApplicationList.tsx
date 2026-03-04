@@ -178,6 +178,10 @@ const ApplicationList: React.FC = () => {
       empty: "No applications match your search.",
       appliedAt: "Applied",
       job: "Job",
+      scoreLabel: "CV Power",
+      scoreDistribution: "CV Power Distribution",
+      scoreMinPlaceholder: "CV Power min",
+      scoreMaxPlaceholder: "CV Power max",
     },
     ar: {
       eyebrow: "Ø§Ù„Ù…ØªÙ‚Ø¯Ù…ÙˆÙ†",
@@ -193,6 +197,10 @@ const ApplicationList: React.FC = () => {
       empty: "Ù„Ø§ ØªÙˆØ¬Ø¯ Ø·Ù„Ø¨Ø§Øª Ø¨Ø¹Ø¯.",
       appliedAt: "ØªØ§Ø±ÙŠØ® Ø§Ù„ØªÙ‚Ø¯ÙŠÙ…",
       job: "Ø§Ù„ÙˆØ¸ÙŠÙØ©",
+      scoreLabel: "CV Power",
+      scoreDistribution: "CV Power Distribution",
+      scoreMinPlaceholder: "CV Power min",
+      scoreMaxPlaceholder: "CV Power max",
     },
   }[language];
 
@@ -277,13 +285,13 @@ const ApplicationList: React.FC = () => {
           <input
             value={atsMin}
             onChange={(event) => setAtsMin(event.target.value)}
-            placeholder={language === "ar" ? "Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ø¯Ù†Ù‰ Ù„Ù„Ø¯Ø±Ø¬Ø©" : "ATS min score"}
+            placeholder={(copy as any).scoreMinPlaceholder}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <input
             value={atsMax}
             onChange={(event) => setAtsMax(event.target.value)}
-            placeholder={language === "ar" ? "Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ø¹Ù„Ù‰ Ù„Ù„Ø¯Ø±Ø¬Ø©" : "ATS max score"}
+            placeholder={(copy as any).scoreMaxPlaceholder}
             className="rounded-xl border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <input
@@ -386,7 +394,7 @@ const ApplicationList: React.FC = () => {
 
         <div className="mt-4 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-4">
           <p className="text-xs text-[var(--text-muted)]">
-            {language === "ar" ? "ØªÙˆØ²ÙŠØ¹ Ø¯Ø±Ø¬Ø§Øª Ø§Ù„Ø°ÙƒØ§Ø¡" : "AI Score Distribution"}
+            {(copy as any).scoreDistribution}
           </p>
           <div className="mt-3 flex items-end gap-2">
             {histogram.bins.map((bin) => (
@@ -454,7 +462,7 @@ const ApplicationList: React.FC = () => {
                       {statusLabel(application.status, language)}
                     </span>
                     <span className="rounded-full bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-                      {language === "ar" ? "Ø¯Ø±Ø¬Ø©" : "Score"}{" "}
+                      {(copy as any).scoreLabel}{" "}
                       {application.ai_score ?? "-"}
                     </span>
                     <button
