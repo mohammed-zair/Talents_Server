@@ -24,13 +24,17 @@ const normalizeIndustryScore = (value) => {
 };
 
 const resolveApplicationScore = (aiInsights, featuresAtsScore) => {
+  const featuresScore = toFiniteNumber(featuresAtsScore);
+  if (featuresScore !== null && featuresScore > 0) return featuresScore;
+
   const aiAtsScore = toFiniteNumber(aiInsights?.ats_score);
-  if (aiAtsScore !== null) return aiAtsScore;
+  if (aiAtsScore !== null && aiAtsScore > 0) return aiAtsScore;
 
   const industryScore = normalizeIndustryScore(aiInsights?.industry_ranking_score);
-  if (industryScore !== null) return industryScore;
+  if (industryScore !== null && industryScore > 0) return industryScore;
 
-  return toFiniteNumber(featuresAtsScore);
+  // Final fallback: preserve prior behavior when only zero-like values exist.
+  return featuresScore ?? aiAtsScore ?? industryScore ?? null;
 };
 
 const resolveCvFeaturesAnalytics = (cv) =>

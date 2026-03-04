@@ -1,5 +1,5 @@
 ﻿import React, { Suspense, lazy, useMemo } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { seekerApi } from "../services/api";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -10,15 +10,80 @@ const PulseInsightsCharts = lazy(
   () => import("../components/pulse/PulseInsightsCharts")
 );
 
+const toRecord = (value: unknown): Record<string, any> =>
+  value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, any>) : {};
+
+const parseMaybeJson = (value: unknown): unknown => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const toStringList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const row = item as Record<string, unknown>;
+        return String(row.name || row.skill || row.title || "").trim();
+      }
+      return "";
+    })
+    .filter(Boolean);
+};
+
+const extractInsightSkills = (insight: any): string[] => {
+  if (!insight) return [];
+  const features = toRecord(parseMaybeJson(insight.features_analytics));
+  const structured = toRecord(parseMaybeJson(insight.structured_data));
+  const ai = toRecord(
+    parseMaybeJson(
+      insight.ai_intelligence ||
+        insight.ai_insights?.ai_intelligence ||
+        insight.ai_insights ||
+        insight.insights
+    )
+  );
+  const core = toRecord(ai.core_competencies);
+  const all = [
+    ...toStringList(features.key_skills),
+    ...toStringList(structured.skills),
+    ...toStringList(core.programming),
+    ...toStringList(core.frameworks),
+    ...toStringList(core.tools_platforms),
+    ...toStringList(core.domain_expertise),
+    ...toStringList(core.other),
+  ];
+  return Array.from(new Set(all.map((s) => s.toLowerCase())));
+};
+
+const extractAnalysisSkills = (analysis: any): string[] => {
+  if (!analysis) return [];
+  const features = toRecord(parseMaybeJson(analysis.features_analytics));
+  const structured = toRecord(parseMaybeJson(analysis.structured_data));
+  const all = [
+    ...toStringList(features.key_skills),
+    ...toStringList(structured.skills),
+  ];
+  return Array.from(new Set(all.map((s) => s.toLowerCase())));
+};
+
+const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+
 const PulsePage: React.FC = () => {
   const user = getStoredUser();
   const { t } = useLanguage();
-  const [appsQ, cvsQ, jobsQ, savedQ] = useQueries({
+  const [appsQ, cvsQ, jobsQ, savedQ, aiCvsQ] = useQueries({
     queries: [
       { queryKey: ["apps"], queryFn: seekerApi.listApplications, retry: false },
       { queryKey: ["cvs"], queryFn: seekerApi.listCVs },
       { queryKey: ["jobs"], queryFn: () => seekerApi.getJobs({ page: 0, limit: 6 }) },
       { queryKey: ["saved-jobs"], queryFn: seekerApi.getSavedJobs },
+      { queryKey: ["ai-cvs"], queryFn: seekerApi.getUserAiCvs },
     ],
   });
 
@@ -31,6 +96,19 @@ const PulsePage: React.FC = () => {
     [savedQ.data]
   );
   const jobs = useMemo(() => jobsQ.data?.items || [], [jobsQ.data]);
+  const aiCvItems = useMemo(
+    () => (Array.isArray(aiCvsQ.data) ? aiCvsQ.data : []),
+    [aiCvsQ.data]
+  );
+  const firstCvId = useMemo(() => {
+    const id = Number(cvsQ.data?.[0]?.cv_id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }, [cvsQ.data]);
+  const firstCvAnalysisQ = useQuery({
+    queryKey: ["cv-analysis", firstCvId],
+    queryFn: () => seekerApi.getCvAnalysis(firstCvId as number),
+    enabled: !!firstCvId,
+  });
 
   const funnel = useMemo(() => {
     const stages = { applied: 0, interview: 0, offer: 0 };
@@ -43,14 +121,71 @@ const PulsePage: React.FC = () => {
     return stages;
   }, [applications]);
 
+  const latestInsight = useMemo(() => {
+    if (!aiCvItems.length) return null;
+    const toTs = (v: any) => {
+      const ts = Date.parse(String(v || ""));
+      return Number.isFinite(ts) ? ts : 0;
+    };
+    return [...aiCvItems].sort((a: any, b: any) => {
+      const ta = Math.max(toTs(a?.insight_created_at), toTs(a?.created_at));
+      const tb = Math.max(toTs(b?.insight_created_at), toTs(b?.created_at));
+      return tb - ta;
+    })[0];
+  }, [aiCvItems]);
+
   const atsScore = useMemo(() => {
-    const score = cvsQ.data?.[0]?.ats_score;
-    return typeof score === "number" ? Math.round(score) : null;
-  }, [cvsQ.data]);
+    const candidates = [
+      latestInsight?.ats_score,
+      toRecord(parseMaybeJson(latestInsight?.features_analytics)).ats_score,
+      firstCvAnalysisQ.data?.ats_score,
+      toRecord(parseMaybeJson(firstCvAnalysisQ.data?.features_analytics)).ats_score,
+      cvsQ.data?.[0]?.ats_score,
+    ];
+    for (const value of candidates) {
+      if (typeof value === "number" && Number.isFinite(value)) return clampScore(value);
+    }
+    return null;
+  }, [cvsQ.data, firstCvAnalysisQ.data, latestInsight]);
 
   const radarData = useMemo(() => {
-    return [];
-  }, []);
+    const seekerSkills = [
+      ...extractInsightSkills(latestInsight),
+      ...extractAnalysisSkills(firstCvAnalysisQ.data),
+    ];
+    if (!seekerSkills.length && !jobs.length) return [];
+
+    const marketCorpus = jobs
+      .map((job: any) =>
+        [job?.title, job?.description, job?.requirements, job?.industry, job?.location]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+      )
+      .join(" ");
+
+    const buckets = [
+      { skill: "Frontend", keywords: ["react", "vue", "angular", "javascript", "typescript", "css", "html"] },
+      { skill: "Backend", keywords: ["node", "express", "django", "laravel", "spring", "api", "sql"] },
+      { skill: "Mobile", keywords: ["react native", "flutter", "android", "ios", "swift", "kotlin"] },
+      { skill: "DevOps", keywords: ["docker", "kubernetes", "aws", "azure", "gcp", "ci/cd", "devops"] },
+      { skill: "Data/AI", keywords: ["python", "ml", "ai", "data", "analytics", "pandas", "tensorflow"] },
+    ];
+
+    return buckets.map((bucket) => {
+      const seekerMatches = bucket.keywords.filter((kw) =>
+        seekerSkills.some((s) => s.includes(kw))
+      ).length;
+      const marketMatches = bucket.keywords.filter((kw) =>
+        marketCorpus.includes(kw)
+      ).length;
+      return {
+        skill: bucket.skill,
+        seeker: clampScore((seekerMatches / bucket.keywords.length) * 100),
+        market: clampScore((marketMatches / bucket.keywords.length) * 100),
+      };
+    });
+  }, [firstCvAnalysisQ.data, jobs, latestInsight]);
 
   return (
     <div className="space-y-4">
@@ -85,10 +220,21 @@ const PulsePage: React.FC = () => {
         </div>
       </div>
 
-      {(appsQ.isError || jobsQ.isError || cvsQ.isError) && (
+      {(appsQ.isError || jobsQ.isError || cvsQ.isError || aiCvsQ.isError) && (
         <div className="glass-card p-4 text-sm text-red-300">
-          {getApiErrorMessage(appsQ.error || jobsQ.error || cvsQ.error, t("dashboardLoadFailed"))}
-          <button className="btn-ghost mt-3" onClick={() => { appsQ.refetch(); jobsQ.refetch(); cvsQ.refetch(); }}>
+          {getApiErrorMessage(
+            appsQ.error || jobsQ.error || cvsQ.error || aiCvsQ.error,
+            t("dashboardLoadFailed")
+          )}
+          <button
+            className="btn-ghost mt-3"
+            onClick={() => {
+              appsQ.refetch();
+              jobsQ.refetch();
+              cvsQ.refetch();
+              aiCvsQ.refetch();
+            }}
+          >
             {t("retry")}
           </button>
         </div>
