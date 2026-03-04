@@ -3,15 +3,30 @@ import { Languages, Moon, Sun } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useLanguage } from "../contexts/LanguageContext";
 
+const LOGO_SOURCES = [
+  `${import.meta.env.BASE_URL}logo.png?v=20260305`,
+  "./logo.png?v=20260305",
+  "/landing/logo.png?v=20260305",
+];
+
 const Navbar: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
-  const logoSrc = `${import.meta.env.BASE_URL}logo.png`;
+  const [logoSrcIndex, setLogoSrcIndex] = React.useState(0);
+  const logoSrc = LOGO_SOURCES[logoSrcIndex];
+  const handleLogoError = () => {
+    setLogoSrcIndex((prev) => (prev < LOGO_SOURCES.length - 1 ? prev + 1 : prev));
+  };
 
   return (
     <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
       <div className="flex items-center gap-3">
-        <img src={logoSrc} alt="Talents We Trust" className="h-10 w-10 rounded-2xl object-cover" />
+        <img
+          src={logoSrc}
+          alt="Talents We Trust"
+          className="h-10 w-10 rounded-2xl object-cover"
+          onError={handleLogoError}
+        />
         <div>
           <p className="text-xs tracking-[0.3em] text-white/60 dark:text-white/60">{t("brandTop")}</p>
           <p className="text-sm font-semibold">{t("brandBottom")}</p>
