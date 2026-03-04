@@ -1866,7 +1866,12 @@ exports.getCompanyApplications = async (req, res) => {
       payload = payload.filter((item) => {
         const skills = Array.isArray(item.candidate_skills) ? item.candidate_skills : [];
         const bag = skills.map((skill) => String(skill).toLowerCase());
-        return skillsQuery.every((querySkill) => bag.some((skill) => skill.includes(querySkill)));
+        const structuredText = String(item.candidate_structured_text || "").toLowerCase();
+        return skillsQuery.every(
+          (querySkill) =>
+            bag.some((skill) => skill.includes(querySkill)) ||
+            structuredText.includes(querySkill)
+        );
       });
     }
 
