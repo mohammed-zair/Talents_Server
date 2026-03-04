@@ -197,6 +197,13 @@ router.put(
   verifyCompanyApproved,
   companiesController.toggleApplicationStar
 );
+router.post(
+  "/company/applications/:id/hr-helper",
+  verifyCompanyAccess,
+  verifyCompany,
+  verifyCompanyApproved,
+  companiesController.getApplicationHrHelper
+);
 
 //           Job Postings (Company)
  

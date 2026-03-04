@@ -286,11 +286,19 @@ class CVTextAnalyzeRequest(BaseModel):
     use_ai: bool = True
     job_description: Optional[str] = None
 
-class GeneratePitchRequest(BaseModel):
-    cv_text: str
-    job_description: str
-    language: Optional[str] = "en"
-
+class GeneratePitchRequest(BaseModel):
+    cv_text: str
+    job_description: str
+    language: Optional[str] = "en"
+
+class HRRecommendationRequest(BaseModel):
+    cv_structured_data: Dict
+    cv_features_analytics: Dict
+    existing_ai_intelligence: Optional[Dict] = None
+    job_context: Dict
+    stored_ats_score: Optional[float] = None
+    language: Optional[str] = "en"
+
 @router .post ("/analyze-text")
 async def analyze_cv_text (request: CVTextAnalyzeRequest):
     """
@@ -397,8 +405,8 @@ async def analyze_cv_text (request: CVTextAnalyzeRequest):
         }
         )
 
-@router.post("/generate-pitch")
-async def generate_match_pitch(request: GeneratePitchRequest):
+@router.post("/generate-pitch")
+async def generate_match_pitch(request: GeneratePitchRequest):
     try:
         if not request.cv_text or len(request.cv_text.strip()) < 20:
             return JSONResponse(
@@ -428,13 +436,37 @@ async def generate_match_pitch(request: GeneratePitchRequest):
             "required_skills": required_skills,
         }
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)}
-        )
-
-@router .get ("/history/{user_id}")
-async def get_cv_history (user_id :str ,limit :int =20 ):
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+@router.post("/hr-recommendation")
+async def generate_hr_recommendation(request: HRRecommendationRequest):
+    try:
+        payload = {
+            "cv_structured_data": request.cv_structured_data or {},
+            "cv_features_analytics": request.cv_features_analytics or {},
+            "existing_ai_intelligence": request.existing_ai_intelligence or {},
+            "job_context": request.job_context or {},
+            "stored_ats_score": request.stored_ats_score,
+        }
+        hr_helper = llm_service.generate_hr_recommendation(
+            payload,
+            request.language or "en"
+        )
+        return {
+            "success": True,
+            "hr_helper": hr_helper,
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+@router .get ("/history/{user_id}")
+async def get_cv_history (user_id :str ,limit :int =20 ):
     """
     Get CV analysis history for a user
     """

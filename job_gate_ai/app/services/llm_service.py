@@ -428,8 +428,106 @@ class LLMService :
         except Exception as e:
             logger.error(f"Smart match pitch generation failed: {e}")
             return ""
+
+    def generate_hr_recommendation(self, payload: Dict[str, Any], language: str = "en") -> Dict[str, Any]:
+        def fallback() -> Dict[str, Any]:
+            features = payload.get("cv_features_analytics") or {}
+            ai = payload.get("existing_ai_intelligence") or {}
+            strategic = ai.get("strategic_analysis") if isinstance(ai, dict) else {}
+            score = payload.get("stored_ats_score")
+            try:
+                score = float(score)
+            except Exception:
+                score = 0.0
+            if score >= 75:
+                decision = "hire"
+                confidence = 68
+            elif score < 50:
+                decision = "reject"
+                confidence = 60
+            else:
+                decision = "consider"
+                confidence = 55
+
+            strengths = ai.get("strengths") or strategic.get("strengths") or []
+            weaknesses = ai.get("weaknesses") or strategic.get("weaknesses") or []
+            strengths = [str(s).strip() for s in strengths if str(s).strip()]
+            weaknesses = [str(s).strip() for s in weaknesses if str(s).strip()]
+
+            summary = (
+                "المرشح مناسب مبدئياً للتقدم في العملية بناءً على جودة السيرة."
+                if str(language).lower().startswith("ar")
+                else "Candidate is suitable to proceed based on current CV quality."
+            )
+            return {
+                "decision": decision,
+                "confidence": confidence,
+                "recommendation_summary": summary,
+                "top_strengths": strengths[:3],
+                "key_risks": weaknesses[:3],
+                "interview_focus": weaknesses[:3],
+                "next_step": (
+                    "إجراء مقابلة تقنية مركزة على نقاط الضعف."
+                    if str(language).lower().startswith("ar")
+                    else "Run a focused technical interview on the listed risks."
+                ),
+            }
+
+        if not self.is_available():
+            return fallback()
+
+        prompt = f"""
+        You are a senior HR evaluator. Return ONLY valid JSON.
+        Evaluate candidate fit using provided structured CV/features and job context.
+
+        Input JSON:
+        {json.dumps(payload, ensure_ascii=False)[:12000]}
+
+        Required JSON schema:
+        {{
+          "decision": "hire|consider|reject",
+          "confidence": 0,
+          "recommendation_summary": "short paragraph",
+          "top_strengths": ["..."],
+          "key_risks": ["..."],
+          "interview_focus": ["..."],
+          "next_step": "single actionable step"
+        }}
+
+        Rules:
+        - Be evidence-based and concise.
+        - Confidence must be an integer 0-100.
+        - If language starts with 'ar', write Arabic; otherwise English.
+        - No markdown, no explanations outside JSON.
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are an HR decision engine. Return only JSON."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.2,
+                max_tokens=700,
+                response_format={"type": "json_object"},
+            )
+            parsed = json.loads(response.choices[0].message.content)
+            if not isinstance(parsed, dict):
+                return fallback()
+            return {
+                "decision": str(parsed.get("decision", "consider")).lower(),
+                "confidence": int(max(0, min(100, int(parsed.get("confidence", 55))))),
+                "recommendation_summary": str(parsed.get("recommendation_summary", "")).strip(),
+                "top_strengths": [str(x).strip() for x in (parsed.get("top_strengths") or []) if str(x).strip()],
+                "key_risks": [str(x).strip() for x in (parsed.get("key_risks") or []) if str(x).strip()],
+                "interview_focus": [str(x).strip() for x in (parsed.get("interview_focus") or []) if str(x).strip()],
+                "next_step": str(parsed.get("next_step", "")).strip(),
+            }
+        except Exception as e:
+            logger.error(f"HR recommendation generation failed: {e}")
+            return fallback()
         if not self .is_available ():
-            return text 
+            return text
 
         prompt =f"""
         Translate the following text to {target_language}.

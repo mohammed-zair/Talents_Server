@@ -55,6 +55,100 @@ const resolveCvAiInsights = (cv) =>
   cv?.CV_AI_Insights ||
   [];
 
+const parseJsonMaybe = (value) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const toStringList = (value) =>
+  Array.isArray(value)
+    ? value
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    : [];
+
+const normalizeHrHelperPayload = (raw = {}, source = "fresh") => {
+  const decisionRaw = String(raw?.decision || "").toLowerCase();
+  const decision = ["hire", "consider", "reject"].includes(decisionRaw)
+    ? decisionRaw
+    : "consider";
+  const confidenceNum = Number(raw?.confidence);
+  const confidence = Number.isFinite(confidenceNum)
+    ? Math.max(0, Math.min(100, Math.round(confidenceNum)))
+    : 55;
+  return {
+    decision,
+    confidence,
+    recommendation_summary: String(raw?.recommendation_summary || "").trim(),
+    top_strengths: toStringList(raw?.top_strengths),
+    key_risks: toStringList(raw?.key_risks),
+    interview_focus: toStringList(raw?.interview_focus),
+    next_step: String(raw?.next_step || "").trim(),
+    generated_at: raw?.generated_at || new Date().toISOString(),
+    source,
+  };
+};
+
+const buildFallbackHrHelper = ({
+  storedAtsScore,
+  aiInsights,
+  language = "en",
+}) => {
+  const aiIntel = parseJsonMaybe(aiInsights?.ai_intelligence) || {};
+  const strengths = toStringList(
+    aiIntel?.strengths || aiIntel?.strategic_analysis?.strengths
+  );
+  const weaknesses = toStringList(
+    aiIntel?.weaknesses || aiIntel?.strategic_analysis?.weaknesses
+  );
+  const score = Number.isFinite(Number(storedAtsScore)) ? Number(storedAtsScore) : 0;
+
+  let decision = "consider";
+  let confidence = 55;
+  if (score >= 75) {
+    decision = "hire";
+    confidence = 68;
+  } else if (score < 50) {
+    decision = "reject";
+    confidence = 60;
+  }
+
+  const summaryByLang = {
+    ar:
+      decision === "hire"
+        ? "المرشح مناسب مبدئياً للتقدم في العملية بناءً على قوة السيرة."
+        : decision === "reject"
+        ? "المرشح يحتاج تحسينات واضحة قبل الانتقال لمرحلة متقدمة."
+        : "المرشح مناسب للمراجعة الإضافية مع تحقق مقابلة مركّز.",
+    en:
+      decision === "hire"
+        ? "Candidate is suitable to advance based on current CV quality."
+        : decision === "reject"
+        ? "Candidate needs clear improvements before moving forward."
+        : "Candidate is suitable for additional review with focused interview checks.",
+  };
+
+  return normalizeHrHelperPayload(
+    {
+      decision,
+      confidence,
+      recommendation_summary: summaryByLang[language === "ar" ? "ar" : "en"],
+      top_strengths: strengths.slice(0, 3),
+      key_risks: weaknesses.slice(0, 3),
+      interview_focus: weaknesses.slice(0, 3),
+      next_step:
+        language === "ar"
+          ? "إجراء مقابلة تقنية مركزة على نقاط الضعف."
+          : "Run a focused technical interview on the listed risks.",
+    },
+    "fallback"
+  );
+};
+
 /**
  * @desc [Public] List approved companies
  * @route GET /api/companies
@@ -2138,6 +2232,182 @@ exports.getCompanyApplicationsByID = async (req, res) => {
     console.error("Error fetching company application by ID:", error);
     return res.status(500).json({
       message: "Failed to fetch application details.",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc [Company] Generate or fetch cached AI HR helper recommendation
+ * @route POST /api/companies/company/applications/:id/hr-helper
+ * @access Private (Company)
+ */
+exports.getApplicationHrHelper = async (req, res) => {
+  try {
+    const company_id = req.company.company_id;
+    const application_id = req.params.id;
+    const refresh =
+      req.body?.refresh === true ||
+      String(req.body?.refresh || "").toLowerCase() === "true" ||
+      String(req.body?.refresh || "") === "1";
+    const language = normalizePreferredLanguage(req.body?.language, "en");
+
+    const application = await Application.findOne({
+      include: [
+        {
+          model: User,
+          attributes: ["user_id", "full_name", "email"],
+        },
+        {
+          model: JobPosting,
+          where: { company_id },
+          attributes: ["job_id", "title", "description", "requirements", "location", "industry"],
+        },
+        {
+          model: CV,
+          attributes: ["cv_id", "title"],
+          include: [
+            { model: CVStructuredData, attributes: ["data_json"] },
+            {
+              model: CVFeaturesAnalytics,
+              attributes: ["ats_score", "total_years_experience", "key_skills", "achievement_count"],
+            },
+            { model: CVAIInsights },
+          ],
+        },
+      ],
+      where: { application_id },
+    });
+
+    if (!application) {
+      return res.status(404).json({ message: "Application not found." });
+    }
+
+    const payload = application.toJSON ? application.toJSON() : application;
+    const cv = payload.CV || null;
+    const job = payload.JobPosting || null;
+    const user = payload.User || null;
+
+    if (!cv || !job) {
+      return res.status(400).json({ message: "Missing CV or job context." });
+    }
+
+    const cvFeatures = resolveCvFeaturesAnalytics(cv) || {};
+    const cvStructured = resolveCvStructuredData(cv) || {};
+    const cvInsightsList = resolveCvAiInsights(cv);
+
+    const jobSpecificInsight = Array.isArray(cvInsightsList)
+      ? cvInsightsList.find((item) => item?.job_id === job.job_id) || null
+      : null;
+    const latestCvInsight = Array.isArray(cvInsightsList)
+      ? [...cvInsightsList]
+          .filter((item) => item?.job_id == null)
+          .sort((a, b) => Number(b?.insight_id || 0) - Number(a?.insight_id || 0))[0] || null
+      : null;
+
+    let insightRecord = jobSpecificInsight || null;
+    if (!insightRecord) {
+      insightRecord = await CVAIInsights.findOne({
+        where: { cv_id: cv.cv_id, job_id: job.job_id },
+        order: [["insight_id", "DESC"]],
+      });
+    }
+
+    const existingAiIntelligence =
+      parseJsonMaybe(insightRecord?.ai_intelligence) ||
+      parseJsonMaybe(latestCvInsight?.ai_intelligence) ||
+      null;
+    const existingHrHelper = parseJsonMaybe(existingAiIntelligence?.hr_helper);
+    const storedAtsScore = toFiniteNumber(cvFeatures?.ats_score);
+
+    if (!refresh && existingHrHelper && typeof existingHrHelper === "object") {
+      return successResponse(
+        res,
+        {
+          application_id: Number(application_id),
+          ats_score: storedAtsScore,
+          hr_helper: normalizeHrHelperPayload(existingHrHelper, "cache"),
+          source: "cache",
+        },
+        "AI HR helper retrieved from cache."
+      );
+    }
+
+    const aiPayload = {
+      candidate_profile: {
+        full_name: user?.full_name || null,
+        email: user?.email || null,
+      },
+      cv_structured_data: parseJsonMaybe(cvStructured?.data_json) || {},
+      cv_features_analytics: cvFeatures || {},
+      existing_ai_intelligence: existingAiIntelligence || {},
+      job_context: {
+        title: job?.title || "",
+        description: job?.description || "",
+        requirements: job?.requirements || "",
+        location: job?.location || "",
+        industry: job?.industry || "",
+      },
+      stored_ats_score: storedAtsScore,
+    };
+
+    let hrHelper;
+    let source = "fresh";
+    try {
+      const aiResp = await aiService.generateHrRecommendation(aiPayload, language);
+      hrHelper = normalizeHrHelperPayload(aiResp?.hr_helper || aiResp || {}, "fresh");
+    } catch (error) {
+      console.error("AI HR helper generation failed:", error);
+      hrHelper = buildFallbackHrHelper({
+        storedAtsScore,
+        aiInsights: insightRecord || latestCvInsight || null,
+        language,
+      });
+      source = "fallback";
+    }
+
+    const nextAiIntelligence = {
+      ...(existingAiIntelligence && typeof existingAiIntelligence === "object"
+        ? existingAiIntelligence
+        : {}),
+      hr_helper: hrHelper,
+    };
+
+    if (insightRecord) {
+      await insightRecord.update({
+        ai_intelligence: nextAiIntelligence,
+        analysis_method: insightRecord.analysis_method || "hr_helper",
+        updated_at: new Date(),
+      });
+    } else {
+      insightRecord = await CVAIInsights.create({
+        cv_id: cv.cv_id,
+        job_id: job.job_id,
+        ai_intelligence: nextAiIntelligence,
+        ats_score: storedAtsScore,
+        structured_data: parseJsonMaybe(cvStructured?.data_json) || null,
+        features_analytics: cvFeatures || null,
+        analysis_method: "hr_helper",
+      });
+    }
+
+    return successResponse(
+      res,
+      {
+        application_id: Number(application_id),
+        ats_score: storedAtsScore,
+        hr_helper: {
+          ...hrHelper,
+          source,
+        },
+        source,
+      },
+      "AI HR helper generated successfully."
+    );
+  } catch (error) {
+    console.error("Error generating application HR helper:", error);
+    return res.status(500).json({
+      message: "Failed to generate HR helper.",
       error: error.message,
     });
   }

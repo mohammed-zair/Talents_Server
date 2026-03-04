@@ -244,6 +244,16 @@ export const companyApi = {
     const { data } = await api.get(`/companies/company/applications/${id}?refresh=1`);
     return data;
   },
+  getApplicationHrHelper: async (
+    id: string,
+    options?: { refresh?: boolean; language?: "en" | "ar" }
+  ) => {
+    const { data } = await api.post(`/companies/company/applications/${id}/hr-helper`, {
+      refresh: Boolean(options?.refresh),
+      language: options?.language,
+    });
+    return (data as any)?.data ?? data;
+  },
   generateSmartMatchPitch: async (payload: {
     cv_id: string;
     job_id: string;

@@ -212,6 +212,7 @@ export interface CVFeatures {
 }
 
 export interface AIInsightsRecord {
+  insight_id?: number;
   ai_intelligence?: {
     contextual_summary?: string;
     professional_summary?: string;
@@ -242,4 +243,15 @@ export interface AIInsightsRecord {
   industry_ranking_label?: string;
   cleaned_job_description?: string | null;
   smart_match_pitch?: string | null;
+  hr_helper?: {
+    decision: "hire" | "consider" | "reject";
+    confidence: number;
+    recommendation_summary: string;
+    top_strengths: string[];
+    key_risks: string[];
+    interview_focus: string[];
+    next_step: string;
+    generated_at: string;
+    source?: "cache" | "fresh" | "fallback";
+  };
 }

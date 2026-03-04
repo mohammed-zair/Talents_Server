@@ -112,6 +112,17 @@ class AIService {
     );
   }
 
+  async generateHrRecommendation(payload, language = "en") {
+    return this._requestWithRetry(
+      "/cv/hr-recommendation",
+      {
+        ...payload,
+        language,
+      },
+      "HR Recommendation"
+    );
+  }
+
   async startChatbotSession(userId, language = "english", initialData = {}, options = {}) {
     const normalizedUserId = userId != null ? String(userId) : "";
     return this._requestWithRetry("/chatbot/start", {

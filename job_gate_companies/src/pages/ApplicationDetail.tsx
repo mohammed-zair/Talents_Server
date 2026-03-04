@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -25,12 +25,12 @@ const stages: Array<ApplicationItem["status"]> = [
 
 const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") => {
   const map = {
-    pending: { en: "Pending", ar: "قيد المراجعة" },
-    reviewed: { en: "Reviewed", ar: "تمت المراجعة" },
-    shortlisted: { en: "Shortlisted", ar: "قائمة مختصرة" },
-    accepted: { en: "Accepted", ar: "مقبول" },
-    hired: { en: "Hired", ar: "تم التوظيف" },
-    rejected: { en: "Rejected", ar: "مرفوض" },
+    pending: { en: "Pending", ar: "Ù‚ÙŠØ¯ Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©" },
+    reviewed: { en: "Reviewed", ar: "ØªÙ…Øª Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©" },
+    shortlisted: { en: "Shortlisted", ar: "Ù‚Ø§Ø¦Ù…Ø© Ù…Ø®ØªØµØ±Ø©" },
+    accepted: { en: "Accepted", ar: "Ù…Ù‚Ø¨ÙˆÙ„" },
+    hired: { en: "Hired", ar: "ØªÙ… Ø§Ù„ØªÙˆØ¸ÙŠÙ" },
+    rejected: { en: "Rejected", ar: "Ù…Ø±ÙÙˆØ¶" },
   };
   return map[status]?.[language] ?? status;
 };
@@ -82,6 +82,24 @@ const toList = (value: unknown): string[] => {
   return value.filter(Boolean).map((item: unknown) => String(item));
 };
 
+const normalizeHrHelper = (value: any) => {
+  if (!value || typeof value !== "object") return null;
+  const decision = String(value.decision || "consider").toLowerCase();
+  return {
+    decision: ["hire", "consider", "reject"].includes(decision) ? decision : "consider",
+    confidence: Number.isFinite(Number(value.confidence))
+      ? Math.max(0, Math.min(100, Math.round(Number(value.confidence))))
+      : 55,
+    recommendation_summary: String(value.recommendation_summary || "").trim(),
+    top_strengths: toList(value.top_strengths),
+    key_risks: toList(value.key_risks),
+    interview_focus: toList(value.interview_focus),
+    next_step: String(value.next_step || "").trim(),
+    generated_at: String(value.generated_at || ""),
+    source: String(value.source || "fresh"),
+  };
+};
+
 const RadarChartCard: React.FC<{
   points: MatrixPoint[];
   language: "en" | "ar";
@@ -108,7 +126,7 @@ const RadarChartCard: React.FC<{
   return (
     <div className="rounded-3xl border border-cyan-400/25 bg-[rgba(7,10,15,0.72)] p-4 shadow-[0_0_30px_rgba(0,168,232,0.25)]">
       <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">
-        {language === "ar" ? "خريطة فجوات الكفاءات" : "Competency Gap Visualizer"}
+        {language === "ar" ? "Ø®Ø±ÙŠØ·Ø© ÙØ¬ÙˆØ§Øª Ø§Ù„ÙƒÙØ§Ø¡Ø§Øª" : "Competency Gap Visualizer"}
       </p>
       <div className="mt-4 flex flex-col gap-4 lg:flex-row">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto">
@@ -174,7 +192,7 @@ const RadarChartCard: React.FC<{
               </div>
               {point.missing && (
                 <p className="mt-1 text-[11px]">
-                  {language === "ar" ? "مهارة ناقصة" : "Missing skill"}
+                  {language === "ar" ? "Ù…Ù‡Ø§Ø±Ø© Ù†Ø§Ù‚ØµØ©" : "Missing skill"}
                 </p>
               )}
             </div>
@@ -191,6 +209,9 @@ const ApplicationDetail: React.FC = () => {
   const queryClient = useQueryClient();
   const [fading, setFading] = useState(false);
   const [refreshingInsights, setRefreshingInsights] = useState(false);
+  const [hrHelper, setHrHelper] = useState<any>(null);
+  const [hrHelperLoading, setHrHelperLoading] = useState(false);
+  const [hrHelperError, setHrHelperError] = useState("");
   const [typedPitch, setTypedPitch] = useState("");
   const [isTypingPitch, setIsTypingPitch] = useState(false);
   const [showInsightsModal, setShowInsightsModal] = useState(false);
@@ -232,41 +253,71 @@ const ApplicationDetail: React.FC = () => {
       rawTitle: "Raw AI Response",
       whyCandidate: "Why This Candidate?",
       pitchLoading: "Generating smart pitch...",
+      hrHelperTitle: "AI HR Helper",
+      hrRun: "AI HR",
+      hrRefresh: "Refresh HR",
+      hrAts: "ATS Score",
+      hrDecision: "Decision",
+      hrConfidence: "Confidence",
+      hrSummary: "HR Recommendation",
+      hrStrengths: "Top Strengths",
+      hrRisks: "Key Risks",
+      hrInterviewFocus: "Interview Focus",
+      hrNextStep: "Next Step",
+      hrGeneratedAt: "Generated",
+      hrSource: "Source",
+      hrNoData: "No HR recommendation yet.",
+      hrLoadFailed: "Failed to load HR recommendation",
     },
     ar: {
-      headerEyebrow: "سير العمل",
-      headerTitle: "لوحة اتخاذ القرار",
-      timeline: "تسلسل الحالة",
-      advance: "تمت المراجعة",
-      shortlist: "قائمة مختصرة",
-      accept: "قبول",
-      hire: "توظيف",
-      archive: "رفض",
-      notFound: "لا يوجد طلب بهذا الرقم.",
-      candidate: "المرشح",
-      job: "الوظيفة",
-      appliedAt: "تاريخ التقديم",
-      cv: "عرض السيرة",
-      aiTitle: "ذكاء السيرة الذاتية",
-      viewFullInsights: "عرض جميع التحليل",
-      closeInsights: "إغلاق التحليل",
-      fullInsightsTitle: "التحليل الذكي الكامل",
-      aiScore: "درجة السيرة",
-      aiSummary: "ملخص سياقي",
-      aiStrengths: "نقاط القوة",
-      aiWeaknesses: "نقاط الضعف",
-      aiCulture: "الملاءمة الثقافية والنمو",
-      aiTips: "نصائح تحسين ATS",
-      aiRecommendations: "التوصيات",
-      aiInterviewQuestions: "أسئلة المقابلة",
-      aiRanking: "تصنيف الصناعة",
-      aiJobContext: "سياق الوظيفة (منقح)",
-      aiMethod: "طريقة التحليل",
-      featuresTitle: "مؤشرات الميزات",
-      structuredTitle: "بيانات السيرة المهيكلة",
-      rawTitle: "استجابة الذكاء الاصطناعي الخام",
-      whyCandidate: "لماذا هذا المرشح؟",
-      pitchLoading: "جاري توليد الملخص الذكي...",
+      headerEyebrow: "Ø³ÙŠØ± Ø§Ù„Ø¹Ù…Ù„",
+      headerTitle: "Ù„ÙˆØ­Ø© Ø§ØªØ®Ø§Ø° Ø§Ù„Ù‚Ø±Ø§Ø±",
+      timeline: "ØªØ³Ù„Ø³Ù„ Ø§Ù„Ø­Ø§Ù„Ø©",
+      advance: "ØªÙ…Øª Ø§Ù„Ù…Ø±Ø§Ø¬Ø¹Ø©",
+      shortlist: "Ù‚Ø§Ø¦Ù…Ø© Ù…Ø®ØªØµØ±Ø©",
+      accept: "Ù‚Ø¨ÙˆÙ„",
+      hire: "ØªÙˆØ¸ÙŠÙ",
+      archive: "Ø±ÙØ¶",
+      notFound: "Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø·Ù„Ø¨ Ø¨Ù‡Ø°Ø§ Ø§Ù„Ø±Ù‚Ù….",
+      candidate: "Ø§Ù„Ù…Ø±Ø´Ø­",
+      job: "Ø§Ù„ÙˆØ¸ÙŠÙØ©",
+      appliedAt: "ØªØ§Ø±ÙŠØ® Ø§Ù„ØªÙ‚Ø¯ÙŠÙ…",
+      cv: "Ø¹Ø±Ø¶ Ø§Ù„Ø³ÙŠØ±Ø©",
+      aiTitle: "Ø°ÙƒØ§Ø¡ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
+      viewFullInsights: "Ø¹Ø±Ø¶ Ø¬Ù…ÙŠØ¹ Ø§Ù„ØªØ­Ù„ÙŠÙ„",
+      closeInsights: "Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„ØªØ­Ù„ÙŠÙ„",
+      fullInsightsTitle: "Ø§Ù„ØªØ­Ù„ÙŠÙ„ Ø§Ù„Ø°ÙƒÙŠ Ø§Ù„ÙƒØ§Ù…Ù„",
+      aiScore: "Ø¯Ø±Ø¬Ø© Ø§Ù„Ø³ÙŠØ±Ø©",
+      aiSummary: "Ù…Ù„Ø®Øµ Ø³ÙŠØ§Ù‚ÙŠ",
+      aiStrengths: "Ù†Ù‚Ø§Ø· Ø§Ù„Ù‚ÙˆØ©",
+      aiWeaknesses: "Ù†Ù‚Ø§Ø· Ø§Ù„Ø¶Ø¹Ù",
+      aiCulture: "Ø§Ù„Ù…Ù„Ø§Ø¡Ù…Ø© Ø§Ù„Ø«Ù‚Ø§ÙÙŠØ© ÙˆØ§Ù„Ù†Ù…Ùˆ",
+      aiTips: "Ù†ØµØ§Ø¦Ø­ ØªØ­Ø³ÙŠÙ† ATS",
+      aiRecommendations: "Ø§Ù„ØªÙˆØµÙŠØ§Øª",
+      aiInterviewQuestions: "Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ù…Ù‚Ø§Ø¨Ù„Ø©",
+      aiRanking: "ØªØµÙ†ÙŠÙ Ø§Ù„ØµÙ†Ø§Ø¹Ø©",
+      aiJobContext: "Ø³ÙŠØ§Ù‚ Ø§Ù„ÙˆØ¸ÙŠÙØ© (Ù…Ù†Ù‚Ø­)",
+      aiMethod: "Ø·Ø±ÙŠÙ‚Ø© Ø§Ù„ØªØ­Ù„ÙŠÙ„",
+      featuresTitle: "Ù…Ø¤Ø´Ø±Ø§Øª Ø§Ù„Ù…ÙŠØ²Ø§Øª",
+      structuredTitle: "Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ù…Ù‡ÙŠÙƒÙ„Ø©",
+      rawTitle: "Ø§Ø³ØªØ¬Ø§Ø¨Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ Ø§Ù„Ø®Ø§Ù…",
+      whyCandidate: "Ù„Ù…Ø§Ø°Ø§ Ù‡Ø°Ø§ Ø§Ù„Ù…Ø±Ø´Ø­ØŸ",
+      pitchLoading: "Ø¬Ø§Ø±ÙŠ ØªÙˆÙ„ÙŠØ¯ Ø§Ù„Ù…Ù„Ø®Øµ Ø§Ù„Ø°ÙƒÙŠ...",
+      hrHelperTitle: "Ù…Ø³Ø§Ø¹Ø¯ HR Ø§Ù„Ø°ÙƒÙŠ",
+      hrRun: "AI HR",
+      hrRefresh: "ØªØ­Ø¯ÙŠØ« HR",
+      hrAts: "Ø¯Ø±Ø¬Ø© ATS",
+      hrDecision: "Ø§Ù„Ù‚Ø±Ø§Ø±",
+      hrConfidence: "Ø§Ù„Ø«Ù‚Ø©",
+      hrSummary: "ØªÙˆØµÙŠØ© HR",
+      hrStrengths: "Ø£Ø¨Ø±Ø² Ù†Ù‚Ø§Ø· Ø§Ù„Ù‚ÙˆØ©",
+      hrRisks: "Ø§Ù„Ù…Ø®Ø§Ø·Ø± Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©",
+      hrInterviewFocus: "Ù…Ø­Ø§ÙˆØ± Ø§Ù„Ù…Ù‚Ø§Ø¨Ù„Ø©",
+      hrNextStep: "Ø§Ù„Ø®Ø·ÙˆØ© Ø§Ù„ØªØ§Ù„ÙŠØ©",
+      hrGeneratedAt: "ØªØ§Ø±ÙŠØ® Ø§Ù„ØªÙˆÙ„ÙŠØ¯",
+      hrSource: "Ø§Ù„Ù…ØµØ¯Ø±",
+      hrNoData: "Ù„Ø§ ØªÙˆØ¬Ø¯ ØªÙˆØµÙŠØ© HR Ø¨Ø¹Ø¯.",
+      hrLoadFailed: "ÙØ´Ù„ ØªØ­Ù…ÙŠÙ„ ØªÙˆØµÙŠØ© HR",
     },
   }[language];
 
@@ -280,13 +331,13 @@ const ApplicationDetail: React.FC = () => {
     mutationFn: ({ applicationId, status }: { applicationId: string; status: ApplicationItem["status"] }) =>
       companyApi.updateApplicationStatus(applicationId, status),
     onSuccess: () => {
-      toast.success(language === "ar" ? "تم تحديث الحالة" : "Status updated");
+      toast.success(language === "ar" ? "ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø­Ø§Ù„Ø©" : "Status updated");
       queryClient.invalidateQueries({ queryKey: ["application", id] });
       queryClient.invalidateQueries({ queryKey: ["company-applications"] });
       setFading(false);
     },
     onError: () => {
-      toast.error(language === "ar" ? "فشل تحديث الحالة" : "Failed to update status");
+      toast.error(language === "ar" ? "ÙØ´Ù„ ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø­Ø§Ù„Ø©" : "Failed to update status");
       setFading(false);
     },
   });
@@ -303,11 +354,34 @@ const ApplicationDetail: React.FC = () => {
       setRefreshingInsights(true);
       await companyApi.refreshApplicationInsights(id);
       queryClient.invalidateQueries({ queryKey: ["application", id] });
-      toast.success(language === "ar" ? "تم تحديث التحليل" : "AI insights refreshed");
+      toast.success(language === "ar" ? "ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„ØªØ­Ù„ÙŠÙ„" : "AI insights refreshed");
     } catch (err) {
-      toast.error(language === "ar" ? "فشل تحديث التحليل" : "Failed to refresh insights");
+      toast.error(language === "ar" ? "ÙØ´Ù„ ØªØ­Ø¯ÙŠØ« Ø§Ù„ØªØ­Ù„ÙŠÙ„" : "Failed to refresh insights");
     } finally {
       setRefreshingInsights(false);
+    }
+  };
+
+  const fetchHrHelper = async (refresh = false) => {
+    if (!id) return;
+    try {
+      setHrHelperLoading(true);
+      setHrHelperError("");
+      const response = await companyApi.getApplicationHrHelper(id, {
+        refresh,
+        language,
+      });
+      const normalized = normalizeHrHelper(response?.hr_helper);
+      setHrHelper(normalized);
+      if (refresh) {
+        toast.success(language === "ar" ? "تم تحديث توصية HR" : "HR recommendation refreshed");
+      }
+      queryClient.invalidateQueries({ queryKey: ["application", id] });
+    } catch (error) {
+      setHrHelperError(copy.hrLoadFailed);
+      toast.error(copy.hrLoadFailed);
+    } finally {
+      setHrHelperLoading(false);
     }
   };
 
@@ -348,6 +422,7 @@ const ApplicationDetail: React.FC = () => {
     insights?.smart_match_pitch ||
     intelligence?.smart_match_pitch ||
     "";
+  const hrHelperFromInsight = normalizeHrHelper(intelligence?.hr_helper);
   const matrixFromInsights = Array.isArray(intelligence?.competency_matrix)
     ? intelligence?.competency_matrix
     : [];
@@ -383,6 +458,12 @@ const ApplicationDetail: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [generatedPitch]);
 
+  useEffect(() => {
+    if (hrHelperFromInsight) {
+      setHrHelper(hrHelperFromInsight);
+    }
+  }, [insights?.insight_id]);
+
   if (isLoading) {
     return (
       <Card>
@@ -397,12 +478,12 @@ const ApplicationDetail: React.FC = () => {
   }
   const structured = data.cv_structured_data ?? null;
   const structuredSections = [
-    { key: "experience", label: language === "ar" ? "الخبرات" : "Experience" },
-    { key: "skills", label: language === "ar" ? "المهارات" : "Skills" },
-    { key: "projects", label: language === "ar" ? "المشاريع" : "Projects" },
-    { key: "education", label: language === "ar" ? "التعليم" : "Education" },
-    { key: "certifications", label: language === "ar" ? "الشهادات" : "Certifications" },
-    { key: "languages", label: language === "ar" ? "اللغات" : "Languages" },
+    { key: "experience", label: language === "ar" ? "Ø§Ù„Ø®Ø¨Ø±Ø§Øª" : "Experience" },
+    { key: "skills", label: language === "ar" ? "Ø§Ù„Ù…Ù‡Ø§Ø±Ø§Øª" : "Skills" },
+    { key: "projects", label: language === "ar" ? "Ø§Ù„Ù…Ø´Ø§Ø±ÙŠØ¹" : "Projects" },
+    { key: "education", label: language === "ar" ? "Ø§Ù„ØªØ¹Ù„ÙŠÙ…" : "Education" },
+    { key: "certifications", label: language === "ar" ? "Ø§Ù„Ø´Ù‡Ø§Ø¯Ø§Øª" : "Certifications" },
+    { key: "languages", label: language === "ar" ? "Ø§Ù„Ù„ØºØ§Øª" : "Languages" },
   ];
 
   return (
@@ -420,7 +501,7 @@ const ApplicationDetail: React.FC = () => {
         <SectionHeader
           eyebrow={copy.headerEyebrow}
           title={copy.headerTitle}
-          subtitle={`${data.candidate.name} • ${data.job.title}`}
+          subtitle={`${data.candidate.name} â€¢ ${data.job.title}`}
         />
         <Card>
           <div className="flex items-center justify-between">
@@ -516,7 +597,7 @@ const ApplicationDetail: React.FC = () => {
           {structured && (
             <div className="mt-6 border-t border-[var(--panel-border)] pt-4">
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                {language === "ar" ? "ملخص تحليل السيرة" : "CV Analysis Snapshot"}
+                {language === "ar" ? "Ù…Ù„Ø®Øµ ØªØ­Ù„ÙŠÙ„ Ø§Ù„Ø³ÙŠØ±Ø©" : "CV Analysis Snapshot"}
               </p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 {structuredSections.map((section) => {
@@ -571,10 +652,10 @@ const ApplicationDetail: React.FC = () => {
               >
                 {refreshingInsights
                   ? language === "ar"
-                    ? "جاري التحديث..."
+                    ? "Ø¬Ø§Ø±ÙŠ Ø§Ù„ØªØ­Ø¯ÙŠØ«..."
                     : "Refreshing..."
                   : language === "ar"
-                    ? "تحديث التحليل"
+                    ? "ØªØ­Ø¯ÙŠØ« Ø§Ù„ØªØ­Ù„ÙŠÙ„"
                     : "Refresh AI Insights"}
               </Button>
               <Button
@@ -584,10 +665,105 @@ const ApplicationDetail: React.FC = () => {
               >
                 {copy.viewFullInsights}
               </Button>
+              <div className="mt-4 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3">
+                <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                  {copy.hrHelperTitle}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center"
+                    onClick={() => fetchHrHelper(false)}
+                    disabled={hrHelperLoading}
+                  >
+                    {hrHelperLoading ? (language === "ar" ? "جارٍ التحميل..." : "Loading...") : copy.hrRun}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center"
+                    onClick={() => fetchHrHelper(true)}
+                    disabled={hrHelperLoading}
+                  >
+                    {copy.hrRefresh}
+                  </Button>
+                </div>
+                {hrHelperError && <p className="mt-2 text-xs text-red-400">{hrHelperError}</p>}
+                {hrHelper ? (
+                  <div className="mt-3 space-y-2 text-xs text-[var(--text-primary)]">
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="rounded-lg border border-[var(--panel-border)] p-2">
+                        <p className="text-[var(--text-muted)]">{copy.hrAts}</p>
+                        <p className="font-semibold">{formattedAtsScore ?? "-"}</p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--panel-border)] p-2">
+                        <p className="text-[var(--text-muted)]">{copy.hrDecision}</p>
+                        <p className="font-semibold uppercase">{hrHelper.decision}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-[var(--panel-border)] p-2">
+                      <p className="text-[var(--text-muted)]">{copy.hrConfidence}</p>
+                      <p className="font-semibold">{hrHelper.confidence}%</p>
+                    </div>
+                    {hrHelper.recommendation_summary && (
+                      <div>
+                        <p className="text-[var(--text-muted)]">{copy.hrSummary}</p>
+                        <p>{hrHelper.recommendation_summary}</p>
+                      </div>
+                    )}
+                    {hrHelper.top_strengths.length > 0 && (
+                      <div>
+                        <p className="text-[var(--text-muted)]">{copy.hrStrengths}</p>
+                        <ul className="mt-1 list-disc ps-5">
+                          {hrHelper.top_strengths.map((item: string) => (
+                            <li key={`hr-s-${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {hrHelper.key_risks.length > 0 && (
+                      <div>
+                        <p className="text-[var(--text-muted)]">{copy.hrRisks}</p>
+                        <ul className="mt-1 list-disc ps-5">
+                          {hrHelper.key_risks.map((item: string) => (
+                            <li key={`hr-r-${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {hrHelper.interview_focus.length > 0 && (
+                      <div>
+                        <p className="text-[var(--text-muted)]">{copy.hrInterviewFocus}</p>
+                        <ul className="mt-1 list-disc ps-5">
+                          {hrHelper.interview_focus.map((item: string) => (
+                            <li key={`hr-i-${item}`}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {hrHelper.next_step && (
+                      <div>
+                        <p className="text-[var(--text-muted)]">{copy.hrNextStep}</p>
+                        <p>{hrHelper.next_step}</p>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                      <span>
+                        {copy.hrSource}: {hrHelper.source || "fresh"}
+                      </span>
+                      <span>
+                        {copy.hrGeneratedAt}:{" "}
+                        {hrHelper.generated_at ? new Date(hrHelper.generated_at).toLocaleString() : "-"}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-[var(--text-muted)]">{copy.hrNoData}</p>
+                )}
+              </div>
               {!insights && (
                 <p className="mt-3 text-xs text-[var(--text-muted)]">
                   {language === "ar"
-                    ? "لا يوجد تحليل مرتبط بهذه الوظيفة بعد. اضغط تحديث التحليل أولاً."
+                    ? "Ù„Ø§ ÙŠÙˆØ¬Ø¯ ØªØ­Ù„ÙŠÙ„ Ù…Ø±ØªØ¨Ø· Ø¨Ù‡Ø°Ù‡ Ø§Ù„ÙˆØ¸ÙŠÙØ© Ø¨Ø¹Ø¯. Ø§Ø¶ØºØ· ØªØ­Ø¯ÙŠØ« Ø§Ù„ØªØ­Ù„ÙŠÙ„ Ø£ÙˆÙ„Ø§Ù‹."
                     : "No job-specific AI insight yet. Click Refresh AI Insights first."}
                 </p>
               )}
@@ -802,5 +978,6 @@ const ApplicationDetail: React.FC = () => {
 };
 
 export default ApplicationDetail;
+
 
 
