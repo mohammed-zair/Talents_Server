@@ -353,7 +353,7 @@ const OpportunitiesPage: React.FC = () => {
       )}
 
       {activeJob && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/50 p-4 sm:items-center">
+        <div className="fixed inset-0 z-[10050] flex items-start justify-center bg-black/50 p-4 sm:items-center">
           <div className="glass-card w-full max-w-3xl max-h-[85vh] overflow-y-auto p-4 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -539,8 +539,21 @@ const OpportunitiesPage: React.FC = () => {
                   {formSuccess && <p className="text-sm text-emerald-300">{formSuccess}</p>}
 
                   <div className="flex gap-2">
-                    <button className="btn-primary" onClick={submitApplication} disabled={quickApply.isPending}>
-                      {t("submitApplication")}
+                    <button
+                      className={`btn-primary ${quickApply.isPending ? "btn-loading cursor-wait opacity-90" : ""}`}
+                      onClick={submitApplication}
+                      disabled={quickApply.isPending}
+                    >
+                      {quickApply.isPending ? (
+                        <span className="loading-orbit">
+                          <span>{language === "ar" ? "جارٍ الإرسال" : "Submitting"}</span>
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                      ) : (
+                        t("submitApplication")
+                      )}
                     </button>
                     <button className="btn-ghost" onClick={resetModal}>{t("cancel")}</button>
                   </div>
@@ -552,7 +565,7 @@ const OpportunitiesPage: React.FC = () => {
       )}
 
       {showAnalyzePrompt && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-[10060] flex items-center justify-center bg-black/60 p-4">
           <div className="glass-card w-full max-w-md p-5">
             <h3 className="text-lg font-semibold">{t("analyzeRequiredTitle")}</h3>
             <p className="mt-2 text-sm text-[var(--text-muted)]">{t("analyzeRequiredDesc")}</p>

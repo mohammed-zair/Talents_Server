@@ -129,10 +129,28 @@ html[lang="ar"] body { font-family: "Noto Sans Arabic", "Plus Jakarta Sans", "In
 
 .field { width: 100%; border: 1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text-primary); padding: 10px 12px; }
 .field::placeholder { color: var(--text-muted); }
+select.field {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: color-mix(in srgb, var(--popout) 90%, transparent);
+  color: var(--text-primary);
+}
+select.field option {
+  background-color: var(--popout);
+  color: var(--text-primary);
+}
 
 :root[data-theme="light"] .field {
   background: rgba(255, 255, 255, 0.82);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 8px 18px rgba(34, 70, 112, 0.08);
+}
+:root[data-theme="light"] select.field {
+  background: rgba(255, 255, 255, 0.95);
+}
+:root[data-theme="light"] select.field option {
+  background: #ffffff;
+  color: #11243d;
 }
 
 .btn-primary {
