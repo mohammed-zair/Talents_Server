@@ -6,11 +6,12 @@ import { useLanguage } from "../contexts/LanguageContext";
 const Navbar: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+  const logoSrc = `${import.meta.env.BASE_URL}logo.png`;
 
   return (
     <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
       <div className="flex items-center gap-3">
-        <img src="/logo.png" alt="Talents We Trust" className="h-10 w-10 rounded-2xl object-cover" />
+        <img src={logoSrc} alt="Talents We Trust" className="h-10 w-10 rounded-2xl object-cover" />
         <div>
           <p className="text-xs tracking-[0.3em] text-white/60 dark:text-white/60">{t("brandTop")}</p>
           <p className="text-sm font-semibold">{t("brandBottom")}</p>
