@@ -24,6 +24,25 @@ type FormField = {
   choices?: string[];
 };
 
+const normalizeFieldOptions = (field: FormField): string[] => {
+  const toCleanArray = (value: unknown): string[] => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item).trim()).filter(Boolean);
+    }
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  const primary = toCleanArray(field.options);
+  if (primary.length > 0) return primary;
+  return toCleanArray(field.choices);
+};
+
 const OpportunitiesPage: React.FC = () => {
   const { language, t } = useLanguage();
   const isRtl = language === "ar";
@@ -385,7 +404,7 @@ const OpportunitiesPage: React.FC = () => {
                     const key = String(field.field_id || field.title);
                     const rawValue = formValues[key];
                     const value = Array.isArray(rawValue) ? "" : rawValue || "";
-                    const options = field.options || field.choices || [];
+                    const options = normalizeFieldOptions(field);
                     return (
                       <div key={key}>
                         <label className="text-xs text-[var(--text-muted)]">

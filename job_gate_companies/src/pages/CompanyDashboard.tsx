@@ -1,6 +1,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { animate } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   Activity,
   Target,
@@ -16,6 +17,7 @@ import { companyApi } from "../services/api/api";
 import type { TopApplicantEntry } from "../types";
 
 const CompanyDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { language } = useLanguage();
   const isRtl = language === "ar";
   const { data: dashboard } = useQuery({
@@ -265,7 +267,7 @@ const CompanyDashboard: React.FC = () => {
                     ? "ابدأ نشر وظيفة جديدة مع المتطلبات الأساسية خلال دقائق."
                     : "Publish a new role with core requirements in minutes."}
                 </p>
-                <button className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]">
+                <button type="button" onClick={() => navigate("/jobs")} className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]">
                   {language === "ar" ? "ابدأ الآن" : "Start Now"}
                 </button>
               </div>
@@ -280,7 +282,7 @@ const CompanyDashboard: React.FC = () => {
                     ? "اطلب سيرة مرشح متميز بسرعة عبر أدوات الاستهداف."
                     : "Request high-intent CVs through targeted sourcing."}
                 </p>
-                <button className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]">
+                <button type="button" onClick={() => navigate("/cv-requests")} className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]">
                   {language === "ar" ? "ابحث الآن" : "Start Hunting"}
                 </button>
               </div>
@@ -295,7 +297,7 @@ const CompanyDashboard: React.FC = () => {
                     ? "انتقل مباشرة إلى أعلى المرشحين وابدأ قرار التوظيف."
                     : "Jump to top-ranked applicants and move to hiring decision."}
                 </p>
-                <button className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]">
+                <button type="button" onClick={() => navigate("/applications")} className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]">
                   {language === "ar" ? "راجع المرشحين" : "Review Applicants"}
                 </button>
               </div>
