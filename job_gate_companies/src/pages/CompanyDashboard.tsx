@@ -28,66 +28,65 @@ const CompanyDashboard: React.FC = () => {
   const copy = {
     en: {
       eyebrow: "Intelligence Hub",
-      title: "MarketÃ¢â‚¬â€˜Grade Recruiting Intelligence",
-      subtitle:
-        "Macro signals only. Zero candidate names. Optimized for executive review.",
-      marketPulse: "Market Pulse",
-      availableTalent: "Available HighÃ¢â‚¬â€˜Intent Talent",
-      topReact: "Top 5% of React Developers in-region are currently active",
-      strengthRadar: "Competency Radar",
-      successForecast: "Success Forecast",
-      hires30: "Estimated hires in next 30 days",
-      cvPurchased: "Total CVs purchased",
-      alignmentIndex: "Strategic Alignment Index",
-      qualityVsQuantity: "Quality vs Quantity",
-      copilot: "AI CoÃ¢â‚¬â€˜Pilot",
-      copilotText:
-        "Market trend shows a 15% increase in Python salaries; consider adjusting your Senior Dev posting to stay competitive.",
+      title: "Market-Grade Recruiting Intelligence",
+      subtitle: "Macro signals only. Zero candidate names. Optimized for executive review.",
       jobFunnel: "Job Performance Funnel",
       activeJobs: "Active Jobs",
       totalApplicants: "Total Applicants",
       competencyCurve: "Competency Distribution",
+      reviewed: "Reviewed",
+      starred: "Starred",
       impact: "Net Talent Acquisition",
-      fulfilled: "Total Positions Fulfilled via Talents We Trust",
+      highQualitySeekersX2: "High Quality Job Seekers x2",
+      top5Latest: "Top 5 Applicants (Latest Job)",
+      noApplicants: "No applicants yet",
+      score: "Score",
       actions: "Quick Actions",
-      createJob: "Create Strategic Job",
-      credits: "Purchase Talent Credits",
-      report: "Export Executive Report",
+      quickActionsSubtitle: "Direct hiring workflows for faster execution",
+      createJob: "Create New Job Offer",
+      createJobDesc: "Publish a new role with core requirements in minutes.",
+      createJobCta: "Start Now",
+      huntHeadCv: "Hunt a Head CV",
+      huntHeadCvDesc: "Request high-intent CVs through targeted sourcing.",
+      huntHeadCvCta: "Start Hunting",
+      hireBest: "Hire Best Applicant",
+      hireBestDesc: "Jump to top-ranked applicants and move to hiring decision.",
+      hireBestCta: "Review Applicants",
     },
     ar: {
-      eyebrow: "Ã™â€¦Ã˜Â±Ã™Æ’Ã˜Â² Ã˜Â§Ã™â€žÃ˜Â°Ã™Æ’Ã˜Â§Ã˜Â¡",
-      title: "Ã˜Â°Ã™Æ’Ã˜Â§Ã˜Â¡ Ã˜ÂªÃ™Ë†Ã˜Â¸Ã™Å Ã™Â Ã˜Â¨Ã™â€¦Ã˜Â³Ã˜ÂªÃ™Ë†Ã™â€° Ã˜Â§Ã™â€žÃ˜Â³Ã™Ë†Ã™â€š",
-      subtitle: "Ã˜Â¥Ã˜Â´Ã˜Â§Ã˜Â±Ã˜Â§Ã˜Âª Ã™Æ’Ã™â€žÃ™Å Ã˜Â© Ã™ÂÃ™â€šÃ˜Â·. Ã˜Â¨Ã˜Â¯Ã™Ë†Ã™â€  Ã˜Â£Ã˜Â³Ã™â€¦Ã˜Â§Ã˜Â¡ Ã™â€¦Ã˜Â±Ã˜Â´Ã˜Â­Ã™Å Ã™â€ . Ã™â€¦Ã˜ÂµÃ™â€¦Ã™â€¦ Ã™â€žÃ™â€žÃ˜Â¥Ã˜Â¯Ã˜Â§Ã˜Â±Ã˜Â©.",
-      marketPulse: "Ã™â€ Ã˜Â¨Ã˜Â¶ Ã˜Â§Ã™â€žÃ˜Â³Ã™Ë†Ã™â€š",
-      availableTalent: "Ã™â€¦Ã™Ë†Ã˜Â§Ã™â€¡Ã˜Â¨ Ã˜Â¹Ã˜Â§Ã™â€žÃ™Å Ã˜Â© Ã˜Â§Ã™â€žÃ™â€ Ã™Å Ã˜Â© Ã™â€¦Ã˜ÂªÃ˜Â§Ã˜Â­Ã˜Â©",
-      topReact: "Ã˜Â£Ã™ÂÃ˜Â¶Ã™â€ž 5% Ã™â€¦Ã™â€  Ã™â€¦Ã˜Â·Ã™Ë†Ã˜Â±Ã™Å  React Ã™ÂÃ™Å  Ã˜Â§Ã™â€žÃ™â€¦Ã™â€ Ã˜Â·Ã™â€šÃ˜Â© Ã™â€¦Ã˜ÂªÃ˜Â§Ã˜Â­Ã™Ë†Ã™â€  Ã˜Â§Ã™â€žÃ˜Â¢Ã™â€ ",
-      strengthRadar: "Ã˜Â±Ã˜Â§Ã˜Â¯Ã˜Â§Ã˜Â± Ã˜Â§Ã™â€žÃ™Æ’Ã™ÂÃ˜Â§Ã˜Â¡Ã˜Â§Ã˜Âª",
-      successForecast: "Ã˜ÂªÃ™Ë†Ã™â€šÃ˜Â¹ Ã˜Â§Ã™â€žÃ™â€ Ã˜Â¬Ã˜Â§Ã˜Â­",
-      hires30: "Ã˜Â§Ã™â€žÃ˜ÂªÃ˜Â¹Ã™Å Ã™Å Ã™â€ Ã˜Â§Ã˜Âª Ã˜Â§Ã™â€žÃ™â€¦Ã˜ÂªÃ™Ë†Ã™â€šÃ˜Â¹Ã˜Â© Ã˜Â®Ã™â€žÃ˜Â§Ã™â€ž 30 Ã™Å Ã™Ë†Ã™â€¦Ã˜Â§Ã™â€¹",
-      cvPurchased: "Ã˜Â¥Ã˜Â¬Ã™â€¦Ã˜Â§Ã™â€žÃ™Å  Ã˜Â§Ã™â€žÃ˜Â³Ã™Å Ã˜Â± Ã˜Â§Ã™â€žÃ™â€¦Ã˜Â´Ã˜ÂªÃ˜Â±Ã˜Â§Ã˜Â©",
-      alignmentIndex: "Ã™â€¦Ã˜Â¤Ã˜Â´Ã˜Â± Ã˜Â§Ã™â€žÃ™â€¦Ã™Ë†Ã˜Â§Ã˜Â¡Ã™â€¦Ã˜Â© Ã˜Â§Ã™â€žÃ˜Â§Ã˜Â³Ã˜ÂªÃ˜Â±Ã˜Â§Ã˜ÂªÃ™Å Ã˜Â¬Ã™Å Ã˜Â©",
-      qualityVsQuantity: "Ã˜Â§Ã™â€žÃ˜Â¬Ã™Ë†Ã˜Â¯Ã˜Â© Ã™â€¦Ã™â€šÃ˜Â§Ã˜Â¨Ã™â€ž Ã˜Â§Ã™â€žÃ™Æ’Ã™â€¦Ã™Å Ã˜Â©",
-      copilot: "Ã˜Â§Ã™â€žÃ™â€¦Ã˜Â³Ã˜Â§Ã˜Â¹Ã˜Â¯ Ã˜Â§Ã™â€žÃ˜Â°Ã™Æ’Ã™Å ",
-      copilotText:
-        "Ã™Å Ã˜Â±Ã˜ÂµÃ˜Â¯ Ã˜Â§Ã™â€žÃ˜Â³Ã™Ë†Ã™â€š Ã˜Â§Ã˜Â±Ã˜ÂªÃ™ÂÃ˜Â§Ã˜Â¹Ã˜Â§Ã™â€¹ Ã˜Â¨Ã™â€ Ã˜Â³Ã˜Â¨Ã˜Â© 15% Ã™ÂÃ™Å  Ã˜Â±Ã™Ë†Ã˜Â§Ã˜ÂªÃ˜Â¨ PythonÃ˜â€º Ã™â€ Ã™â€ Ã˜ÂµÃ˜Â­ Ã˜Â¨Ã™â€¦Ã˜Â±Ã˜Â§Ã˜Â¬Ã˜Â¹Ã˜Â© Ã˜Â¥Ã˜Â¹Ã™â€žÃ˜Â§Ã™â€  Ã˜Â§Ã™â€žÃ™â€¦Ã˜Â·Ã™Ë†Ã˜Â± Ã˜Â§Ã™â€žÃ™Æ’Ã˜Â¨Ã™Å Ã˜Â±.",
-      jobFunnel: "Ã™â€šÃ™â€¦Ã˜Â¹ Ã˜Â£Ã˜Â¯Ã˜Â§Ã˜Â¡ Ã˜Â§Ã™â€žÃ™Ë†Ã˜Â¸Ã˜Â§Ã˜Â¦Ã™Â",
-      activeJobs: "Ã˜Â§Ã™â€žÃ™Ë†Ã˜Â¸Ã˜Â§Ã˜Â¦Ã™Â Ã˜Â§Ã™â€žÃ™â€ Ã˜Â´Ã˜Â·Ã˜Â©",
-      totalApplicants: "Ã˜Â¥Ã˜Â¬Ã™â€¦Ã˜Â§Ã™â€žÃ™Å  Ã˜Â§Ã™â€žÃ™â€¦Ã˜ÂªÃ™â€šÃ˜Â¯Ã™â€¦Ã™Å Ã™â€ ",
-      competencyCurve: "Ã˜ÂªÃ™Ë†Ã˜Â²Ã™Å Ã˜Â¹ Ã˜Â§Ã™â€žÃ™Æ’Ã™ÂÃ˜Â§Ã˜Â¡Ã˜Â©",
-      impact: "Ã˜ÂµÃ˜Â§Ã™ÂÃ™Å  Ã˜Â§Ã™Æ’Ã˜ÂªÃ˜Â³Ã˜Â§Ã˜Â¨ Ã˜Â§Ã™â€žÃ™â€¦Ã™Ë†Ã˜Â§Ã™â€¡Ã˜Â¨",
-      fulfilled: "Ã˜Â¥Ã˜Â¬Ã™â€¦Ã˜Â§Ã™â€žÃ™Å  Ã˜Â§Ã™â€žÃ™Ë†Ã˜Â¸Ã˜Â§Ã˜Â¦Ã™Â Ã˜Â§Ã™â€žÃ˜ÂªÃ™Å  Ã˜ÂªÃ™â€¦ Ã˜Â´Ã˜ÂºÃ™â€žÃ™â€¡Ã˜Â§ Ã˜Â¹Ã˜Â¨Ã˜Â± Talents We Trust",
-      actions: "Ã˜Â¥Ã˜Â¬Ã˜Â±Ã˜Â§Ã˜Â¡Ã˜Â§Ã˜Âª Ã˜Â³Ã˜Â±Ã™Å Ã˜Â¹Ã˜Â©",
-      createJob: "Ã˜Â¥Ã™â€ Ã˜Â´Ã˜Â§Ã˜Â¡ Ã™Ë†Ã˜Â¸Ã™Å Ã™ÂÃ˜Â© Ã˜Â§Ã˜Â³Ã˜ÂªÃ˜Â±Ã˜Â§Ã˜ÂªÃ™Å Ã˜Â¬Ã™Å Ã˜Â©",
-      credits: "Ã˜Â´Ã˜Â±Ã˜Â§Ã˜Â¡ Ã˜Â±Ã˜ÂµÃ™Å Ã˜Â¯ Ã˜Â§Ã™â€žÃ™â€¦Ã™Ë†Ã˜Â§Ã™â€¡Ã˜Â¨",
-      report: "Ã˜ÂªÃ˜ÂµÃ˜Â¯Ã™Å Ã˜Â± Ã˜ÂªÃ™â€šÃ˜Â±Ã™Å Ã˜Â± Ã˜ÂªÃ™â€ Ã™ÂÃ™Å Ã˜Â°Ã™Å ",
+      eyebrow: "مركز الذكاء",
+      title: "ذكاء توظيف بمستوى السوق",
+      subtitle: "إشارات كلية فقط. بدون أسماء مرشحين. مصمم للإدارة.",
+      jobFunnel: "قمع أداء الوظائف",
+      activeJobs: "الوظائف النشطة",
+      totalApplicants: "إجمالي المتقدمين",
+      competencyCurve: "توزيع الكفاءة",
+      reviewed: "قيد المراجعة",
+      starred: "المميزين",
+      impact: "صافي اكتساب المواهب",
+      highQualitySeekersX2: "إجمالي الباحثين المتميزين ×2",
+      top5Latest: "أفضل 5 مرشحين (آخر وظيفة)",
+      noApplicants: "لا يوجد مرشحون بعد",
+      score: "الدرجة",
+      actions: "إجراءات سريعة",
+      quickActionsSubtitle: "اختصارات تنفيذية للتوظيف أسرع",
+      createJob: "إنشاء عرض وظيفي جديد",
+      createJobDesc: "ابدأ نشر وظيفة جديدة مع المتطلبات الأساسية خلال دقائق.",
+      createJobCta: "ابدأ الآن",
+      huntHeadCv: "اصطد سيرة Headhunt",
+      huntHeadCvDesc: "اطلب سيرة مرشح متميز بسرعة عبر أدوات الاستهداف.",
+      huntHeadCvCta: "ابحث الآن",
+      hireBest: "وظّف أفضل مرشح",
+      hireBestDesc: "انتقل مباشرة إلى أعلى المرشحين وابدأ قرار التوظيف.",
+      hireBestCta: "راجع المرشحين",
     },
   }[language];
 
   const stats = [
     { label: copy.activeJobs, value: dashboard?.jobs_count ?? 0, icon: BriefcaseBusiness },
     { label: copy.totalApplicants, value: dashboard?.applications_count ?? 0, icon: FileBarChart2 },
-    { label: language === "ar" ? "Ã™â€šÃ™Å Ã˜Â¯ Ã˜Â§Ã™â€žÃ™â€¦Ã˜Â±Ã˜Â§Ã˜Â¬Ã˜Â¹Ã˜Â©" : "Reviewed", value: dashboard?.reviewed_count ?? 0, icon: Activity },
-    { label: language === "ar" ? "Ã˜Â§Ã™â€žÃ™â€¦Ã™â€¦Ã™Å Ã˜Â²Ã™Å Ã™â€ " : "Starred", value: dashboard?.starred_count ?? 0, icon: Target, glow: true },
+    { label: copy.reviewed, value: dashboard?.reviewed_count ?? 0, icon: Activity },
+    { label: copy.starred, value: dashboard?.starred_count ?? 0, icon: Target, glow: true },
   ];
 
   const topApplicants: TopApplicantEntry[] =
@@ -98,6 +97,7 @@ const CompanyDashboard: React.FC = () => {
       : dashboard?.top_applicant
       ? [dashboard.top_applicant]
       : [];
+
   const latestJobOffer = dashboard?.latest_job_offer ?? null;
   const qualityMetrics = [
     {
@@ -114,19 +114,13 @@ const CompanyDashboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <SectionHeader
-        eyebrow={copy.eyebrow}
-        title={copy.title}
-        subtitle={copy.subtitle}
-      />
+      <SectionHeader eyebrow={copy.eyebrow} title={copy.title} subtitle={copy.subtitle} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
           <Card
             key={stat.label}
-            className={`flex flex-col gap-3 ${
-              stat.glow ? "shadow-[0_0_15px_rgba(0,168,232,0.3)]" : ""
-            }`}
+            className={`flex flex-col gap-3 ${stat.glow ? "shadow-[0_0_15px_rgba(0,168,232,0.3)]" : ""}`}
           >
             <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
               <span>{stat.label}</span>
@@ -154,10 +148,7 @@ const CompanyDashboard: React.FC = () => {
               }
             />
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <QualityBarsCard
-                title="Quality Metrics"
-                metrics={qualityMetrics}
-              />
+              <QualityBarsCard title="Quality Metrics" metrics={qualityMetrics} />
               <StarredGaugeCard
                 label="Starred Candidates"
                 value={latestJobOffer?.starred_count ?? 0}
@@ -173,13 +164,9 @@ const CompanyDashboard: React.FC = () => {
               <Wand2 size={18} className="text-teal-300" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                {language === "ar" ? "Ø£ÙØ¶Ù„ 5 Ù…Ø±Ø´Ø­ÙŠÙ† (Ø¢Ø®Ø± ÙˆØ¸ÙŠÙØ©)" : "Top 5 Applicants (Latest Job)"}
-              </p>
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{copy.top5Latest}</p>
               {topApplicants.length === 0 ? (
-                <p className="text-sm text-[var(--text-primary)]">
-                  {language === "ar" ? "Ã™â€žÃ˜Â§ Ã™Å Ã™Ë†Ã˜Â¬Ã˜Â¯ Ã™â€¦Ã˜Â±Ã˜Â´Ã˜Â­Ã™Ë†Ã™â€  Ã˜Â¨Ã˜Â¹Ã˜Â¯" : "No applicants yet"}
-                </p>
+                <p className="text-sm text-[var(--text-primary)]">{copy.noApplicants}</p>
               ) : (
                 <div className="mt-2 space-y-3">
                   {topApplicants.slice(0, 5).map((applicant, index) => {
@@ -196,12 +183,10 @@ const CompanyDashboard: React.FC = () => {
                         <p className="text-sm text-[var(--text-primary)]">
                           {index + 1}. {applicant.candidate?.name ?? "Candidate"} - {applicant.job?.title ?? "Job"}
                         </p>
-                        {summary ? (
-                          <p className="mt-1 text-xs text-[var(--text-muted)]">{summary}</p>
-                        ) : null}
+                        {summary ? <p className="mt-1 text-xs text-[var(--text-muted)]">{summary}</p> : null}
                         {applicant?.score !== undefined && applicant?.score !== null ? (
                           <p className="mt-1 text-xs text-[var(--accent)]">
-                            {language === "ar" ? "Ã˜Â§Ã™â€žÃ˜Â¯Ã˜Â±Ã˜Â¬Ã˜Â©" : "Score"}: {applicant.score}
+                            {copy.score}: {applicant.score}
                           </p>
                         ) : null}
                       </div>
@@ -237,68 +222,56 @@ const CompanyDashboard: React.FC = () => {
               <SectionHeader
                 eyebrow={copy.impact}
                 title={String(dashboard?.high_quality_job_seekers_x2 ?? 0)}
-                subtitle={
-                  language === "ar"
-                    ? "Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ø¨Ø§Ø­Ø«ÙŠÙ† Ø§Ù„Ù…ØªÙ…ÙŠØ²ÙŠÙ† Ã—2"
-                    : "High Quality Job Seekers Ã—2"
-                }
+                subtitle={copy.highQualitySeekersX2}
               />
             </div>
           </Card>
 
           <Card>
-            <SectionHeader
-              eyebrow={copy.actions}
-              title={copy.actions}
-              subtitle={
-                language === "ar"
-                  ? "اختصارات تنفيذية للتوظيف أسرع"
-                  : "Direct hiring workflows for faster execution"
-              }
-            />
+            <SectionHeader eyebrow={copy.actions} title={copy.actions} subtitle={copy.quickActionsSubtitle} />
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
                   <BriefcaseBusiness size={16} className="text-[var(--accent)]" />
-                  <span>{language === "ar" ? "إنشاء عرض وظيفي جديد" : "Create New Job Offer"}</span>
+                  <span>{copy.createJob}</span>
                 </div>
-                <p className="mt-2 text-xs text-[var(--text-muted)]">
-                  {language === "ar"
-                    ? "ابدأ نشر وظيفة جديدة مع المتطلبات الأساسية خلال دقائق."
-                    : "Publish a new role with core requirements in minutes."}
-                </p>
-                <button type="button" onClick={() => navigate("/jobs")} className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]">
-                  {language === "ar" ? "ابدأ الآن" : "Start Now"}
+                <p className="mt-2 text-xs text-[var(--text-muted)]">{copy.createJobDesc}</p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/jobs")}
+                  className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]"
+                >
+                  {copy.createJobCta}
                 </button>
               </div>
 
               <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
                   <ShoppingCart size={16} className="text-[var(--accent)]" />
-                  <span>{language === "ar" ? "اصطد سيرة Headhunt" : "Hunt a Head CV"}</span>
+                  <span>{copy.huntHeadCv}</span>
                 </div>
-                <p className="mt-2 text-xs text-[var(--text-muted)]">
-                  {language === "ar"
-                    ? "اطلب سيرة مرشح متميز بسرعة عبر أدوات الاستهداف."
-                    : "Request high-intent CVs through targeted sourcing."}
-                </p>
-                <button type="button" onClick={() => navigate("/cv-requests")} className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]">
-                  {language === "ar" ? "ابحث الآن" : "Start Hunting"}
+                <p className="mt-2 text-xs text-[var(--text-muted)]">{copy.huntHeadCvDesc}</p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/cv-requests")}
+                  className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]"
+                >
+                  {copy.huntHeadCvCta}
                 </button>
               </div>
 
               <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
                   <FileBarChart2 size={16} className="text-[var(--accent)]" />
-                  <span>{language === "ar" ? "وظّف أفضل مرشح" : "Hire Best Applicant"}</span>
+                  <span>{copy.hireBest}</span>
                 </div>
-                <p className="mt-2 text-xs text-[var(--text-muted)]">
-                  {language === "ar"
-                    ? "انتقل مباشرة إلى أعلى المرشحين وابدأ قرار التوظيف."
-                    : "Jump to top-ranked applicants and move to hiring decision."}
-                </p>
-                <button type="button" onClick={() => navigate("/applications")} className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]">
-                  {language === "ar" ? "راجع المرشحين" : "Review Applicants"}
+                <p className="mt-2 text-xs text-[var(--text-muted)]">{copy.hireBestDesc}</p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/applications")}
+                  className="mt-3 w-full rounded-lg border border-[var(--panel-border)] px-3 py-2 text-xs hover:bg-[var(--chip-bg)]"
+                >
+                  {copy.hireBestCta}
                 </button>
               </div>
             </div>
@@ -328,9 +301,7 @@ const CountUpValue: React.FC<{ value: string | number }> = ({ value }) => {
     return () => controls.stop();
   }, [numeric]);
 
-  return (
-    <p className="text-3xl font-semibold text-[var(--text-primary)]">{display}</p>
-  );
+  return <p className="text-3xl font-semibold text-[var(--text-primary)]">{display}</p>;
 };
 
 const QualityBarsCard: React.FC<{
@@ -354,10 +325,7 @@ const QualityBarsCard: React.FC<{
                   <span className="text-[var(--text-primary)]">{value === null ? "-" : `${value.toFixed(1)}%`}</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-[var(--panel-border)]">
-                  <div
-                    className={`h-2 rounded-full ${metric.color}`}
-                    style={{ width: `${value ?? 0}%` }}
-                  />
+                  <div className={`h-2 rounded-full ${metric.color}`} style={{ width: `${value ?? 0}%` }} />
                 </div>
               </div>
             );
@@ -415,17 +383,7 @@ const FunnelMetric: React.FC<{ label: string; value: number }> = ({ label, value
 );
 
 const BellCurve: React.FC<{ isRtl: boolean }> = ({ isRtl }) => {
-  const points = [
-    "0,70",
-    "20,55",
-    "40,40",
-    "60,28",
-    "80,22",
-    "100,28",
-    "120,40",
-    "140,55",
-    "160,70",
-  ];
+  const points = ["0,70", "20,55", "40,40", "60,28", "80,22", "100,28", "120,40", "140,55", "160,70"];
 
   return (
     <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-4">
@@ -452,5 +410,3 @@ const BellCurve: React.FC<{ isRtl: boolean }> = ({ isRtl }) => {
     </div>
   );
 };
-
-

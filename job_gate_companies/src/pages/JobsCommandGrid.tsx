@@ -174,37 +174,37 @@ const JobsCommandGrid: React.FC = () => {
   const toggleJob = useMutation({
     mutationFn: companyApi.toggleJobPosting,
     onSuccess: () => {
-      toast.success(language === "ar" ? "?? ????? ???? ???????" : "Job toggled successfully");
+      toast.success(language === "ar" ? "تم تبديل حالة الوظيفة" : "Job toggled successfully");
       queryClient.invalidateQueries({ queryKey: ["company-jobs"] });
     },
     onError: () =>
-      toast.error(language === "ar" ? "???? ????? ??????" : "Failed to toggle job"),
+      toast.error(language === "ar" ? "فشل تبديل حالة الوظيفة" : "Failed to toggle job"),
   });
 
   const deleteJob = useMutation({
     mutationFn: companyApi.deleteJobPosting,
     onSuccess: () => {
-      toast.success(language === "ar" ? "?? ??? ???????" : "Job deleted");
+      toast.success(language === "ar" ? "تم حذف الوظيفة" : "Job deleted");
       queryClient.invalidateQueries({ queryKey: ["company-jobs"] });
       setDeleteTarget(null);
       setDeleteConfirm("");
     },
     onError: () =>
-      toast.error(language === "ar" ? "???? ??? ???????" : "Failed to delete job"),
+      toast.error(language === "ar" ? "فشل حذف الوظيفة" : "Failed to delete job"),
   });
 
   const updateJob = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: FormData }) =>
       companyApi.updateJobPosting(id, payload),
     onSuccess: () => {
-      toast.success(language === "ar" ? "?? ????? ???????" : "Job updated");
+      toast.success(language === "ar" ? "تم تحديث الوظيفة" : "Job updated");
       queryClient.invalidateQueries({ queryKey: ["company-jobs"] });
       setEditJob(null);
       setEditImageFile(null);
       setEditImagePreview(null);
     },
     onError: () =>
-      toast.error(language === "ar" ? "???? ????? ???????" : "Failed to update job"),
+      toast.error(language === "ar" ? "فشل تحديث الوظيفة" : "Failed to update job"),
   });
 
   const recalculateInsights = useMutation({
@@ -212,14 +212,14 @@ const JobsCommandGrid: React.FC = () => {
     onSuccess: () => {
       toast.success(
         language === "ar"
-          ? "?? ??? ????? ???????"
+          ? "تم بدء تحديث تحليلات الذكاء"
           : "AI insights refresh started"
       );
     },
     onError: () =>
       toast.error(
         language === "ar"
-          ? "???? ????? ???????"
+          ? "فشل تحديث تحليلات الذكاء"
           : "Failed to refresh AI insights"
       ),
   });
@@ -228,7 +228,7 @@ const JobsCommandGrid: React.FC = () => {
     mutationFn: (payload: FormData) => companyApi.createJobPosting(payload),
     onSuccess: () => {
       toast.success(
-        language === "ar" ? "?? ??? ??????? ????????" : "Job + form published"
+        language === "ar" ? "تم نشر الوظيفة والنموذج" : "Job + form published"
       );
       setJobForm(emptyJobForm);
       setRequireCv(true);
@@ -251,7 +251,7 @@ const JobsCommandGrid: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["company-jobs"] });
     },
     onError: () =>
-      toast.error(language === "ar" ? "???? ??? ???????" : "Failed to publish job"),
+      toast.error(language === "ar" ? "فشل نشر الوظيفة" : "Failed to publish job"),
   });
 
   const bulkToggle = () => {
@@ -549,7 +549,7 @@ const JobsCommandGrid: React.FC = () => {
                   <span>
                     {job.applicants} {copy.applicants}
                   </span>
-                  <span>{language === "ar" ? "?? ???????" : "Created"} {job.createdAt}</span>
+                  <span>{language === "ar" ? "تاريخ الإنشاء" : "Created"} {job.createdAt}</span>
                 </div>
                 <div className="mt-4 flex gap-2">
                   <Button
@@ -621,7 +621,7 @@ const JobsCommandGrid: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-xs text-[var(--text-muted)]" htmlFor="job-industry">
-                  {language === "ar" ? "???????" : "Industry"}
+                  {language === "ar" ? "القطاع" : "Industry"}
                 </label>
                 <input
                   id="job-industry"
@@ -630,7 +630,7 @@ const JobsCommandGrid: React.FC = () => {
                     setJobDraft((prev) => ({ ...prev, industry: event.target.value }))
                   }
                   name="jobIndustry"
-                  aria-label={language === "ar" ? "???????" : "Industry"}
+                  aria-label={language === "ar" ? "القطاع" : "Industry"}
                   className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 />
               </div>
@@ -796,11 +796,11 @@ const JobsCommandGrid: React.FC = () => {
                       onClick={() => handleQuestionRemove(index)}
                       className="rounded-lg border border-[var(--panel-border)] px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                     >
-                      {language === "ar" ? "???" : "Remove"}
+                      {language === "ar" ? "حذف" : "Remove"}
                     </button>
                   </div>
                   <p className="mt-2 text-xs text-[var(--text-muted)]">
-                    {language === "ar" ? "?????" : "Type"}: {question.type}
+                    {language === "ar" ? "النوع" : "Type"}: {question.type}
                   </p>
                   {question.type === "multi" && (
                     <div className="mt-3 space-y-2">
@@ -813,7 +813,7 @@ const JobsCommandGrid: React.FC = () => {
                             }
                             className="w-full rounded-lg border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs text-[var(--text-primary)] outline-none"
                             placeholder={
-                              language === "ar" ? "????" : `Option ${oIndex + 1}`
+                              language === "ar" ? "خيار" : `Option ${oIndex + 1}`
                             }
                           />
                           <button
@@ -826,7 +826,7 @@ const JobsCommandGrid: React.FC = () => {
                         </div>
                       ))}
                       <Button variant="outline" onClick={() => handleOptionAdd(index)}>
-                        {language === "ar" ? "????? ????" : "Add Option"}
+                        {language === "ar" ? "إضافة خيار" : "Add Option"}
                       </Button>
                     </div>
                   )}
@@ -960,11 +960,11 @@ const JobsCommandGrid: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-6">
           <div className="glass-card w-full max-w-md rounded-3xl border border-red-300 p-6 shadow-[0_0_40px_rgba(248,113,113,0.4)]">
             <h3 className="heading-serif text-xl text-[var(--text-primary)]">
-              {language === "ar" ? "??? ????????" : "Delete Job Posting?"}
+              {language === "ar" ? "حذف إعلان الوظيفة؟" : "Delete Job Posting?"}
             </h3>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
               {language === "ar"
-                ? "??????? ???? DELETE ?? ???? ???."
+                ? "اكتب DELETE للتأكيد ثم احذف الوظيفة."
                 : "Type DELETE to confirm, then delete the job."}
             </p>
             <input
@@ -980,14 +980,14 @@ const JobsCommandGrid: React.FC = () => {
                   setDeleteConfirm("");
                 }}
               >
-                {language === "ar" ? "?????" : "Cancel"}
+                {language === "ar" ? "إلغاء" : "Cancel"}
               </Button>
               <Button
                 onClick={() => deleteTarget && deleteJob.mutate(deleteTarget)}
                 disabled={deleteConfirm !== "DELETE"}
                 className="bg-red-500 text-white hover:bg-red-600"
               >
-                {language === "ar" ? "??? ???????" : "Delete Job"}
+                {language === "ar" ? "حذف الوظيفة" : "Delete Job"}
               </Button>
             </div>
           </div>
@@ -1031,7 +1031,7 @@ const JobsCommandGrid: React.FC = () => {
             <div className="flex items-start justify-between gap-3 border-b border-[var(--panel-border)] pb-4">
               <div>
                 <h3 className="heading-serif text-2xl text-[var(--text-primary)]">
-                  {language === "ar" ? "????? ?????? ???????" : "Update Job Details"}
+                  {language === "ar" ? "تحديث تفاصيل الوظيفة" : "Update Job Details"}
                 </h3>
                 <p className="mt-1 text-sm text-[var(--text-muted)]">
                   {editJob.title}
@@ -1046,7 +1046,7 @@ const JobsCommandGrid: React.FC = () => {
                 }}
                 className="rounded-lg border border-[var(--panel-border)] px-3 py-1 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               >
-                {language === "ar" ? "?????" : "Close"}
+                {language === "ar" ? "إغلاق" : "Close"}
               </button>
             </div>
 
@@ -1055,9 +1055,9 @@ const JobsCommandGrid: React.FC = () => {
                 <input
                   value={editForm.title ?? ""}
                   onChange={(event) => setEditForm((prev) => ({ ...prev, title: event.target.value }))}
-                  placeholder={language === "ar" ? "????? ???????" : "Job title"}
+                  placeholder={language === "ar" ? "مسمى الوظيفة" : "Job title"}
                   name="editJobTitle"
-                  aria-label={language === "ar" ? "????? ???????" : "Job title"}
+                  aria-label={language === "ar" ? "مسمى الوظيفة" : "Job title"}
                   className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 />
                 <input
@@ -1065,9 +1065,9 @@ const JobsCommandGrid: React.FC = () => {
                   onChange={(event) =>
                     setEditForm((prev) => ({ ...prev, department: event.target.value }))
                   }
-                  placeholder={language === "ar" ? "?????" : "Department"}
+                  placeholder={language === "ar" ? "القسم" : "Department"}
                   name="editDepartment"
-                  aria-label={language === "ar" ? "?????" : "Department"}
+                  aria-label={language === "ar" ? "القسم" : "Department"}
                   className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 />
                 <input
@@ -1075,17 +1075,17 @@ const JobsCommandGrid: React.FC = () => {
                   onChange={(event) =>
                     setEditForm((prev) => ({ ...prev, industry: event.target.value }))
                   }
-                  placeholder={language === "ar" ? "???????" : "Industry"}
+                  placeholder={language === "ar" ? "القطاع" : "Industry"}
                   name="editIndustry"
-                  aria-label={language === "ar" ? "???????" : "Industry"}
+                  aria-label={language === "ar" ? "القطاع" : "Industry"}
                   className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 />
                 <input
                   value={editForm.location ?? ""}
                   onChange={(event) => setEditForm((prev) => ({ ...prev, location: event.target.value }))}
-                  placeholder={language === "ar" ? "??????" : "Location"}
+                  placeholder={language === "ar" ? "الموقع" : "Location"}
                   name="editLocation"
-                  aria-label={language === "ar" ? "??????" : "Location"}
+                  aria-label={language === "ar" ? "الموقع" : "Location"}
                   className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                 />
               </div>
@@ -1180,7 +1180,7 @@ const JobsCommandGrid: React.FC = () => {
                   setEditImagePreview(null);
                 }}
               >
-                {language === "ar" ? "?????" : "Cancel"}
+                {language === "ar" ? "إلغاء" : "Cancel"}
               </Button>
               <Button
                 variant="outline"
@@ -1189,10 +1189,10 @@ const JobsCommandGrid: React.FC = () => {
               >
                 {recalculateInsights.isPending
                   ? language === "ar"
-                    ? "???? ???????..."
+                    ? "جارٍ التحديث..."
                     : "Refreshing..."
                   : language === "ar"
-                    ? "????? ???? ???????"
+                    ? "إعادة حساب التحليلات"
                     : "Recalculate AI Insights"}
               </Button>
               <Button
@@ -1212,7 +1212,7 @@ const JobsCommandGrid: React.FC = () => {
                   updateJob.mutate({ id: editJob.id, payload });
                 }}
               >
-                {language === "ar" ? "??? ?????????" : "Save Changes"}
+                {language === "ar" ? "حفظ التغييرات" : "Save Changes"}
               </Button>
             </div>
           </div>
@@ -1223,5 +1223,6 @@ const JobsCommandGrid: React.FC = () => {
 };
 
 export default JobsCommandGrid;
+
 
 

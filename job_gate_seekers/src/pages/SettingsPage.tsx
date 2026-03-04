@@ -92,7 +92,7 @@ const SettingsPage: React.FC = () => {
               className={`rounded-xl border px-4 py-2 ${language === "ar" ? "nav-active" : "border-[var(--border)]"}`}
               onClick={() => setLanguage("ar")}
             >
-              ???????
+              العربية
             </button>
           </div>
         </div>
