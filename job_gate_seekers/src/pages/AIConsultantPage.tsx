@@ -20,6 +20,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
 
 const SESSION_KEY = "twt_ai_session";
+const CV_OUTPUT_LANGUAGE = "en";
 
 type ChatMessage = { role: "user" | "assistant"; text: string; id?: string; pending?: boolean };
 type BuilderSection = { exists?: boolean; data?: any };
@@ -119,9 +120,6 @@ const buildBuilderPreviewDoc = (draft: BuilderSeed | null, language: string) => 
   const education = asList(sections.education?.data);
   const certs = asList(sections.certifications_awards?.data);
 
-  const heading = (valueEn: string, valueAr: string) =>
-    language === "ar" ? valueAr : valueEn;
-
   const skillLine = (label: string, items: any[]) =>
     items.length ? `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(items.join(", "))}</p>` : "";
 
@@ -152,7 +150,7 @@ const buildBuilderPreviewDoc = (draft: BuilderSeed | null, language: string) => 
         <p><strong>${escapeHtml(row?.title || "")}</strong>${row?.role ? ` | ${escapeHtml(row.role)}` : ""}</p>
         <p class="muted">${escapeHtml(row?.start_date || "")} - ${escapeHtml(row?.end_date || "")}</p>
         ${row?.objective ? `<p>${escapeHtml(row.objective)}</p>` : ""}
-        ${tech ? `<p><strong>${heading("Tech Stack", "التقنيات")}:</strong> ${escapeHtml(tech)}</p>` : ""}
+        ${tech ? `<p><strong>Tech Stack:</strong> ${escapeHtml(tech)}</p>` : ""}
         ${bullets ? `<ul>${bullets}</ul>` : ""}
       </div>`;
     })
@@ -164,7 +162,7 @@ const buildBuilderPreviewDoc = (draft: BuilderSeed | null, language: string) => 
       return `<div class="block">
         <p><strong>${escapeHtml(row?.degree || "")}</strong></p>
         <p>${escapeHtml(row?.institution || "")}${row?.graduation_year ? ` | ${escapeHtml(row.graduation_year)}` : ""}</p>
-        ${coursework ? `<p class="muted"><strong>${heading("Relevant Coursework", "مواد ذات صلة")}:</strong> ${escapeHtml(coursework)}</p>` : ""}
+        ${coursework ? `<p class="muted"><strong>Relevant Coursework:</strong> ${escapeHtml(coursework)}</p>` : ""}
       </div>`;
     })
     .join("");
@@ -191,27 +189,27 @@ ${[contact.phone, contact.email, contact.location].filter(Boolean).map(escapeHtm
 ${contact.linkedin_url ? ` | <a href="${escapeHtml(contact.linkedin_url)}" target="_blank" rel="noreferrer">${escapeHtml(contact.linkedin_url)}</a>` : ""}
 </p>
 
-<h2>${heading("Professional Summary", "الملخص المهني")}</h2>
+<h2>Professional Summary</h2>
 <p>${escapeHtml(summary)}</p>
 
-<h2>${heading("Core Competencies", "المهارات الأساسية")}</h2>
-${skillLine(heading("Programming", "البرمجة"), asList(skills.programming))}
-${skillLine(heading("Frameworks", "الأطر"), asList(skills.frameworks))}
-${skillLine(heading("Tools & Platforms", "الأدوات والمنصات"), asList(skills.tools_platforms))}
-${skillLine(heading("Domain Expertise", "الخبرة التخصصية"), asList(skills.domain_expertise))}
-${skillLine(heading("Other", "أخرى"), asList(skills.other))}
+<h2>Core Competencies</h2>
+${skillLine("Programming", asList(skills.programming))}
+${skillLine("Frameworks", asList(skills.frameworks))}
+${skillLine("Tools & Platforms", asList(skills.tools_platforms))}
+${skillLine("Domain Expertise", asList(skills.domain_expertise))}
+${skillLine("Other", asList(skills.other))}
 
-<h2>${heading("Work Experience", "الخبرة المهنية")}</h2>
-${expRows || `<p class="muted">${heading("No experience entries yet.", "لا توجد خبرات مضافة بعد.")}</p>`}
+<h2>Work Experience</h2>
+${expRows || `<p class="muted">No experience entries yet.</p>`}
 
-<h2>${heading("Projects", "المشاريع")}</h2>
-${projectRows || `<p class="muted">${heading("No projects added yet.", "لا توجد مشاريع مضافة بعد.")}</p>`}
+<h2>Projects</h2>
+${projectRows || `<p class="muted">No projects added yet.</p>`}
 
-<h2>${heading("Education", "التعليم")}</h2>
-${eduRows || `<p class="muted">${heading("No education entries yet.", "لا توجد بيانات تعليم مضافة بعد.")}</p>`}
+<h2>Education</h2>
+${eduRows || `<p class="muted">No education entries yet.</p>`}
 
-<h2>${heading("Certifications & Awards", "الشهادات والجوائز")}</h2>
-${certRows ? `<ul>${certRows}</ul>` : `<p class="muted">${heading("No certifications or awards yet.", "لا توجد شهادات أو جوائز بعد.")}</p>`}
+<h2>Certifications & Awards</h2>
+${certRows ? `<ul>${certRows}</ul>` : `<p class="muted">No certifications or awards yet.</p>`}
 </body></html>`;
 };
 
@@ -313,6 +311,146 @@ const hasContent = (value: any): boolean => {
   return false;
 };
 
+const ensureArray = (value: any) => (Array.isArray(value) ? value : []);
+const text = (value: any) => String(value ?? "").trim();
+const asObj = (value: any) =>
+  value && typeof value === "object" && !Array.isArray(value) ? value : {};
+
+const buildBuilderSeedFromSession = (raw: any): BuilderSeed | null => {
+  const payload = raw?.session || raw?.data?.session || raw;
+  const cvData = asObj(payload?.cv_data);
+  if (!Object.keys(cvData).length) return null;
+
+  const personal = asObj(cvData.personal_info);
+  const skills = ensureArray(cvData.skills).map((s) => text(s)).filter(Boolean);
+  const expRows = ensureArray(cvData.experience)
+    .map((row: any) => {
+      const item = asObj(row);
+      const achievements = ensureArray(item.achievements).map((a) => text(a)).filter(Boolean);
+      const description = text(item.description);
+      const bullets = achievements.length
+        ? achievements
+        : description
+          ? description
+              .split(/\r?\n|[.;]\s+/)
+              .map((line) => text(line))
+              .filter(Boolean)
+          : [];
+      return {
+        job_title: text(item.position || item.title || item.job_title),
+        company: text(item.company || item.organization),
+        location: text(item.location),
+        start_date: text(item.start_date || item.start),
+        end_date: text(item.end_date || item.end),
+        is_current: Boolean(item.is_current || /present|current/i.test(text(item.duration))),
+        bullets,
+      };
+    })
+    .filter((row: any) => hasContent(row));
+
+  const projectRows = ensureArray(cvData.projects)
+    .map((row: any) => {
+      const item = asObj(row);
+      const bullets = ensureArray(item.bullets).map((b) => text(b)).filter(Boolean);
+      const objective = text(item.objective || item.description);
+      const tech_stack = ensureArray(item.tech_stack || item.technologies).map((t) => text(t)).filter(Boolean);
+      return {
+        title: text(item.title || item.name),
+        role: text(item.role),
+        start_date: text(item.start_date || item.start),
+        end_date: text(item.end_date || item.end),
+        objective,
+        tech_stack,
+        bullets,
+      };
+    })
+    .filter((row: any) => hasContent(row));
+
+  const educationRows = ensureArray(cvData.education)
+    .map((row: any) => {
+      const item = asObj(row);
+      return {
+        degree: text(item.degree || item.title),
+        institution: text(item.institution || item.school),
+        graduation_year: text(item.graduation_year || item.year || item.duration),
+        coursework: ensureArray(item.coursework)
+          .map((c) => text(c))
+          .filter(Boolean),
+      };
+    })
+    .filter((row: any) => hasContent(row));
+
+  const certRows = ensureArray(cvData.certifications)
+    .map((entry: any) => ({
+      type: "certification",
+      name: text(entry),
+      acronym: "",
+      issuer: "",
+      date: "",
+    }))
+    .filter((row: any) => hasContent(row.name));
+
+  const sections: Record<string, BuilderSection> = {
+    contact_information: {
+      data: {
+        full_name: text(personal.full_name || personal.name),
+        professional_title: text(personal.title || personal.professional_title),
+        email: text(personal.email),
+        phone: text(personal.phone),
+        location: text(personal.location),
+        linkedin_url: text(personal.linkedin || personal.linkedin_url),
+      },
+    },
+    professional_summary: { data: text(cvData.summary) },
+    core_competencies: {
+      data: {
+        programming: skills,
+        frameworks: [],
+        tools_platforms: [],
+        domain_expertise: [],
+        other: [],
+      },
+    },
+    professional_experience: { data: expRows },
+    projects: { data: projectRows },
+    education: { data: educationRows },
+    certifications_awards: { data: certRows },
+  };
+
+  Object.values(sections).forEach((section) => {
+    section.exists = hasContent(section.data);
+  });
+
+  const required = [
+    "contact_information",
+    "professional_summary",
+    "core_competencies",
+    "professional_experience",
+    "education",
+  ];
+  const missing = required.filter((key) => !sections[key]?.exists);
+
+  return {
+    message_type: "cv_builder_v2_seed",
+    schema_version: 2,
+    section_order: [
+      "contact_information",
+      "professional_summary",
+      "core_competencies",
+      "professional_experience",
+      "projects",
+      "education",
+      "certifications_awards",
+    ],
+    sections,
+    missing_required_sections: missing,
+    validation: {
+      blocking_errors: sections.contact_information?.exists ? [] : ["contact_information_missing"],
+      warnings: missing.map((key) => `${key}_missing`),
+    },
+  };
+};
+
 const extractBuilderSeed = (messages: ChatMessage[]): BuilderSeed | null => {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const msg = messages[i];
@@ -350,7 +488,6 @@ const AIConsultantPage: React.FC = () => {
   const [sessionSearch, setSessionSearch] = useState("");
   const [menuSessionId, setMenuSessionId] = useState<string | null>(null);
   const [startMenuOpen, setStartMenuOpen] = useState(false);
-  const [pendingTitle, setPendingTitle] = useState("");
   const [builderDraft, setBuilderDraft] = useState<BuilderSeed | null>(null);
   const [builderDirty, setBuilderDirty] = useState(false);
   const [builderSyncInfo, setBuilderSyncInfo] = useState("");
@@ -361,6 +498,10 @@ const AIConsultantPage: React.FC = () => {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const autoStartedRef = useRef(false);
   const isRtl = language === "ar";
+  const cvLanguageNote =
+    language === "ar"
+      ? "نقوم حالياً بإنشاء السيرة الذاتية باللغة الإنجليزية فقط لضمان أفضل توافق مع أنظمة ATS. دعم السيرة العربية والترجمة بنقرة واحدة قادم قريباً."
+      : "We currently generate CVs in English only for better ATS compatibility. Arabic CV output and one-click translation are coming soon.";
 
   useEffect(() => {
     const stored = localStorage.getItem(SESSION_KEY);
@@ -419,7 +560,6 @@ const AIConsultantPage: React.FC = () => {
         setShowRightPanel(false);
         setMenuSessionId(null);
         setStartMenuOpen(false);
-        setPendingTitle("");
       }
     };
     window.addEventListener("keydown", handler);
@@ -450,7 +590,10 @@ const AIConsultantPage: React.FC = () => {
     if (normalized.length) setMessages(normalized);
   }, [sessionQ.data]);
 
-  const builderSeed = useMemo(() => extractBuilderSeed(messages), [messages]);
+  const builderSeed = useMemo(
+    () => extractBuilderSeed(messages) || buildBuilderSeedFromSession(sessionQ.data),
+    [messages, sessionQ.data]
+  );
 
   useEffect(() => {
     if (!builderSeed) return;
@@ -459,8 +602,8 @@ const AIConsultantPage: React.FC = () => {
   }, [builderSeed, builderDirty]);
 
   const previewQ = useQuery({
-    queryKey: ["chat-preview", sessionId, language],
-    queryFn: () => seekerApi.getChatPreview(sessionId, language === "ar" ? "ar" : "en"),
+    queryKey: ["chat-preview", sessionId, CV_OUTPUT_LANGUAGE],
+    queryFn: () => seekerApi.getChatPreview(sessionId, CV_OUTPUT_LANGUAGE),
     enabled: !!sessionId,
   });
   const previewAvailable = Boolean(previewQ.data);
@@ -474,7 +617,8 @@ const AIConsultantPage: React.FC = () => {
   const startMutation = useMutation({
     mutationFn: ({ mockInterview, title }: { mockInterview: boolean; title?: string }) =>
       seekerApi.startChat({
-        language: language === "ar" ? "arabic" : "english",
+        language: "english",
+        output_language: CV_OUTPUT_LANGUAGE,
         initialData: { mode: mockInterview ? "mock_interview" : "career_advisor" },
       }),
     onSuccess: async (data: any, variables) => {
@@ -494,7 +638,6 @@ const AIConsultantPage: React.FC = () => {
       setMessages([]);
       setChatError("");
       setStartMenuOpen(false);
-      setPendingTitle("");
       queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
       setTimeout(() => inputRef.current?.focus(), 50);
     },
@@ -570,7 +713,7 @@ const AIConsultantPage: React.FC = () => {
       seekerApi.exportChatDocument({
         sessionId,
         format,
-        language: language === "ar" ? "ar" : "en",
+        language: CV_OUTPUT_LANGUAGE,
         include_branding: includeBranding,
         brand_mode: "footer",
       }),
@@ -596,6 +739,9 @@ const AIConsultantPage: React.FC = () => {
         ...builderDraft,
         message_type: "cv_builder_v2_update",
         updated_at: new Date().toISOString(),
+        output_language: CV_OUTPUT_LANGUAGE,
+        generation_instruction:
+          "Keep the CV content in professional English. If any section contains Arabic text, translate it to English while preserving meaning.",
       };
       await seekerApi.sendChat({ sessionId, message: JSON.stringify(payload, null, 2) });
       return true;
@@ -604,7 +750,7 @@ const AIConsultantPage: React.FC = () => {
       setBuilderSyncError("");
       setBuilderSyncInfo(language === "ar" ? "تم تحديث بيانات السيرة في المحادثة." : "Builder data synced to chat.");
       setBuilderDirty(false);
-      queryClient.invalidateQueries({ queryKey: ["chat-preview", sessionId, language] });
+      queryClient.invalidateQueries({ queryKey: ["chat-preview", sessionId, CV_OUTPUT_LANGUAGE] });
       queryClient.invalidateQueries({ queryKey: ["chat-insights", sessionId] });
     },
     onError: (error: unknown) => {
@@ -634,10 +780,10 @@ const AIConsultantPage: React.FC = () => {
     const raw = String(previewQ.data || "");
     if (!raw) return "";
     if (builderDraft && !hasStructuredHeadings(raw)) {
-      return buildBuilderPreviewDoc(builderDraft, language);
+      return buildBuilderPreviewDoc(builderDraft, CV_OUTPUT_LANGUAGE);
     }
-    return buildPreviewDoc(raw, language);
-  }, [previewQ.data, builderDraft, language]);
+    return buildPreviewDoc(raw, CV_OUTPUT_LANGUAGE);
+  }, [previewQ.data, builderDraft]);
 
   const atsHealth = useMemo(() => {
     if (!builderDraft?.sections) return null;
@@ -834,6 +980,23 @@ const AIConsultantPage: React.FC = () => {
     setMenuSessionId(null);
   };
 
+  const openStartMenu = () => {
+    setStartMenuOpen(true);
+  };
+
+  const launchSessionFromMenu = (mockInterview: boolean) => {
+    const suggested = t("titlePlaceholder");
+    const nextTitle = window.prompt(t("sessionTitle"), suggested);
+    if (nextTitle === null) {
+      setStartMenuOpen(false);
+      return;
+    }
+    startMutation.mutate({
+      mockInterview,
+      title: nextTitle.trim() || undefined,
+    });
+  };
+
   const sessionsSidebar = (
     <div className="flex h-full flex-col p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -841,17 +1004,13 @@ const AIConsultantPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <div className="relative">
             <button
-              className="btn-primary flex h-9 w-9 items-center justify-center rounded-full p-0"
-              onClick={() => {
-                const suggested = t("titlePlaceholder");
-                const nextTitle = window.prompt(t("sessionTitle"), suggested);
-                if (nextTitle === null) return;
-                setPendingTitle(nextTitle.trim());
-                setStartMenuOpen(true);
-              }}
+              className="btn-primary flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold"
+              onClick={openStartMenu}
               aria-label="New session"
+              title={language === "ar" ? "جلسة جديدة" : "New session"}
             >
               <Plus size={16} />
+              <span>{language === "ar" ? "جديد" : "New"}</span>
             </button>
             {startMenuOpen && (
               <div
@@ -859,24 +1018,14 @@ const AIConsultantPage: React.FC = () => {
               >
                 <button
                   className="w-full rounded-lg px-3 py-2 text-start hover:bg-[var(--glass)]"
-                  onClick={() =>
-                    startMutation.mutate({
-                      mockInterview: false,
-                      title: pendingTitle.trim() || undefined,
-                    })
-                  }
+                  onClick={() => launchSessionFromMenu(false)}
                   disabled={startMutation.isPending}
                 >
                   {t("startCareerAdvisor")}
                 </button>
                 <button
                   className="mt-1 w-full rounded-lg px-3 py-2 text-start hover:bg-[var(--glass)]"
-                  onClick={() =>
-                    startMutation.mutate({
-                      mockInterview: true,
-                      title: pendingTitle.trim() || undefined,
-                    })
-                  }
+                  onClick={() => launchSessionFromMenu(true)}
                   disabled={startMutation.isPending}
                 >
                   {t("startMockInterview")}
@@ -911,13 +1060,7 @@ const AIConsultantPage: React.FC = () => {
           <div className="mb-3">{t("chatEmpty")}</div>
           <button
             className="btn-primary w-full"
-            onClick={() => {
-              const suggested = t("titlePlaceholder");
-              const nextTitle = window.prompt(t("sessionTitle"), suggested);
-              if (nextTitle === null) return;
-              setPendingTitle(nextTitle.trim());
-              setStartMenuOpen(true);
-            }}
+            onClick={openStartMenu}
             disabled={startMutation.isPending}
           >
             {t("startCareerAdvisor")}
@@ -1874,6 +2017,9 @@ const AIConsultantPage: React.FC = () => {
                     {t("refreshPreview")}
                   </button>
                 </div>
+                <p className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--panel-bg)]/50 px-3 py-2 text-xs text-[var(--text-muted)]">
+                  {cvLanguageNote}
+                </p>
                 {!sessionId && <p className="text-sm text-[var(--text-muted)]">{t("selectSessionHint")}</p>}
                 {sessionId && previewQ.isLoading && (
                   <p className="text-sm text-[var(--text-muted)]">{t("previewLoading")}</p>
@@ -2081,6 +2227,11 @@ const AIConsultantPage: React.FC = () => {
                       : "Complete required sections in Builder and sync before exporting."}
                   </p>
                 )}
+                <p className="rounded-lg border border-[var(--border)] bg-[var(--panel-bg)]/40 px-3 py-2 text-xs text-[var(--text-muted)]">
+                  {language === "ar"
+                    ? "بعد التصدير، ارجع إلى CV Lab وارفع النسخة الجديدة من السيرة حتى تُحفظ ضمن قاعدة بيانات السير الذاتية الخاصة بك."
+                    : "After export, go back to CV Lab and upload the new CV so it is saved in your CV database."}
+                </p>
               </div>
             )}
           </div>

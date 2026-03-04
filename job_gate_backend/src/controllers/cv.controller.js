@@ -1,4 +1,10 @@
-const { CV } = require("../models");
+const {
+  sequelize,
+  CV,
+  CVStructuredData,
+  CVFeaturesAnalytics,
+  CVAIInsights,
+} = require("../models");
 const { successResponse } = require("../utils/responseHandler");
 const fs = require("fs");
 const util = require("util");
@@ -101,6 +107,20 @@ exports.uploadNewCV = async (req, res) => {
         limit: 3,
       });
     }
+    if (existingCount >= 1) {
+      if (cvUrl) {
+        try {
+          await unlinkFile(cvUrl);
+        } catch (unlinkError) {
+          console.warn("Warning: Could not delete uploaded CV file:", unlinkError);
+        }
+      }
+      return res.status(400).json({
+        message:
+          "Please delete your current CV first. Only one active CV is allowed at a time.",
+        error_code: "CV_SINGLE_ACTIVE_REQUIRED",
+      });
+    }
 
     const allowPromotionValue =
       allow_promotion === true ||
@@ -152,24 +172,36 @@ exports.deleteUserCV = async (req, res) => {
   }
 
   try {
-    const cv = await CV.findByPk(id);
+    const result = await sequelize.transaction(async (transaction) => {
+      const cv = await CV.findByPk(id, { transaction });
+      if (!cv) {
+        return { status: 404, body: { message: "CV not found." } };
+      }
 
-    if (!cv) {
-      return res.status(404).json({ message: "CV not found." });
+      if (cv.user_id !== userId) {
+        return {
+          status: 403,
+          body: { message: "Forbidden: You are not allowed to delete this CV." },
+        };
+      }
+
+      const fileToDelete = cv.file_url;
+
+      await CVAIInsights.destroy({ where: { cv_id: cv.cv_id }, transaction });
+      await CVFeaturesAnalytics.destroy({ where: { cv_id: cv.cv_id }, transaction });
+      await CVStructuredData.destroy({ where: { cv_id: cv.cv_id }, transaction });
+      await cv.destroy({ transaction });
+
+      return { status: 200, fileToDelete };
+    });
+
+    if (result.status !== 200) {
+      return res.status(result.status).json(result.body);
     }
 
-    if (cv.user_id !== userId) {
-      return res.status(403).json({
-        message: "Forbidden: You are not allowed to delete this CV.",
-      });
-    }
-
-    const fileToDelete = cv.file_url;
-    await cv.destroy();
-
-    if (fileToDelete) {
+    if (result.fileToDelete) {
       try {
-        await unlinkFile(fileToDelete);
+        await unlinkFile(result.fileToDelete);
       } catch (unlinkError) {
         console.warn("Warning: Could not delete physical CV file:", unlinkError);
       }

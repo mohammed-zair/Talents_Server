@@ -36,6 +36,9 @@ const REQUIRED_SECTIONS = [
   "professional_experience",
   "education",
 ] as const;
+const CV_OUTPUT_LANGUAGE = "en";
+const CV_ENGLISH_INSTRUCTION =
+  "Generate and maintain the CV in professional English only. If any source content is Arabic, translate it to clear English while preserving meaning and facts.";
 
 const isNonEmptyValue = (value: unknown): boolean => {
   if (value == null) return false;
@@ -49,6 +52,15 @@ const isNonEmptyValue = (value: unknown): boolean => {
 
 const asString = (value: unknown) => String(value ?? "").trim();
 const asArray = (value: unknown) => (Array.isArray(value) ? value : []);
+const asRecord = (value: unknown) =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+
+const parseObjectMaybe = (value: unknown) => {
+  const parsed = parseJsonMaybe(value);
+  return asRecord(parsed);
+};
 
 const normalizeContact = (value: unknown) => {
   const obj = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -225,6 +237,135 @@ const buildCvBuilderSchemaV2 = (
   };
 };
 
+const getStructuredCompleteness = (structured: Record<string, unknown>) => {
+  const keys = [
+    structured.personal_info,
+    structured.summary,
+    structured.skills,
+    structured.experience,
+    structured.education,
+    structured.projects,
+    structured.certifications,
+    structured.languages,
+  ];
+  return keys.reduce<number>((acc, item) => acc + (isNonEmptyValue(item) ? 1 : 0), 0);
+};
+
+const getFeaturesCompleteness = (features: Record<string, unknown>) => {
+  const keys = [
+    features.ats_score,
+    features.total_years_experience,
+    features.key_skills,
+    features.achievement_count,
+    features.has_contact_info,
+    features.has_education,
+    features.has_experience,
+  ];
+  return keys.reduce<number>((acc, item) => acc + (isNonEmptyValue(item) ? 1 : 0), 0);
+};
+
+const toLanguageList = (value: unknown) =>
+  asArray(value)
+    .map((item) => {
+      if (typeof item === "string") return asString(item);
+      if (item && typeof item === "object") {
+        const row = item as Record<string, unknown>;
+        return asString(row.name || row.language);
+      }
+      return "";
+    })
+    .filter(Boolean);
+
+const buildChatbotInitialData = (
+  structured: Record<string, unknown>,
+  features: Record<string, unknown>,
+  seed: Record<string, unknown>
+) => {
+  const schema = buildCvBuilderSchemaV2(structured, features);
+  const sections = schema.sections;
+  const contact = asRecord(sections.contact_information?.data);
+  const summary = asString(sections.professional_summary?.data);
+  const competencies = asRecord(sections.core_competencies?.data);
+  const experience = asArray(sections.professional_experience?.data).map((row) => {
+    const item = asRecord(row);
+    const start = asString(item.start_date);
+    const end = item.is_current ? "Present" : asString(item.end_date);
+    const bullets = asArray(item.bullets).map((b) => asString(b)).filter(Boolean);
+    return {
+      position: asString(item.job_title),
+      company: asString(item.company),
+      duration: [start, end].filter(Boolean).join(" - "),
+      description: bullets.join(" "),
+      achievements: bullets,
+    };
+  });
+  const education = asArray(sections.education?.data).map((row) => {
+    const item = asRecord(row);
+    return {
+      degree: asString(item.degree || item.field_of_study),
+      institution: asString(item.institution),
+      duration: asString(item.graduation_year),
+      description: asArray(item.coursework).map((c) => asString(c)).filter(Boolean).join(", "),
+    };
+  });
+  const projects = asArray(sections.projects?.data).map((row) => {
+    const item = asRecord(row);
+    const tech = asArray(item.tech_stack).map((t) => asString(t)).filter(Boolean);
+    const bullets = asArray(item.bullets).map((b) => asString(b)).filter(Boolean);
+    return {
+      name: asString(item.title),
+      description: [asString(item.objective), ...bullets].filter(Boolean).join(" "),
+      technologies: tech,
+    };
+  });
+  const certifications = asArray(sections.certifications_awards?.data)
+    .map((row) => asString(asRecord(row).name))
+    .filter(Boolean);
+
+  const skills = Array.from(
+    new Set(
+      [
+        ...asArray(competencies.programming),
+        ...asArray(competencies.frameworks),
+        ...asArray(competencies.tools_platforms),
+        ...asArray(competencies.domain_expertise),
+        ...asArray(competencies.other),
+      ]
+        .map((s) => asString(s))
+        .filter(Boolean)
+    )
+  );
+
+  return {
+    personal_info: {
+      full_name: asString(contact.full_name),
+      name: asString(contact.full_name),
+      email: asString(contact.email),
+      phone: asString(contact.phone),
+      location: asString(contact.location),
+      linkedin: asString(contact.linkedin_url),
+      github: "",
+      title: asString(contact.professional_title),
+    },
+    summary,
+    experience,
+    education,
+    skills,
+    projects,
+    certifications,
+    languages: toLanguageList(structured["languages"]),
+    _meta: {
+      source_cv_id: seed.cv_id || null,
+      seed_version: 3,
+      structured_completeness: getStructuredCompleteness(structured),
+      features_available: getFeaturesCompleteness(features) > 0,
+      missing_sections: schema.missing_required_sections,
+      source_structured_data: structured,
+      source_features_analytics: features,
+    },
+  };
+};
+
 const getCvPublicHref = (fileUrl?: string) => {
   if (!fileUrl) return null;
   if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
@@ -274,6 +415,7 @@ const CVLabPage: React.FC = () => {
   });
   const historyItems = useMemo(() => (Array.isArray(historyQ.data) ? historyQ.data : []), [historyQ.data]);
   const maxCvReached = cvItems.length >= 3;
+  const hasExistingCv = cvItems.length >= 1;
   const hasAnalysisRun = historyItems.length > 0;
 
   const analyzeMutation = useMutation({
@@ -381,16 +523,32 @@ const CVLabPage: React.FC = () => {
   const recommendationItems = toList(
     analysisInsights?.recommendations || analysisInsights?.ats_optimization_tips
   );
-  const snapshotFeatures =
-    activeInsight?.features_analytics ||
-    analysis?.features_analytics ||
-    cvAnalysisQ.data?.features_analytics ||
-    {};
-  const snapshotStructured =
-    activeInsight?.structured_data ||
-    analysis?.structured_data ||
-    cvAnalysisQ.data?.structured_data ||
-    {};
+  const snapshotCandidates: Array<{
+    structured: Record<string, unknown>;
+    features: Record<string, unknown>;
+  }> = [
+    {
+      structured: parseObjectMaybe(activeInsight?.structured_data),
+      features: parseObjectMaybe(activeInsight?.features_analytics),
+    },
+    {
+      structured: parseObjectMaybe(analysis?.structured_data),
+      features: parseObjectMaybe(analysis?.features_analytics),
+    },
+    {
+      structured: parseObjectMaybe(cvAnalysisQ.data?.structured_data),
+      features: parseObjectMaybe(cvAnalysisQ.data?.features_analytics),
+    },
+  ];
+  const bestSnapshot = snapshotCandidates
+    .map((item) => ({
+      ...item,
+      score:
+        getStructuredCompleteness(item.structured) * 10 + getFeaturesCompleteness(item.features),
+    }))
+    .sort((a, b) => b.score - a.score)[0];
+  const snapshotFeatures = bestSnapshot?.features || {};
+  const snapshotStructured = bestSnapshot?.structured || {};
   const keySkills = toList(snapshotFeatures?.key_skills);
   const atsScore = activeInsight?.ats_score ?? snapshotFeatures?.ats_score;
   const industryScore = activeInsight?.industry_ranking_score;
@@ -420,6 +578,8 @@ const CVLabPage: React.FC = () => {
       cv_id: selectedCv?.cv_id,
       cv_title: selectedCv?.title,
       analyzed_at: activeInsight?.created_at || analysis?.created_at || null,
+      output_language: CV_OUTPUT_LANGUAGE,
+      generation_instruction: CV_ENGLISH_INSTRUCTION,
       schema_version: builderSchema.schema_version,
       section_order: builderSchema.section_order,
       sections_present,
@@ -436,13 +596,22 @@ const CVLabPage: React.FC = () => {
   const enhanceMutation = useMutation({
     mutationFn: async () => {
       const payload = buildEnhancePayload();
+      const structured = parseObjectMaybe(snapshotStructured);
+      const features = parseObjectMaybe(snapshotFeatures);
+      const initialData = buildChatbotInitialData(structured, features, payload);
       const start = await seekerApi.startChat({
-        language: language === "ar" ? "arabic" : "english",
-        initialData: {},
+        language: "english",
+        output_language: CV_OUTPUT_LANGUAGE,
+        initialData,
       });
       const id = start?.session_id || start?.sessionId || start?.id;
       if (!id) throw new Error(t("startFailed"));
-      const message = JSON.stringify(payload, null, 2);
+      const missing = Array.isArray(payload?.missing_required_sections)
+        ? payload.missing_required_sections
+        : [];
+      const message = `Please improve my CV for ATS and recruiter readability in professional English. Keep all facts accurate, strengthen wording, and ask me only for missing sections one by one. Missing sections: ${
+        missing.length ? missing.join(", ") : "none"
+      }.`;
       await seekerApi.sendChat({ sessionId: String(id), message });
       return String(id);
     },
@@ -523,12 +692,20 @@ const CVLabPage: React.FC = () => {
               accept=".pdf,.doc,.docx"
               className="hidden"
               aria-describedby="cv-upload-feedback"
-              disabled={maxCvReached || uploadMutation.isPending}
+              disabled={maxCvReached || hasExistingCv || uploadMutation.isPending}
               onChange={(e) => {
                 setUploadError("");
                 setUploadFeedback("");
                 if (maxCvReached) {
                   setUploadError(t("cvUploadLimitReached"));
+                  return;
+                }
+                if (hasExistingCv) {
+                  setUploadError(
+                    language === "ar"
+                      ? "احذف السيرة الحالية أولاً قبل رفع سيرة جديدة. مسموح بسيرة نشطة واحدة فقط."
+                      : "Delete your current CV first before uploading a new one. Only one active CV is allowed."
+                  );
                   return;
                 }
                 if (e.target.files?.[0]) uploadMutation.mutate(e.target.files[0]);
@@ -540,7 +717,11 @@ const CVLabPage: React.FC = () => {
             <button
               className="btn-ghost"
               onClick={() => {
-                if (window.confirm(t("confirmDeleteCv"))) {
+                const confirmMessage =
+                  language === "ar"
+                    ? "هل أنت متأكد من حذف هذه السيرة؟ سيتم أيضاً حذف كل بيانات التحليل بالذكاء الاصطناعي المرتبطة بها."
+                    : "Are you sure you want to delete this CV? All linked AI analysis data will also be deleted.";
+                if (window.confirm(confirmMessage)) {
                   deleteMutation.mutate(selectedCv.cv_id);
                 }
               }}
@@ -568,6 +749,16 @@ const CVLabPage: React.FC = () => {
         </div>
 
         <div id="cv-upload-feedback" aria-live="polite">
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
+            {language === "ar" ? `عدد السير الذاتية: ${cvItems.length}/3` : `CV count: ${cvItems.length}/3`}
+          </p>
+          {hasExistingCv && !uploadMutation.isPending && (
+            <p className="mt-1 text-xs text-amber-300">
+              {language === "ar"
+                ? "لرفع سيرة جديدة، احذف السيرة الحالية أولاً. نسمح بسيرة نشطة واحدة فقط."
+                : "To upload a new CV, delete your current CV first. Only one active CV is allowed."}
+            </p>
+          )}
           {uploadMutation.isPending && (
             <p className="mt-2 text-xs text-[var(--text-muted)]">{t("uploading")}</p>
           )}
