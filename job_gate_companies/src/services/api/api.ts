@@ -6,6 +6,7 @@ import type {
   CompanyDashboardData,
   CompanyProfile,
   CVRequest,
+  CVRequestPipelineData,
   JobPosting,
 } from "../../types";
 import { clearToken } from "../auth";
@@ -364,6 +365,10 @@ export const companyApi = {
     const normalized =
       Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
     return normalized as CVRequest[];
+  },
+  getCvRequestPipeline: async (requestId: string | number) => {
+    const { data } = await api.get(`/company/cv-requests/${requestId}/pipeline`);
+    return ((data as any)?.data ?? data) as CVRequestPipelineData;
   },
   createCvRequest: async (payload: {
     requested_role: string;

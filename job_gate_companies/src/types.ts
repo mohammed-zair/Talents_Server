@@ -152,9 +152,92 @@ export interface CVRequest {
   skills?: string[] | null;
   location?: string | null;
   cv_count: number;
-  status: "pending" | "approved" | "rejected" | "processed" | "delivered";
+  status:
+    | "pending"
+    | "approved"
+    | "processing"
+    | "processed"
+    | "delivered"
+    | "closed"
+    | "rejected";
   created_at?: string;
   reportUrl?: string;
+  stats?: {
+    selected?: number;
+    contacting?: number;
+    submitted_to_company?: number;
+    accepted_by_company?: number;
+    rejected_by_company?: number;
+    total_candidates?: number;
+    delivered_count?: number;
+  };
+}
+
+export interface CVRequestPipelineCandidate {
+  id: number;
+  status: "selected" | "contacting" | "submitted_to_company" | "accepted_by_company" | "rejected_by_company";
+  priority_rank?: number | null;
+  why_candidate?: string | null;
+  notes?: string | null;
+  candidate: {
+    id?: number | null;
+    full_name: string;
+    email?: string | null;
+    phone?: string | null;
+  };
+  cv?: {
+    id?: number | null;
+    title?: string | null;
+    file_url?: string | null;
+    created_at?: string | null;
+    ats_score?: number | null;
+  } | null;
+  source_ai_snapshot?: Record<string, unknown> | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CVRequestPipelineData {
+  request: CVRequest;
+  stats: {
+    total_candidates: number;
+    selected: number;
+    contacting: number;
+    submitted_to_company: number;
+    accepted_by_company: number;
+    rejected_by_company: number;
+  };
+  timeline: Array<{
+    key: string;
+    label: string;
+    active: boolean;
+  }>;
+  candidates: CVRequestPipelineCandidate[];
+  deliveries: Array<{
+    delivery_id: number;
+    cv_id: number;
+    match_score?: number;
+    match_details?: Record<string, unknown> | null;
+    delivered_at?: string;
+  }>;
+  updates: {
+    email: Array<{
+      email_id: number;
+      subject?: string;
+      body?: string;
+      status?: string;
+      sent_at?: string;
+      created_at?: string;
+    }>;
+    push: Array<{
+      push_id: number;
+      title?: string;
+      message?: string;
+      is_sent?: boolean;
+      sent_at?: string;
+      created_at?: string;
+    }>;
+  };
 }
 
 export interface SkillMatch {

@@ -19,5 +19,12 @@ router.get(
   verifyCompanyApproved,
   controller.getMyCVRequests
 );
+router.get(
+  "/:id/pipeline",
+  verifyCompanyAccess,
+  verifyCompany,
+  verifyCompanyApproved,
+  controller.getMyCVRequestPipeline
+);
 
 module.exports = router;
