@@ -3,6 +3,42 @@ import { Header } from '../../components';
 import axiosInstance from '../../utils/axiosConfig';
 import { extractData } from '../../utils/api';
 
+const PUSH_TEMPLATES = {
+  welcome: {
+    label: 'Welcome',
+    en: {
+      title: 'Welcome to Talents We Trust',
+      message: 'Your profile is active. Complete your CV and start exploring roles tailored for you.',
+    },
+    ar: {
+      title: 'أهلاً بك في Talents We Trust',
+      message: 'تم تفعيل حسابك. أكمل سيرتك الذاتية وابدأ استكشاف الوظائف المناسبة لك.',
+    },
+  },
+  application_update: {
+    label: 'Application Update',
+    en: {
+      title: 'Your application status was updated',
+      message: 'Your job application has moved to the next stage. Open the app to view details.',
+    },
+    ar: {
+      title: 'تم تحديث حالة طلبك',
+      message: 'تم نقل طلب التوظيف الخاص بك إلى مرحلة جديدة. افتح التطبيق لمعرفة التفاصيل.',
+    },
+  },
+  interview_invite: {
+    label: 'Interview Invite',
+    en: {
+      title: 'Interview Invitation',
+      message: 'Great news! You are invited for an interview. Please check your email for scheduling details.',
+    },
+    ar: {
+      title: 'دعوة لمقابلة عمل',
+      message: 'خبر ممتاز! تمت دعوتك إلى مقابلة عمل. يرجى مراجعة بريدك الإلكتروني لتفاصيل الموعد.',
+    },
+  },
+};
+
 const Push = () => {
   const [logs, setLogs] = useState([]);
   const [users, setUsers] = useState([]);
@@ -11,11 +47,24 @@ const Push = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showAllLogs, setShowAllLogs] = useState(false);
+  const [templateLanguage, setTemplateLanguage] = useState('en');
+  const [templateKey, setTemplateKey] = useState('welcome');
   const [formData, setFormData] = useState({
     target_user_id: '',
     title: '',
     message: '',
   });
+
+  const applyTemplate = () => {
+    const template = PUSH_TEMPLATES[templateKey]?.[templateLanguage];
+    if (!template) return;
+    setFormData((prev) => ({
+      ...prev,
+      title: template.title,
+      message: template.message,
+    }));
+  };
 
   const fetchLogs = async () => {
     try {
@@ -93,6 +142,12 @@ const Push = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const visibleLogs = showAllLogs ? filteredLogs : filteredLogs.slice(0, 6);
+
+  useEffect(() => {
+    setShowAllLogs(false);
+  }, [searchTerm, statusFilter]);
+
   return (
     <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white rounded-3xl">
       <Header category="Admin" title="Push Center" />
@@ -100,6 +155,37 @@ const Push = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-1 bg-gray-50 rounded-2xl p-6 border">
           <h3 className="text-lg font-semibold mb-4">Send Push</h3>
+
+          <div className="grid grid-cols-1 gap-2 mb-3">
+            <select
+              value={templateLanguage}
+              onChange={(event) => setTemplateLanguage(event.target.value)}
+              className="w-full border rounded px-3 py-2"
+            >
+              <option value="en">Template Language: English</option>
+              <option value="ar">Template Language: Arabic</option>
+            </select>
+            <div className="flex gap-2">
+              <select
+                value={templateKey}
+                onChange={(event) => setTemplateKey(event.target.value)}
+                className="w-full border rounded px-3 py-2"
+              >
+                {Object.entries(PUSH_TEMPLATES).map(([key, template]) => (
+                  <option key={key} value={key}>
+                    Template: {template.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={applyTemplate}
+                className="shrink-0 rounded px-3 py-2 border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
+              >
+                Use
+              </button>
+            </div>
+          </div>
 
           <select
             name="target_user_id"
@@ -145,7 +231,9 @@ const Push = () => {
           <div className="flex justify-between items-center mb-4">
             <div>
               <h3 className="text-lg font-semibold">Recent Push Notifications</h3>
-              <p className="text-sm text-gray-500">Latest 50 notifications</p>
+              <p className="text-sm text-gray-500">
+                Showing {Math.min(visibleLogs.length, filteredLogs.length)} of {filteredLogs.length}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -193,7 +281,7 @@ const Push = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLogs.map((log) => (
+                  {visibleLogs.map((log) => (
                     <tr key={log.push_id || log.id} className="border-b">
                       <td className="px-4 py-3">
                         {log.User?.full_name || log.User?.email || log.user_id}
@@ -205,7 +293,7 @@ const Push = () => {
                       </td>
                     </tr>
                   ))}
-                  {filteredLogs.length === 0 && (
+                  {visibleLogs.length === 0 && (
                     <tr>
                       <td colSpan="4" className="px-4 py-6 text-center text-gray-500">
                         No push logs found.
@@ -214,6 +302,18 @@ const Push = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {filteredLogs.length > 6 && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowAllLogs((prev) => !prev)}
+                className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+              >
+                {showAllLogs ? 'Show Less' : 'View All'}
+              </button>
             </div>
           )}
         </div>

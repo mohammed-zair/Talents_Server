@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiActivity, FiFileText, FiHome, FiLayers, FiList, FiUser } from 'react-icons/fi';
+import { FiFileText, FiHome, FiLayers, FiList, FiUser } from 'react-icons/fi';
 import { RiBuildingLine, RiUserReceivedLine } from 'react-icons/ri';
 import { MdEmail, MdNotificationsActive } from 'react-icons/md';
 import { AiOutlineRobot } from 'react-icons/ai';
@@ -35,7 +35,7 @@ export const links = [
       },
       {
         name: 'cv-requests',
-        label: 'CV Requests',
+        label: 'Headhunt Pipeline',
         icon: <FiFileText />,
       },
       {
@@ -47,11 +47,6 @@ export const links = [
         name: 'job-postings',
         label: 'Job Postings',
         icon: <FiLayers />,
-      },
-      {
-        name: 'market-pulse',
-        label: 'Market Pulse',
-        icon: <FiActivity />,
       },
       {
         name: 'cvs',

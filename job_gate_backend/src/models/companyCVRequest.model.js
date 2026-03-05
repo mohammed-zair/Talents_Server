@@ -22,7 +22,15 @@ const CompanyCVRequest = sequelize.define(
     location: { type: DataTypes.STRING, allowNull: true },
     cv_count: { type: DataTypes.INTEGER, allowNull: false },
     status: {
-      type: DataTypes.ENUM("pending", "approved", "rejected", "processed", "delivered"),
+      type: DataTypes.ENUM(
+        "pending",
+        "approved",
+        "rejected",
+        "processing",
+        "processed",
+        "delivered",
+        "closed"
+      ),
       defaultValue: "pending",
       allowNull: false,
     },

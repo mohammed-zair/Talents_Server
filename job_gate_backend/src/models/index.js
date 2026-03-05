@@ -18,6 +18,7 @@ const EmailNotification = require("./EmailNotification.model");
 const PushNotification = require("./PushNotification.model");
 const CompanyCVRequest = require("./companyCVRequest.model");
 const CompanyCVDelivery = require("./companyCVDelivery.model");
+const CompanyCVRequestCandidate = require("./companyCVRequestCandidate.model");
 const { constants } = require("fs/promises");
 const SavedJob = require("./savedJob.model");
 const ConsultationRequest = require("./consultationRequest.model");
@@ -98,6 +99,19 @@ CompanyCVRequest.belongsTo(Company, {foreignKey: "company_id",});
 
 CompanyCVDelivery.belongsTo(CV, { foreignKey: "cv_id" });
 CV.hasMany(CompanyCVDelivery, { foreignKey: "cv_id" });
+CompanyCVRequest.hasMany(CompanyCVRequestCandidate, {
+  foreignKey: "request_id",
+  onDelete: "CASCADE",
+});
+CompanyCVRequestCandidate.belongsTo(CompanyCVRequest, {
+  foreignKey: "request_id",
+});
+CompanyCVRequestCandidate.belongsTo(User, { foreignKey: "user_id" });
+User.hasMany(CompanyCVRequestCandidate, { foreignKey: "user_id" });
+CompanyCVRequestCandidate.belongsTo(CV, { foreignKey: "cv_id" });
+CV.hasMany(CompanyCVRequestCandidate, { foreignKey: "cv_id" });
+CompanyCVRequestCandidate.belongsTo(JobPosting, { foreignKey: "job_id" });
+JobPosting.hasMany(CompanyCVRequestCandidate, { foreignKey: "job_id" });
 
 // ---   علاقات أخرى ---
 Company.hasMany(User, { foreignKey: "company_id", onDelete: "SET NULL" });
@@ -182,6 +196,7 @@ module.exports = {
   PushNotification,
   CompanyCVRequest,
   CompanyCVDelivery,
+  CompanyCVRequestCandidate,
   SavedJob,
   ConsultationRequest,
   ConsultationBooking,

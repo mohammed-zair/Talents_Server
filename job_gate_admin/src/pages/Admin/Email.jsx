@@ -11,6 +11,7 @@ const Email = () => {
   const [mode, setMode] = useState('direct');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showAllLogs, setShowAllLogs] = useState(false);
   const [formData, setFormData] = useState({
     recipient: '',
     subject: '',
@@ -109,6 +110,11 @@ const Email = () => {
     const matchesStatus = statusFilter === 'all' || log.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+  const visibleLogs = showAllLogs ? filteredLogs : filteredLogs.slice(0, 6);
+
+  useEffect(() => {
+    setShowAllLogs(false);
+  }, [searchTerm, statusFilter]);
 
   return (
     <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white rounded-3xl">
@@ -195,7 +201,9 @@ const Email = () => {
           <div className="flex justify-between items-center mb-4">
             <div>
               <h3 className="text-lg font-semibold">Recent Emails</h3>
-              <p className="text-sm text-gray-500">Latest 50 messages</p>
+              <p className="text-sm text-gray-500">
+                Showing {Math.min(visibleLogs.length, filteredLogs.length)} of {filteredLogs.length}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -245,7 +253,7 @@ const Email = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLogs.map((log) => (
+                  {visibleLogs.map((log) => (
                     <tr key={log.email_id || log.id} className="border-b">
                       <td className="px-4 py-3">{log.recipient_email}</td>
                       <td className="px-4 py-3">{log.Company?.name || '-'}</td>
@@ -260,7 +268,7 @@ const Email = () => {
                       </td>
                     </tr>
                   ))}
-                  {filteredLogs.length === 0 && (
+                  {visibleLogs.length === 0 && (
                     <tr>
                       <td colSpan="5" className="px-4 py-6 text-center text-gray-500">
                         No email logs found.
@@ -271,6 +279,17 @@ const Email = () => {
               </table>
             </div>
           )}
+          {filteredLogs.length > 6 && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowAllLogs((prev) => !prev)}
+                className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+              >
+                {showAllLogs ? 'Show Less' : 'View All'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -278,3 +297,4 @@ const Email = () => {
 };
 
 export default Email;
+

@@ -110,6 +110,7 @@ app.use("/api/companies", companyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/company/cv-requests", companyCVRequestRoutes);
 app.use("/api/admin/cv-requests", adminCVRequestRoutes);
+app.use("/api/admin/headhunt-requests", adminCVRequestRoutes);
 app.use("/api/admin/cv-matching", adminCVMatchingRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/push", pushRoutes);

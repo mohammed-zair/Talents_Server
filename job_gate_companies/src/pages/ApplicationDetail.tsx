@@ -100,6 +100,28 @@ const normalizeHrHelper = (value: any) => {
   };
 };
 
+const getHrDecisionMeta = (decision: string, language: "en" | "ar") => {
+  if (decision === "hire") {
+    return {
+      label: language === "ar" ? "توظيف" : "Hire",
+      chipClass: "border-emerald-400/40 bg-emerald-500/15 text-emerald-200",
+      cardClass: "border-emerald-400/35 bg-emerald-500/10",
+    };
+  }
+  if (decision === "reject") {
+    return {
+      label: language === "ar" ? "رفض" : "Reject",
+      chipClass: "border-rose-400/40 bg-rose-500/15 text-rose-200",
+      cardClass: "border-rose-400/35 bg-rose-500/10",
+    };
+  }
+  return {
+    label: language === "ar" ? "مراجعة" : "Consider",
+    chipClass: "border-amber-400/40 bg-amber-500/15 text-amber-100",
+    cardClass: "border-amber-400/35 bg-amber-500/10",
+  };
+};
+
 const RadarChartCard: React.FC<{
   points: MatrixPoint[];
   language: "en" | "ar";
@@ -423,6 +445,8 @@ const ApplicationDetail: React.FC = () => {
     intelligence?.smart_match_pitch ||
     "";
   const hrHelperFromInsight = normalizeHrHelper(intelligence?.hr_helper);
+  const hrDecisionMeta = getHrDecisionMeta(hrHelper?.decision || "consider", language);
+  const displayScore = formattedAtsScore ?? formattedIndustryScore ?? null;
   const matrixFromInsights = Array.isArray(intelligence?.competency_matrix)
     ? intelligence?.competency_matrix
     : [];
@@ -646,10 +670,16 @@ const ApplicationDetail: React.FC = () => {
               </p>
               <Button
                 variant="outline"
-                className="mt-2 w-full justify-center"
+                className="group relative mt-2 w-full justify-center overflow-hidden border-cyan-400/40 bg-[linear-gradient(120deg,rgba(34,211,238,0.14),rgba(99,102,241,0.14))] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.18)] hover:border-cyan-300 hover:text-white"
                 onClick={refreshInsights}
                 disabled={refreshingInsights}
               >
+                <span className="pointer-events-none absolute -inset-x-8 top-0 h-full -skew-x-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <span className="relative flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                    <path d="M21 3v6h-6" />
+                  </svg>
                 {refreshingInsights
                   ? language === "ar"
                     ? "Ø¬Ø§Ø±ÙŠ Ø§Ù„ØªØ­Ø¯ÙŠØ«..."
@@ -657,107 +687,160 @@ const ApplicationDetail: React.FC = () => {
                   : language === "ar"
                     ? "ØªØ­Ø¯ÙŠØ« Ø§Ù„ØªØ­Ù„ÙŠÙ„"
                     : "Refresh AI Insights"}
+                </span>
               </Button>
               <Button
                 variant="outline"
-                className="mt-2 w-full justify-center"
+                className="group relative mt-2 w-full justify-center overflow-hidden border-indigo-400/40 bg-[linear-gradient(120deg,rgba(99,102,241,0.16),rgba(34,211,238,0.12))] text-indigo-100 shadow-[0_0_20px_rgba(99,102,241,0.2)] hover:border-indigo-300 hover:text-white"
                 onClick={() => setShowInsightsModal(true)}
               >
-                {copy.viewFullInsights}
+                <span className="pointer-events-none absolute -inset-x-8 top-0 h-full -skew-x-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <span className="relative flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                  {copy.viewFullInsights}
+                </span>
               </Button>
-              <div className="mt-4 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3">
-                <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                  {copy.hrHelperTitle}
-                </p>
-                <div className="mt-2 flex gap-2">
+              <div className="mt-4 rounded-2xl border border-cyan-400/25 bg-[linear-gradient(135deg,rgba(5,10,20,0.95),rgba(12,20,32,0.92))] p-4 shadow-[0_10px_36px_rgba(0,168,232,0.12)]">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs uppercase tracking-[0.22em] text-cyan-200">
+                    {copy.hrHelperTitle}
+                  </p>
+                  {hrHelper && (
+                    <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase ${hrDecisionMeta.chipClass}`}>
+                      {hrDecisionMeta.label}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 flex gap-2">
                   <Button
                     variant="outline"
-                    className="w-full justify-center"
+                    className="group relative w-full justify-center overflow-hidden border-cyan-400/40 bg-[linear-gradient(120deg,rgba(34,211,238,0.15),rgba(16,185,129,0.15))] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.2)] hover:border-cyan-300 hover:text-white"
                     onClick={() => fetchHrHelper(false)}
                     disabled={hrHelperLoading}
                   >
-                    {hrHelperLoading ? (language === "ar" ? "جارٍ التحميل..." : "Loading...") : copy.hrRun}
+                    <span className="pointer-events-none absolute -inset-x-8 top-0 h-full -skew-x-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                    <span className="relative flex items-center gap-2">
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 2l2.9 6.1L22 9l-5 4.8 1.2 7.2L12 17.8 5.8 21l1.2-7.2L2 9l7.1-.9L12 2z" />
+                      </svg>
+                      {hrHelperLoading ? (language === "ar" ? "جارٍ التحميل..." : "Loading...") : copy.hrRun}
+                    </span>
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full justify-center"
+                    className="group relative w-full justify-center overflow-hidden border-violet-400/40 bg-[linear-gradient(120deg,rgba(167,139,250,0.15),rgba(56,189,248,0.15))] text-violet-100 shadow-[0_0_20px_rgba(167,139,250,0.18)] hover:border-violet-300 hover:text-white"
                     onClick={() => fetchHrHelper(true)}
                     disabled={hrHelperLoading}
                   >
-                    {copy.hrRefresh}
+                    <span className="pointer-events-none absolute -inset-x-8 top-0 h-full -skew-x-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                    <span className="relative flex items-center gap-2">
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 12a9 9 0 0 1 15.5-6.4" />
+                        <path d="M21 12a9 9 0 0 1-15.5 6.4" />
+                        <path d="M18.5 3.5V9h-5.5" />
+                        <path d="M5.5 20.5V15H11" />
+                      </svg>
+                      {copy.hrRefresh}
+                    </span>
                   </Button>
                 </div>
                 {hrHelperError && <p className="mt-2 text-xs text-red-400">{hrHelperError}</p>}
                 {hrHelper ? (
-                  <div className="mt-3 space-y-2 text-xs text-[var(--text-primary)]">
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <div className="rounded-lg border border-[var(--panel-border)] p-2">
-                        <p className="text-[var(--text-muted)]">{copy.hrAts}</p>
-                        <p className="font-semibold">{formattedAtsScore ?? "-"}</p>
+                  <div className="mt-4 space-y-3 text-sm text-slate-100">
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="rounded-xl border border-cyan-400/25 bg-cyan-500/10 p-3">
+                        <p className="text-[11px] uppercase tracking-[0.15em] text-cyan-200">{copy.hrAts}</p>
+                        <p className="mt-1 text-xl font-semibold text-white">{formattedAtsScore ?? "-"}</p>
                       </div>
-                      <div className="rounded-lg border border-[var(--panel-border)] p-2">
-                        <p className="text-[var(--text-muted)]">{copy.hrDecision}</p>
-                        <p className="font-semibold uppercase">{hrHelper.decision}</p>
+                      <div className={`rounded-xl border p-3 ${hrDecisionMeta.cardClass}`}>
+                        <p className="text-[11px] uppercase tracking-[0.15em] text-slate-300">{copy.hrDecision}</p>
+                        <p className="mt-1 text-lg font-semibold text-white">{hrDecisionMeta.label}</p>
+                      </div>
+                      <div className="rounded-xl border border-indigo-400/25 bg-indigo-500/10 p-3">
+                        <p className="text-[11px] uppercase tracking-[0.15em] text-indigo-200">{copy.hrConfidence}</p>
+                        <p className="mt-1 text-xl font-semibold text-white">{hrHelper.confidence}%</p>
                       </div>
                     </div>
-                    <div className="rounded-lg border border-[var(--panel-border)] p-2">
-                      <p className="text-[var(--text-muted)]">{copy.hrConfidence}</p>
-                      <p className="font-semibold">{hrHelper.confidence}%</p>
+
+                    <div className="rounded-xl border border-indigo-400/20 bg-[rgba(18,25,41,0.8)] p-3">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700/50">
+                        <div
+                          className="h-full rounded-full bg-[linear-gradient(90deg,#38bdf8,#a78bfa)]"
+                          style={{ width: `${Math.max(0, Math.min(100, hrHelper.confidence))}%` }}
+                        />
+                      </div>
                     </div>
+
                     {hrHelper.recommendation_summary && (
-                      <div>
-                        <p className="text-[var(--text-muted)]">{copy.hrSummary}</p>
-                        <p>{hrHelper.recommendation_summary}</p>
+                      <div className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 p-3">
+                        <p className="text-[11px] uppercase tracking-[0.15em] text-cyan-200">{copy.hrSummary}</p>
+                        <p className="mt-2 leading-7">{hrHelper.recommendation_summary}</p>
                       </div>
                     )}
-                    {hrHelper.top_strengths.length > 0 && (
-                      <div>
-                        <p className="text-[var(--text-muted)]">{copy.hrStrengths}</p>
-                        <ul className="mt-1 list-disc ps-5">
-                          {hrHelper.top_strengths.map((item: string) => (
-                            <li key={`hr-s-${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {hrHelper.key_risks.length > 0 && (
-                      <div>
-                        <p className="text-[var(--text-muted)]">{copy.hrRisks}</p>
-                        <ul className="mt-1 list-disc ps-5">
-                          {hrHelper.key_risks.map((item: string) => (
-                            <li key={`hr-r-${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {hrHelper.interview_focus.length > 0 && (
-                      <div>
-                        <p className="text-[var(--text-muted)]">{copy.hrInterviewFocus}</p>
-                        <ul className="mt-1 list-disc ps-5">
-                          {hrHelper.interview_focus.map((item: string) => (
-                            <li key={`hr-i-${item}`}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {hrHelper.top_strengths.length > 0 && (
+                        <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+                          <p className="text-[11px] uppercase tracking-[0.15em] text-emerald-200">{copy.hrStrengths}</p>
+                          <ul className="mt-2 space-y-1 text-xs leading-6">
+                            {hrHelper.top_strengths.map((item: string) => (
+                              <li key={`hr-s-${item}`} className="rounded-md bg-white/5 px-2 py-1">
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {hrHelper.key_risks.length > 0 && (
+                        <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-3">
+                          <p className="text-[11px] uppercase tracking-[0.15em] text-rose-200">{copy.hrRisks}</p>
+                          <ul className="mt-2 space-y-1 text-xs leading-6">
+                            {hrHelper.key_risks.map((item: string) => (
+                              <li key={`hr-r-${item}`} className="rounded-md bg-white/5 px-2 py-1">
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {hrHelper.interview_focus.length > 0 && (
+                        <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3">
+                          <p className="text-[11px] uppercase tracking-[0.15em] text-amber-100">{copy.hrInterviewFocus}</p>
+                          <ul className="mt-2 space-y-1 text-xs leading-6">
+                            {hrHelper.interview_focus.map((item: string) => (
+                              <li key={`hr-i-${item}`} className="rounded-md bg-white/5 px-2 py-1">
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
                     {hrHelper.next_step && (
-                      <div>
-                        <p className="text-[var(--text-muted)]">{copy.hrNextStep}</p>
-                        <p>{hrHelper.next_step}</p>
+                      <div className="rounded-xl border border-violet-400/30 bg-violet-500/10 p-3">
+                        <p className="text-[11px] uppercase tracking-[0.15em] text-violet-200">{copy.hrNextStep}</p>
+                        <p className="mt-2 text-sm text-white">{hrHelper.next_step}</p>
                       </div>
                     )}
-                    <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
-                      <span>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-300">
+                      <span className="rounded-full border border-white/15 bg-white/5 px-2 py-1">
                         {copy.hrSource}: {hrHelper.source || "fresh"}
                       </span>
-                      <span>
+                      <span className="rounded-full border border-white/15 bg-white/5 px-2 py-1">
                         {copy.hrGeneratedAt}:{" "}
                         {hrHelper.generated_at ? new Date(hrHelper.generated_at).toLocaleString() : "-"}
                       </span>
                     </div>
                   </div>
                 ) : (
-                  <p className="mt-2 text-xs text-[var(--text-muted)]">{copy.hrNoData}</p>
+                  <p className="mt-3 rounded-lg border border-white/15 bg-white/5 p-3 text-xs text-slate-300">
+                    {copy.hrNoData}
+                  </p>
                 )}
               </div>
               {!insights && (
@@ -768,78 +851,97 @@ const ApplicationDetail: React.FC = () => {
                 </p>
               )}
               <div className="mt-3 space-y-3 text-sm text-[var(--text-primary)]">
-                <div className="rounded-lg border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3">
-                  <p className="text-xs text-[var(--text-muted)]">{copy.aiScore}</p>
-                  <p className="text-xl font-semibold">
-                    {formattedAtsScore ?? formattedIndustryScore ?? "-"}
-                  </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 p-3">
+                    <p className="text-xs uppercase tracking-[0.15em] text-cyan-200">{copy.aiScore}</p>
+                    <p className="mt-1 text-2xl font-semibold text-white">{displayScore ?? "-"}</p>
+                  </div>
+                  <div className="rounded-xl border border-violet-400/30 bg-violet-500/10 p-3">
+                    <p className="text-xs uppercase tracking-[0.15em] text-violet-200">{copy.aiRanking}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-100">
+                      {intelligence?.industry_ranking_label || "-"}
+                    </p>
+                  </div>
                 </div>
-                {intelligence?.industry_ranking_label && (
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)]">{copy.aiRanking}</p>
-                    <p>{intelligence.industry_ranking_label}</p>
-                  </div>
-                )}
+
                 {intelligence?.contextual_summary && (
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)]">{copy.aiSummary}</p>
-                    <p>{intelligence.contextual_summary}</p>
+                  <div className="rounded-xl border border-white/15 bg-white/5 p-3">
+                    <p className="text-xs uppercase tracking-[0.15em] text-slate-300">{copy.aiSummary}</p>
+                    <p className="mt-2 leading-7 text-slate-100">{intelligence.contextual_summary}</p>
                   </div>
                 )}
-                {Array.isArray(intelligence?.strategic_analysis?.strengths) && (
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)]">{copy.aiStrengths}</p>
-                    <ul className="mt-1 list-disc space-y-1 ps-5">
-                      {intelligence.strategic_analysis.strengths.map((item: string) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {Array.isArray(intelligence?.strategic_analysis?.weaknesses) && (
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)]">{copy.aiWeaknesses}</p>
-                    <ul className="mt-1 list-disc space-y-1 ps-5">
-                      {intelligence.strategic_analysis.weaknesses.map((item: string) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {Array.isArray(intelligence?.strategic_analysis?.culture_growth_fit) && (
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)]">{copy.aiCulture}</p>
-                    <ul className="mt-1 list-disc space-y-1 ps-5">
-                      {intelligence.strategic_analysis.culture_growth_fit.map((item: string) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {Array.isArray(intelligence?.ats_optimization_tips) && (
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)]">{copy.aiTips}</p>
-                    <ul className="mt-1 list-disc space-y-1 ps-5">
-                      {intelligence.ats_optimization_tips.map((item: string) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  {Array.isArray(intelligence?.strategic_analysis?.strengths) && (
+                    <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+                      <p className="text-xs uppercase tracking-[0.15em] text-emerald-200">{copy.aiStrengths}</p>
+                      <ul className="mt-2 space-y-1 text-xs leading-6">
+                        {intelligence.strategic_analysis.strengths.map((item: string) => (
+                          <li key={item} className="rounded-md bg-white/5 px-2 py-1">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {Array.isArray(intelligence?.strategic_analysis?.weaknesses) && (
+                    <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-3">
+                      <p className="text-xs uppercase tracking-[0.15em] text-rose-200">{copy.aiWeaknesses}</p>
+                      <ul className="mt-2 space-y-1 text-xs leading-6">
+                        {intelligence.strategic_analysis.weaknesses.map((item: string) => (
+                          <li key={item} className="rounded-md bg-white/5 px-2 py-1">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  {Array.isArray(intelligence?.strategic_analysis?.culture_growth_fit) && (
+                    <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3">
+                      <p className="text-xs uppercase tracking-[0.15em] text-amber-100">{copy.aiCulture}</p>
+                      <ul className="mt-2 space-y-1 text-xs leading-6">
+                        {intelligence.strategic_analysis.culture_growth_fit.map((item: string) => (
+                          <li key={item} className="rounded-md bg-white/5 px-2 py-1">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {Array.isArray(intelligence?.ats_optimization_tips) && (
+                    <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-3">
+                      <p className="text-xs uppercase tracking-[0.15em] text-sky-200">{copy.aiTips}</p>
+                      <ul className="mt-2 space-y-1 text-xs leading-6">
+                        {intelligence.ats_optimization_tips.map((item: string) => (
+                          <li key={item} className="rounded-md bg-white/5 px-2 py-1">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
                 {Array.isArray(intelligence?.interview_questions) && (
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)]">{copy.aiInterviewQuestions}</p>
-                    <ul className="mt-1 list-disc space-y-1 ps-5">
+                  <div className="rounded-xl border border-indigo-400/30 bg-indigo-500/10 p-3">
+                    <p className="text-xs uppercase tracking-[0.15em] text-indigo-200">{copy.aiInterviewQuestions}</p>
+                    <ul className="mt-2 space-y-1 text-xs leading-6">
                       {intelligence.interview_questions.map((item: string) => (
-                        <li key={item}>{item}</li>
+                        <li key={item} className="rounded-md bg-white/5 px-2 py-1">
+                          {item}
+                        </li>
                       ))}
                     </ul>
                   </div>
                 )}
+
                 {insights?.cleaned_job_description && (
-                  <div>
-                    <p className="text-xs text-[var(--text-muted)]">{copy.aiJobContext}</p>
-                    <p className="text-xs text-[var(--text-muted)] whitespace-pre-wrap">
+                  <div className="rounded-xl border border-white/15 bg-white/5 p-3">
+                    <p className="text-xs uppercase tracking-[0.15em] text-slate-300">{copy.aiJobContext}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-xs text-slate-200">
                       {insights.cleaned_job_description}
                     </p>
                   </div>

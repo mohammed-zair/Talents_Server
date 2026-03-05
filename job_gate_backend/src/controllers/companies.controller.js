@@ -2296,22 +2296,17 @@ exports.getApplicationHrHelper = async (req, res) => {
     const cvStructured = resolveCvStructuredData(cv) || {};
     const cvInsightsList = resolveCvAiInsights(cv);
 
-    const jobSpecificInsight = Array.isArray(cvInsightsList)
-      ? cvInsightsList.find((item) => item?.job_id === job.job_id) || null
-      : null;
     const latestCvInsight = Array.isArray(cvInsightsList)
       ? [...cvInsightsList]
           .filter((item) => item?.job_id == null)
           .sort((a, b) => Number(b?.insight_id || 0) - Number(a?.insight_id || 0))[0] || null
       : null;
 
-    let insightRecord = jobSpecificInsight || null;
-    if (!insightRecord) {
-      insightRecord = await CVAIInsights.findOne({
-        where: { cv_id: cv.cv_id, job_id: job.job_id },
-        order: [["insight_id", "DESC"]],
-      });
-    }
+    // Always use a Sequelize instance for writes; payload insights are plain objects.
+    let insightRecord = await CVAIInsights.findOne({
+      where: { cv_id: cv.cv_id, job_id: job.job_id },
+      order: [["insight_id", "DESC"]],
+    });
 
     const existingAiIntelligence =
       parseJsonMaybe(insightRecord?.ai_intelligence) ||
