@@ -10,7 +10,6 @@ import {
   FiTrendingUp,
   FiUsers,
 } from "react-icons/fi";
-import { Header } from "../components";
 import axiosInstance from "../utils/axiosConfig";
 import { extractData } from "../utils/api";
 
@@ -413,41 +412,68 @@ const Home = () => {
 
   return (
     <div className="mt-24 space-y-6 px-2 md:px-0">
-      <div className="mx-2 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 p-8 text-white shadow-xl md:mx-10">
-        <Header category="Admin" title="Talent Operations Command Center" />
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-indigo-100">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
-            <FiActivity /> Live hiring intelligence
-          </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
-            <FiTrendingUp /> Monthly funnel and conversion trends
-          </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
-            <FiClock /> Last check: {health.timestamp ? new Date(health.timestamp).toLocaleString() : "-"}
-          </span>
-          <button
-            type="button"
-            onClick={fetchAllStats}
-            disabled={loading}
-            className="ms-auto inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-indigo-50 disabled:opacity-60"
-          >
-            <FiRefreshCw className={loading ? "animate-spin" : ""} /> {loading ? "Refreshing" : "Refresh Data"}
-          </button>
-          <div className="inline-flex items-center gap-1 rounded-lg bg-white/10 p-1">
-            {[3, 6, 12].map((r) => (
+      <div className="relative mx-2 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-indigo-900 to-slate-900 p-8 text-white shadow-xl md:mx-10">
+        <div className="absolute -left-24 -top-20 h-56 w-56 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div className="absolute -right-16 -bottom-16 h-52 w-52 rounded-full bg-violet-400/20 blur-3xl" />
+
+        <div className="relative z-10 grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-100">
+              Admin
+            </span>
+            <h1 className="mt-4 text-2xl font-bold leading-tight text-white md:text-3xl">
+              Talent Operations Command Center
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm text-indigo-100/90">
+              Live hiring intelligence, conversion visibility, and real-time execution controls.
+            </p>
+
+            <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-indigo-100">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5">
+                <FiActivity /> Live hiring intelligence
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5">
+                <FiTrendingUp /> Monthly funnel and conversion trends
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5">
+                <FiClock /> Last check: {health.timestamp ? new Date(health.timestamp).toLocaleString() : "-"}
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-100/90">
+              Control Panel
+            </p>
+            <div className="mt-3 space-y-3">
               <button
-                key={r}
                 type="button"
-                onClick={() => setRangeMonths(r)}
-                className={`rounded-md px-2 py-1 text-[11px] font-semibold transition ${
-                  rangeMonths === r
-                    ? "bg-white text-slate-900"
-                    : "text-indigo-100 hover:bg-white/20"
-                }`}
+                onClick={fetchAllStats}
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 hover:bg-indigo-50 disabled:opacity-60"
               >
-                Last {r}M
+                <FiRefreshCw className={loading ? "animate-spin" : ""} /> {loading ? "Refreshing" : "Refresh Data"}
               </button>
-            ))}
+              <div className="grid grid-cols-3 gap-2">
+                {[3, 6, 12].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRangeMonths(r)}
+                    className={`rounded-lg px-2 py-2 text-[11px] font-semibold transition ${
+                      rangeMonths === r
+                        ? "bg-white text-slate-900"
+                        : "border border-white/15 bg-white/5 text-indigo-100 hover:bg-white/15"
+                    }`}
+                  >
+                    Last {r}M
+                  </button>
+                ))}
+              </div>
+              <div className="rounded-lg border border-white/15 bg-black/10 px-3 py-2 text-xs text-indigo-100/90">
+                Active window: <span className="font-semibold text-white">Last {rangeMonths} months</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

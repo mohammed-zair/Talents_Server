@@ -44,6 +44,14 @@ const JobPostings = () => {
     fetchJobs();
   }, []);
 
+  const previewJob = activeJob?.job || activeJob || null;
+  const previewAnalytics = activeJob?.analytics || null;
+  const previewApplications = Array.isArray(previewJob?.Applications) ? previewJob.Applications : [];
+  const previewApplicantsCount =
+    typeof previewAnalytics?.total_applications === 'number'
+      ? previewAnalytics.total_applications
+      : previewApplications.length;
+
   return (
     <div className="m-2 md:m-10 mt-24 p-2 md:p-10 bg-white rounded-3xl">
       <Header category="Admin" title="Job Postings" />
@@ -137,19 +145,19 @@ const JobPostings = () => {
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-lg border border-gray-200 p-3">
                     <p className="text-xs text-gray-500">Title</p>
-                    <p className="font-semibold text-gray-900">{activeJob?.job?.title || '-'}</p>
+                    <p className="font-semibold text-gray-900">{previewJob?.title || '-'}</p>
                   </div>
                   <div className="rounded-lg border border-gray-200 p-3">
                     <p className="text-xs text-gray-500">Company</p>
-                    <p className="font-semibold text-gray-900">{activeJob?.job?.Company?.name || '-'}</p>
+                    <p className="font-semibold text-gray-900">{previewJob?.Company?.name || '-'}</p>
                   </div>
                   <div className="rounded-lg border border-gray-200 p-3">
                     <p className="text-xs text-gray-500">Applicants</p>
-                    <p className="font-semibold text-gray-900">{activeJob?.analytics?.total_applications ?? 0}</p>
+                    <p className="font-semibold text-gray-900">{previewApplicantsCount}</p>
                   </div>
                   <div className="rounded-lg border border-gray-200 p-3">
                     <p className="text-xs text-gray-500">Status</p>
-                    <p className="font-semibold capitalize text-gray-900">{activeJob?.job?.status || '-'}</p>
+                    <p className="font-semibold capitalize text-gray-900">{previewJob?.status || '-'}</p>
                   </div>
                 </div>
 
@@ -157,13 +165,13 @@ const JobPostings = () => {
                   <div className="rounded-lg border border-gray-200 p-3">
                     <p className="text-xs text-gray-500">Description</p>
                     <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
-                      {activeJob?.job?.description || '-'}
+                      {previewJob?.description || '-'}
                     </p>
                   </div>
                   <div className="rounded-lg border border-gray-200 p-3">
                     <p className="text-xs text-gray-500">Requirements</p>
                     <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
-                      {activeJob?.job?.requirements || '-'}
+                      {previewJob?.requirements || '-'}
                     </p>
                   </div>
                 </div>
@@ -172,7 +180,7 @@ const JobPostings = () => {
                   <div className="mb-2 flex items-center justify-between">
                     <p className="font-semibold text-gray-900">Applicants</p>
                     <Link
-                      to={`/job-postings/${activeJob?.job?.job_id}`}
+                      to={`/job-postings/${previewJob?.job_id}`}
                       className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 hover:bg-blue-100"
                     >
                       Open Full Applicants View
@@ -188,14 +196,14 @@ const JobPostings = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {(activeJob?.job?.Applications || []).map((app) => (
+                        {previewApplications.map((app) => (
                           <tr key={app.application_id} className="border-t">
                             <td className="px-3 py-2">{app?.User?.full_name || '-'}</td>
                             <td className="px-3 py-2">{app?.User?.email || '-'}</td>
                             <td className="px-3 py-2 capitalize">{app?.status || '-'}</td>
                           </tr>
                         ))}
-                        {(activeJob?.job?.Applications || []).length === 0 && (
+                        {previewApplications.length === 0 && (
                           <tr>
                             <td colSpan="3" className="px-3 py-4 text-center text-gray-500">
                               No applicants yet.

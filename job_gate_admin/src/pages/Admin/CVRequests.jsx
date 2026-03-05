@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FiBriefcase, FiMail, FiMessageSquare, FiRefreshCw, FiSearch, FiSend, FiStar, FiUsers } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
+import { FiMail, FiMessageSquare, FiRefreshCw, FiSearch, FiSend, FiUsers } from 'react-icons/fi';
 import { Header } from '../../components';
 import axiosInstance from '../../utils/axiosConfig';
 import { extractData } from '../../utils/api';
@@ -7,40 +8,17 @@ import { extractData } from '../../utils/api';
 const requestStatusOptions = ['pending', 'approved', 'processing', 'delivered', 'closed', 'rejected'];
 const candidateStatusOptions = ['selected', 'contacting', 'submitted_to_company', 'accepted_by_company', 'rejected_by_company'];
 
-const defaultFilters = {
-  search: '',
-  cv_power_min: '',
-  cv_power_max: '',
-  skills: '',
-  experience_min: '',
-  experience_max: '',
-  education_level: '',
-  location: '',
-  ai_strengths: '',
-  ai_weaknesses: '',
-  sort: 'cv_power_desc',
-};
-
-const tagClass =
-  'inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700';
-
 const HeadhuntPipeline = () => {
+  const navigate = useNavigate();
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  const [workingRequest, setWorkingRequest] = useState(null);
-  const [feedItems, setFeedItems] = useState([]);
-  const [feedLoading, setFeedLoading] = useState(false);
-  const [feedFilters, setFeedFilters] = useState(defaultFilters);
-  const [candidateDrafts, setCandidateDrafts] = useState({});
-
   const [shortlistRequest, setShortlistRequest] = useState(null);
   const [shortlistItems, setShortlistItems] = useState([]);
   const [shortlistLoading, setShortlistLoading] = useState(false);
-
-  const [aiModalCandidate, setAiModalCandidate] = useState(null);
 
   const [updateRequest, setUpdateRequest] = useState(null);
   const [updateSending, setUpdateSending] = useState(false);
@@ -81,31 +59,6 @@ const HeadhuntPipeline = () => {
     }
   };
 
-  const fetchFeed = async (requestId, filters = feedFilters) => {
-    try {
-      setFeedLoading(true);
-      setError('');
-      const params = Object.fromEntries(
-        Object.entries(filters).filter(([, value]) => String(value || '').trim() !== '')
-      );
-      const response = await axiosInstance.get(`/admin/headhunt-requests/${requestId}/candidate-feed`, { params });
-      const payload = extractData(response);
-      setFeedItems(Array.isArray(payload?.items) ? payload.items : []);
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to load candidate feed.');
-      setFeedItems([]);
-    } finally {
-      setFeedLoading(false);
-    }
-  };
-
-  const openWorkOnRequest = async (request) => {
-    setWorkingRequest(request);
-    setFeedFilters(defaultFilters);
-    setCandidateDrafts({});
-    await fetchFeed(request.request_id, defaultFilters);
-  };
-
   const openShortlist = async (request) => {
     setShortlistRequest(request);
     setShortlistLoading(true);
@@ -119,36 +72,6 @@ const HeadhuntPipeline = () => {
       setShortlistItems([]);
     } finally {
       setShortlistLoading(false);
-    }
-  };
-
-  const addCandidateToRequest = async (candidate, status = 'selected') => {
-    if (!workingRequest) return;
-    const draft = candidateDrafts[candidate.user_id] || {};
-
-    try {
-      setError('');
-      await axiosInstance.post(`/admin/headhunt-requests/${workingRequest.request_id}/candidates`, {
-        user_id: candidate.user_id,
-        cv_id: candidate.cv_id,
-        status,
-        notes: draft.notes || '',
-        why_candidate: draft.why_candidate || candidate.ai_summary || '',
-        source_ai_snapshot: {
-          summary: candidate.ai_summary,
-          strengths: candidate.ai_strengths,
-          weaknesses: candidate.ai_weaknesses,
-          skills: candidate.skills,
-          cv_power: candidate.cv_power,
-        },
-      });
-
-      fetchRequests(true);
-      if (shortlistRequest?.request_id === workingRequest.request_id) {
-        openShortlist(shortlistRequest);
-      }
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to add candidate.');
     }
   };
 
@@ -246,18 +169,12 @@ const HeadhuntPipeline = () => {
                   <p className="text-xs text-gray-500">Request #{request.request_id}</p>
                   <h3 className="text-lg font-semibold text-gray-900">{request.requested_role}</h3>
                   <p className="text-sm text-gray-600">
-                    {request.Company?.name || '-'} • {request.location || 'Any location'} • Need {request.cv_count} CVs
+                    {request.Company?.name || '-'} - {request.location || 'Any location'} - Need {request.cv_count} CVs
                   </p>
                 </div>
                 <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase text-indigo-700">
                   {request.status}
                 </span>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                {(Array.isArray(request.skills) ? request.skills : []).slice(0, 8).map((skill) => (
-                  <span key={skill} className={tagClass}>{skill}</span>
-                ))}
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -273,7 +190,7 @@ const HeadhuntPipeline = () => {
 
                 <button
                   type="button"
-                  onClick={() => openWorkOnRequest(request)}
+                  onClick={() => navigate(`/cv-requests/${request.request_id}/work`, { state: { request } })}
                   className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
                 >
                   <FiSearch /> Work on Request
@@ -304,139 +221,12 @@ const HeadhuntPipeline = () => {
         </div>
       )}
 
-      {workingRequest && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4">
-          <div className="mx-auto w-full max-w-7xl rounded-2xl bg-white p-5 shadow-2xl">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">Work on Request #{workingRequest.request_id}</h3>
-                <p className="text-sm text-gray-600">
-                  {workingRequest.requested_role} • {workingRequest.Company?.name || '-'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setWorkingRequest(null)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="grid gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 md:grid-cols-5">
-              <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Search candidate/job/location" value={feedFilters.search} onChange={(e) => setFeedFilters((prev) => ({ ...prev, search: e.target.value }))} />
-              <input className="rounded-lg border px-3 py-2 text-sm" placeholder="CV Power min" value={feedFilters.cv_power_min} onChange={(e) => setFeedFilters((prev) => ({ ...prev, cv_power_min: e.target.value }))} />
-              <input className="rounded-lg border px-3 py-2 text-sm" placeholder="CV Power max" value={feedFilters.cv_power_max} onChange={(e) => setFeedFilters((prev) => ({ ...prev, cv_power_max: e.target.value }))} />
-              <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Skills (React, Node)" value={feedFilters.skills} onChange={(e) => setFeedFilters((prev) => ({ ...prev, skills: e.target.value }))} />
-              <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Location" value={feedFilters.location} onChange={(e) => setFeedFilters((prev) => ({ ...prev, location: e.target.value }))} />
-              <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Experience min" value={feedFilters.experience_min} onChange={(e) => setFeedFilters((prev) => ({ ...prev, experience_min: e.target.value }))} />
-              <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Experience max" value={feedFilters.experience_max} onChange={(e) => setFeedFilters((prev) => ({ ...prev, experience_max: e.target.value }))} />
-              <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Education level" value={feedFilters.education_level} onChange={(e) => setFeedFilters((prev) => ({ ...prev, education_level: e.target.value }))} />
-              <input className="rounded-lg border px-3 py-2 text-sm" placeholder="AI strengths" value={feedFilters.ai_strengths} onChange={(e) => setFeedFilters((prev) => ({ ...prev, ai_strengths: e.target.value }))} />
-              <div className="flex gap-2">
-                <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="AI weaknesses" value={feedFilters.ai_weaknesses} onChange={(e) => setFeedFilters((prev) => ({ ...prev, ai_weaknesses: e.target.value }))} />
-                <button
-                  type="button"
-                  onClick={() => fetchFeed(workingRequest.request_id, feedFilters)}
-                  className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-                >
-                  Apply
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              {feedLoading ? (
-                <div className="col-span-2 py-10 text-center text-gray-500">Loading candidate feed...</div>
-              ) : feedItems.length === 0 ? (
-                <div className="col-span-2 rounded-xl border border-dashed border-gray-300 p-8 text-center text-gray-500">No candidates match the current filters.</div>
-              ) : (
-                feedItems.map((candidate) => {
-                  const draft = candidateDrafts[candidate.user_id] || {};
-                  return (
-                    <div key={`${candidate.user_id}-${candidate.cv_id}`} className="rounded-2xl border border-gray-200 p-4 shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-900">{candidate.full_name}</h4>
-                          <p className="text-sm text-gray-600">{candidate.email || '-'} • {candidate.location || 'Unknown location'}</p>
-                        </div>
-                        <div className="rounded-xl bg-emerald-50 px-3 py-2 text-right">
-                          <p className="text-[11px] uppercase tracking-wide text-emerald-600">CV Power</p>
-                          <p className="text-xl font-bold text-emerald-700">{candidate.cv_power ?? '-'}</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                        {(candidate.skills || []).slice(0, 8).map((skill) => (
-                          <span key={skill} className={tagClass}>{skill}</span>
-                        ))}
-                      </div>
-
-                      <p className="mt-3 line-clamp-3 text-sm text-gray-700">{candidate.ai_summary || 'No AI summary available.'}</p>
-
-                      <div className="mt-3 grid gap-2 md:grid-cols-2">
-                        <input
-                          className="rounded-lg border px-3 py-2 text-sm"
-                          placeholder="Why this candidate"
-                          value={draft.why_candidate || ''}
-                          onChange={(e) =>
-                            setCandidateDrafts((prev) => ({
-                              ...prev,
-                              [candidate.user_id]: { ...prev[candidate.user_id], why_candidate: e.target.value },
-                            }))
-                          }
-                        />
-                        <input
-                          className="rounded-lg border px-3 py-2 text-sm"
-                          placeholder="Admin note"
-                          value={draft.notes || ''}
-                          onChange={(e) =>
-                            setCandidateDrafts((prev) => ({
-                              ...prev,
-                              [candidate.user_id]: { ...prev[candidate.user_id], notes: e.target.value },
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setAiModalCandidate(candidate)}
-                          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        >
-                          <FiBriefcase /> Open AI Insights
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => addCandidateToRequest(candidate, 'selected')}
-                          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-                        >
-                          <FiStar /> Add as Candidate
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => addCandidateToRequest(candidate, 'rejected_by_company')}
-                          className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-500"
-                        >
-                          Reject for This Request
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {shortlistRequest && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4">
           <div className="mx-auto w-full max-w-5xl rounded-2xl bg-white p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Candidates • Request #{shortlistRequest.request_id}</h3>
+                <h3 className="text-xl font-semibold text-gray-900">Candidates - Request #{shortlistRequest.request_id}</h3>
                 <p className="text-sm text-gray-600">{shortlistRequest.requested_role}</p>
               </div>
               <button type="button" onClick={() => setShortlistRequest(null)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">Close</button>
@@ -453,7 +243,7 @@ const HeadhuntPipeline = () => {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-base font-semibold text-gray-900">{item.User?.full_name || 'Candidate'}</p>
-                        <p className="text-sm text-gray-600">{item.User?.email || '-'} • CV #{item.cv_id || '-'}</p>
+                        <p className="text-sm text-gray-600">{item.User?.email || '-'} - CV #{item.cv_id || '-'}</p>
                       </div>
                       <select
                         value={item.status}
@@ -500,59 +290,6 @@ const HeadhuntPipeline = () => {
         </div>
       )}
 
-      {aiModalCandidate && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4">
-          <div className="mx-auto w-full max-w-4xl rounded-2xl bg-white p-5 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">AI Insights • {aiModalCandidate.full_name}</h3>
-                <p className="text-sm text-gray-600">CV Power {aiModalCandidate.cv_power ?? '-'}</p>
-              </div>
-              <button type="button" onClick={() => setAiModalCandidate(null)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">Close</button>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                <p className="text-xs uppercase text-emerald-700">CV Power</p>
-                <p className="text-3xl font-bold text-emerald-800">{aiModalCandidate.cv_power ?? '-'}</p>
-              </div>
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-                <p className="text-xs uppercase text-indigo-700">ATS Score</p>
-                <p className="text-3xl font-bold text-indigo-800">{aiModalCandidate.candidate_ats_score ?? '-'}</p>
-              </div>
-              <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4">
-                <p className="text-xs uppercase text-cyan-700">Experience</p>
-                <p className="text-3xl font-bold text-cyan-800">{aiModalCandidate.total_years_experience ?? 0}y</p>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-xl border border-gray-200 p-4">
-              <p className="text-sm font-semibold text-gray-900">Contextual Summary</p>
-              <p className="mt-2 text-sm text-gray-700">{aiModalCandidate.ai_summary || 'No AI summary available.'}</p>
-            </div>
-
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border border-gray-200 p-4">
-                <p className="text-sm font-semibold text-gray-900">Top Strengths</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
-                  {(aiModalCandidate.ai_strengths || []).slice(0, 6).map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="rounded-xl border border-gray-200 p-4">
-                <p className="text-sm font-semibold text-gray-900">Key Risks</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
-                  {(aiModalCandidate.ai_weaknesses || []).slice(0, 6).map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {updateRequest && (
         <div className="fixed inset-0 z-50 bg-black/50 p-4">
           <div className="mx-auto w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
@@ -561,7 +298,7 @@ const HeadhuntPipeline = () => {
               <button type="button" onClick={() => setUpdateRequest(null)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">Close</button>
             </div>
 
-            <p className="text-sm text-gray-600">{updateRequest.Company?.name || '-'} • {updateRequest.requested_role}</p>
+            <p className="text-sm text-gray-600">{updateRequest.Company?.name || '-'} - {updateRequest.requested_role}</p>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label className="text-sm text-gray-700">

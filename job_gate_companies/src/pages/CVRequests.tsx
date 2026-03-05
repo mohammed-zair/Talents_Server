@@ -34,7 +34,6 @@ const CVRequests: React.FC = () => {
   const [skills, setSkills] = useState("");
   const [location, setLocation] = useState("");
   const [experience, setExperience] = useState<number | "">("");
-  const [count, setCount] = useState(5);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
 
   const pipelineQuery = useQuery<CVRequestPipelineData>({
@@ -53,14 +52,13 @@ const CVRequests: React.FC = () => {
       setSkills("");
       setLocation("");
       setExperience("");
-      setCount(5);
     },
     onError: () =>
       toast.error(language === "ar" ? "تعذر إرسال الطلب" : "Failed to send CV request"),
   });
 
   const requests = data ?? [];
-  const canSubmit = useMemo(() => role.trim().length >= 2 && count > 0, [role, count]);
+  const canSubmit = useMemo(() => role.trim().length >= 2, [role]);
 
   const statusTone = (status: string) => {
     if (["delivered", "closed"].includes(status)) return "bg-emerald-100 text-emerald-700";
@@ -84,8 +82,8 @@ const CVRequests: React.FC = () => {
       modalSkillsLabel: "Skills (comma separated)",
       modalLocationLabel: "Preferred location (optional)",
       modalExperienceLabel: "Experience years (optional)",
-      modalCountLabel: "How many profiles do you need?",
-      modalCountHint: "We recommend 3-10 for best quality.",
+      modalCountLabel: "How many heads do you need?",
+      modalCountHint: "Default is one focused headhunt candidate.",
       send: "Send Request",
       cancel: "Cancel",
       timeline: "Status Timeline",
@@ -121,8 +119,8 @@ const CVRequests: React.FC = () => {
       modalSkillsLabel: "المهارات (مفصولة بفواصل)",
       modalLocationLabel: "الموقع المفضل (اختياري)",
       modalExperienceLabel: "سنوات الخبرة (اختياري)",
-      modalCountLabel: "كم عدد الملفات المطلوبة؟",
-      modalCountHint: "نوصي بـ 3-10 لأفضل جودة.",
+      modalCountLabel: "كم عدد الرؤوس المطلوبة؟",
+      modalCountHint: "الافتراضي مرشح واحد كتركيز مباشر.",
       send: "إرسال الطلب",
       cancel: "إلغاء",
       timeline: "مخطط الحالة",
@@ -199,7 +197,7 @@ const CVRequests: React.FC = () => {
                   <div>
                     <p className="text-sm font-semibold text-[var(--text-primary)]">{request.requested_role}</p>
                     <p className="text-xs text-[var(--text-muted)]">
-                      {request.cv_count} profiles · {request.created_at ?? ""}
+                      {request.cv_count} {language === "ar" ? "head" : "heads"} · {request.created_at ?? ""}
                     </p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
                       {(request.skills ?? []).join(", ")} {request.location ? `· ${request.location}` : ""}
@@ -504,37 +502,10 @@ const CVRequests: React.FC = () => {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="cv-request-count" className="text-xs text-[var(--text-muted)]">
-                    {copy.modalCountLabel}
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      className="h-10 w-10 rounded-xl border border-[var(--panel-border)] text-lg text-[var(--text-primary)]"
-                      onClick={() => setCount((prev) => Math.max(1, prev - 1))}
-                    >
-                      -
-                    </button>
-                    <input
-                      id="cv-request-count"
-                      type="number"
-                      value={count}
-                      min={1}
-                      onChange={(event) => setCount(Number(event.target.value))}
-                      className="w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-4 py-3 text-center text-sm text-[var(--text-primary)] outline-none"
-                      name="cvRequestCount"
-                      aria-label={language === "ar" ? "عدد الطلبات" : "Request count"}
-                    />
-                    <button
-                      type="button"
-                      className="h-10 w-10 rounded-xl border border-[var(--panel-border)] text-lg text-[var(--text-primary)]"
-                      onClick={() => setCount((prev) => prev + 1)}
-                    >
-                      +
-                    </button>
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)]">{copy.modalCountHint}</p>
+                <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--chip-bg)] px-4 py-3 text-sm">
+                  <p className="text-xs text-[var(--text-muted)]">{copy.modalCountLabel}</p>
+                  <p className="mt-1 font-semibold text-[var(--text-primary)]">1</p>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">{copy.modalCountHint}</p>
                 </div>
               </div>
             </div>
@@ -546,7 +517,7 @@ const CVRequests: React.FC = () => {
                 onClick={() =>
                   createRequest.mutate({
                     requested_role: role,
-                    cv_count: count,
+                    cv_count: 1,
                     experience_years: experience === "" ? undefined : experience,
                     skills: skills
                       .split(",")
