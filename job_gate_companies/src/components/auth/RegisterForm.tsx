@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
@@ -6,6 +6,7 @@ import { authApi } from "../../services/api/api";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { mapAuthError } from "../../utils/authMessages";
 import Button from "../shared/Button";
+import OtpInput from "./OtpInput";
 
 const registerSchema = z
   .object({
@@ -24,10 +25,20 @@ const registerSchema = z
     path: ["confirm_password"],
   });
 
+type RegisterFormState = {
+  name: string;
+  email: string;
+  phone: string;
+  preferred_language: "en" | "ar";
+  description: string;
+  password: string;
+  confirm_password: string;
+};
+
 const RegisterForm: React.FC = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<RegisterFormState>({
     name: "",
     email: "",
     phone: "",
@@ -39,6 +50,11 @@ const RegisterForm: React.FC = () => {
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -64,11 +80,19 @@ const RegisterForm: React.FC = () => {
       step3: "Account Setup",
       fileTooLarge: `File too large (max ${maxFileSizeMb}MB).`,
       selectedFile: "Selected",
+      sendOtp: "Send OTP",
+      resendOtp: "Resend OTP",
+      verifyOtp: "Verify OTP",
+      otpCode: "Verification Code",
+      otpSent: "Verification code sent to your email.",
+      otpVerified: "Email verified.",
+      otpRequired: "Verify your email with OTP before submitting.",
     },
     ar: {
       name: "اسم الشركة",
       email: "البريد المؤسسي",
       phone: "الهاتف (اختياري)",
+      preferredLanguage: "لغة الإشعارات",
       license: "وثيقة الترخيص (PDF أو DOCX أو صورة)",
       description: "وصف (اختياري)",
       logo: "الشعار (اختياري)",
@@ -82,7 +106,13 @@ const RegisterForm: React.FC = () => {
       step3: "إعداد الحساب",
       fileTooLarge: `حجم الملف كبير (الحد ${maxFileSizeMb}MB).`,
       selectedFile: "الملف المختار",
-      preferredLanguage: "لغة الإشعارات",
+      sendOtp: "إرسال رمز التحقق",
+      resendOtp: "إعادة إرسال الرمز",
+      verifyOtp: "تأكيد الرمز",
+      otpCode: "رمز التحقق",
+      otpSent: "تم إرسال رمز التحقق إلى بريدك.",
+      otpVerified: "تم التحقق من البريد.",
+      otpRequired: "يلزم التحقق من البريد قبل إرسال الطلب.",
     },
   }[language];
 
@@ -98,10 +128,71 @@ const RegisterForm: React.FC = () => {
   const canContinueStep1 = form.name.trim().length > 1 && form.email.trim().length > 3;
   const canContinueStep2 = Boolean(licenseFile);
   const canContinueStep3 =
-    form.password.trim().length >= 6 && form.confirm_password.trim().length >= 6;
+    form.password.trim().length >= 6 &&
+    form.confirm_password.trim().length >= 6 &&
+    otpVerified;
+
+  useEffect(() => {
+    setOtpCode("");
+    setOtpSent(false);
+    setOtpVerified(false);
+  }, [form.email]);
+
+  const handleSendOtp = async () => {
+    if (!form.email.trim()) {
+      toast.error(mapAuthError(422, language));
+      return;
+    }
+
+    try {
+      setOtpSending(true);
+      await authApi.sendCompanyRegistrationOtp({
+        email: form.email.trim(),
+        company_name: form.name.trim() || undefined,
+        language: form.preferred_language,
+      });
+      setOtpSent(true);
+      setOtpVerified(false);
+      toast.success(labels.otpSent);
+    } catch (error: any) {
+      const status = error?.response?.status;
+      toast.error(mapAuthError(status, language));
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpSent || otpCode.trim().length !== 6) {
+      toast.error(mapAuthError(422, language));
+      return;
+    }
+
+    try {
+      setOtpVerifying(true);
+      await authApi.verifyCompanyRegistrationOtp({
+        email: form.email.trim(),
+        otp: otpCode.trim(),
+      });
+      setOtpVerified(true);
+      toast.success(labels.otpVerified);
+    } catch (error: any) {
+      setOtpVerified(false);
+      const status = error?.response?.status;
+      toast.error(mapAuthError(status, language));
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (!otpVerified) {
+      toast.error(labels.otpRequired);
+      return;
+    }
+
     const parse = registerSchema.safeParse({
       ...form,
       licenseFile,
@@ -363,6 +454,34 @@ const RegisterForm: React.FC = () => {
                   <circle cx="12" cy="12" r="3" />
                 </svg>
               </button>
+            </div>
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-xs text-[var(--text-muted)]">{labels.otpCode}</label>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSendOtp}
+                disabled={otpSending || !form.email.trim()}
+              >
+                {otpSending ? "..." : otpSent ? labels.resendOtp : labels.sendOtp}
+              </Button>
+              {otpSent && (
+                <span className="text-xs text-[var(--text-muted)]">{labels.otpSent}</span>
+              )}
+              {otpVerified && <span className="text-xs text-green-500">{labels.otpVerified}</span>}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <OtpInput value={otpCode} onChange={setOtpCode} />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleVerifyOtp}
+                disabled={otpVerifying || !otpSent || otpCode.trim().length !== 6}
+              >
+                {otpVerifying ? "..." : labels.verifyOtp}
+              </Button>
             </div>
           </div>
         </div>

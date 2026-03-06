@@ -70,6 +70,8 @@ api.interceptors.response.use(
     const isAuthRequest =
       url.includes("/companies/login") ||
       url.includes("/companies/register") ||
+      url.includes("/companies/register/send-otp") ||
+      url.includes("/companies/register/verify-otp") ||
       url.includes("/companies/set-password") ||
       url.includes("/companies/forgot-password") ||
       url.includes("/companies/reset-password") ||
@@ -439,6 +441,21 @@ export const authApi = {
   },
   companyRegister: async (payload: FormData) => {
     const { data } = await api.post("/companies/register", payload);
+    return data;
+  },
+  sendCompanyRegistrationOtp: async (payload: {
+    email: string;
+    company_name?: string;
+    language?: "en" | "ar";
+  }) => {
+    const { data } = await api.post("/companies/register/send-otp", payload);
+    return data;
+  },
+  verifyCompanyRegistrationOtp: async (payload: {
+    email: string;
+    otp: string;
+  }) => {
+    const { data } = await api.post("/companies/register/verify-otp", payload);
     return data;
   },
   setInitialPassword: async (payload: { email: string; password: string; token: string }) => {
