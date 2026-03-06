@@ -23,7 +23,7 @@ const Blacklist = () => {
 
   const selectionsettings = { persistSelection: true };
   const toolbarOptions = ['Unblock', 'Delete', 'Refresh'];
-  const editing = { allowDeleting: true, allowEditing: false, allowAdding: false };
+  const editing = { allowDeleting: false, allowEditing: false, allowAdding: false };
 
   const fetchBannedUsers = async () => {
     try {
@@ -125,6 +125,8 @@ const Blacklist = () => {
     const selected = gridInstance.getSelectedRecords();
 
     if (args.item.id.includes('deletegrid')) {
+      args.cancel = true;
+
       if (selected.length > 0) {
         await handleDeleteUsers(selected);
       } else {

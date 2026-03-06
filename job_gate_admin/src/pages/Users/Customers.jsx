@@ -261,7 +261,7 @@ const Customers = () => {
     { text: 'Send Invite Email', tooltipText: 'Send Talents invite email', id: 'sendInviteEmail' },
     'Refresh',
   ];
-  const editing = { allowDeleting: true, allowEditing: true };
+  const editing = { allowDeleting: false, allowEditing: true };
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -679,6 +679,8 @@ const Customers = () => {
     const currentUserId = String(loggedUser?.id ?? loggedUser?.user_id ?? '');
 
     if (args.item.id.includes('deletegrid')) {
+      args.cancel = true;
+
       if (safeSelected.length === 0) {
         alert('Please select a customer to delete.');
         return;
