@@ -121,9 +121,17 @@ class FileParserService :
                 temp_file .write (file_content )
                 temp_path =temp_file .name 
 
-            if "pdf"in file_type .lower ():
+            file_type_lower = (file_type or "").lower()
+            is_pdf = "pdf" in file_type_lower
+            is_docx = (
+                "docx" in file_type_lower
+                or "wordprocessingml.document" in file_type_lower
+                or "officedocument.wordprocessingml.document" in file_type_lower
+            )
+
+            if is_pdf:
                 return await self .parse_pdf (temp_path )
-            elif "docx"in file_type .lower ():
+            elif is_docx:
                 return await self .parse_docx (temp_path )
             else :
                 raise ValueError (f"Unsupported file type: {file_type }")
