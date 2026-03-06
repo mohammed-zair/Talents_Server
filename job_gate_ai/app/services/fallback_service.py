@@ -4,6 +4,30 @@ from typing import Dict ,Any ,List
 
 class FallbackCVProcessor :
 
+    @staticmethod
+    def _detect_section_heading(line: str) -> str:
+        token = re.sub(r"[^A-Za-z\u0600-\u06FF ]+", "", (line or "").strip()).lower()
+        token = re.sub(r"\s+", " ", token).strip()
+        section_map = {
+            "objective": "objective",
+            "summary": "objective",
+            "education": "education",
+            "skills": "skills",
+            "projects": "projects",
+            "experience": "experience",
+            "languages": "languages",
+            "certifications": "certifications",
+            "personal details": "personal_details",
+            "التعليم": "education",
+            "المهارات": "skills",
+            "المشاريع": "projects",
+            "الخبرة": "experience",
+            "اللغات": "languages",
+            "الشهادات": "certifications",
+            "المعلومات الشخصية": "personal_details",
+        }
+        return section_map.get(token, "")
+
     @staticmethod 
     def structure_cv_fallback (raw_text :str )->Dict [str ,Any ]:
 
@@ -378,6 +402,13 @@ class FallbackCVProcessor :
 
         for line in lines :
             line_lower =line .lower ()
+            heading = FallbackCVProcessor._detect_section_heading(line)
+            if heading in {"objective", "personal_details"}:
+                current_section = None
+                continue
+            if heading in {"skills", "projects", "experience", "education", "languages", "certifications"}:
+                current_section = heading
+                continue
 
 
             if "name:"in line_lower or "الاسم:"in line :
@@ -423,7 +454,12 @@ class FallbackCVProcessor :
             if current_section =="skills":
                 if line and not any (kw in line_lower for kw in ["experience","education","languages","certifications"]):
                     skills =[s .strip ()for s in line .split (",")if s .strip ()]
-                    result ["skills"].extend (skills )
+                    if len(skills) <= 1:
+                        # Skills often appear one-per-line in CVs.
+                        if line and 1 < len(line) < 40 and not any(ch.isdigit() for ch in line):
+                            result["skills"].append(line.strip())
+                    else:
+                        result ["skills"].extend (skills )
                 else :
                     current_section =None 
             elif current_section =="projects":
@@ -529,5 +565,16 @@ class FallbackCVProcessor :
                         result ["education"].append ({"institution":line ,"degree":"","duration":""})
                 else :
                     current_section =None 
+
+        # De-duplicate while preserving order.
+        seen = set()
+        dedup_skills = []
+        for s in result["skills"]:
+            key = re.sub(r"\s+", " ", str(s).strip()).lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            dedup_skills.append(str(s).strip())
+        result["skills"] = dedup_skills
 
         return result 

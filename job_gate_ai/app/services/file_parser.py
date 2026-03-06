@@ -1,5 +1,6 @@
 
 import os 
+import re
 import tempfile 
 from typing import Optional 
 
@@ -42,7 +43,7 @@ class FileParserService :
             print (f"PDF parsing error: {e }")
             raise 
 
-        return text .strip ()
+        return self._clean_extracted_text(text)
 
     async def parse_docx (self ,file_path :str )->str :
         """Extract text from DOCX file"""
@@ -60,7 +61,48 @@ class FileParserService :
             print (f"DOCX parsing error: {e }")
             raise 
 
-        return text .strip ()
+        return self._clean_extracted_text(text)
+
+    def _repair_split_letters(self, line: str) -> str:
+        if not line:
+            return line
+
+        out = line
+
+        # Collapse sequences like "H T M L" -> "HTML"
+        out = re.sub(r"\b(?:[A-Za-z]\s+){2,}[A-Za-z]\b", lambda m: m.group(0).replace(" ", ""), out)
+
+        # Collapse words split by single-letter gaps like "pr ojects" -> "projects"
+        # Repeat to catch multi-gap words such as "de v elopment".
+        for _ in range(4):
+            new_out = re.sub(r"\b([A-Za-z]{2,})\s+([A-Za-z])\s+([A-Za-z]{2,})\b", r"\1\2\3", out)
+            if new_out == out:
+                break
+            out = new_out
+
+        return out
+
+    def _clean_extracted_text(self, text: str) -> str:
+        if not text:
+            return ""
+
+        cleaned = (
+            text.replace("\u200f", " ")
+            .replace("\u200e", " ")
+            .replace("\u200b", "")
+            .replace("\ufeff", "")
+            .replace("\t", " ")
+        )
+
+        normalized_lines = []
+        for raw_line in cleaned.splitlines():
+            line = re.sub(r"\s+", " ", raw_line).strip()
+            if not line:
+                continue
+            line = self._repair_split_letters(line)
+            normalized_lines.append(line)
+
+        return "\n".join(normalized_lines).strip()
 
     async def parse_file (self ,file_content :bytes ,file_type :str )->Optional [str ]:
         """Parse PDF or DOCX file and extract text"""
