@@ -5,7 +5,7 @@ import traceback
 from datetime import datetime 
 from typing import Dict ,Optional, Union, List 
 
-from fastapi import APIRouter ,File ,HTTPException ,UploadFile ,Form 
+from fastapi import APIRouter ,File ,HTTPException ,UploadFile ,Form, Request
 from fastapi .responses import JSONResponse 
 from pydantic import BaseModel
 
@@ -21,7 +21,12 @@ router =APIRouter (prefix ="/cv",tags =["CV Analysis"])
 db_service =DatabaseService ()
 file_parser =FileParserService ()
 llm_service =LLMService ()
-ats_scorer =ATSScorer ()
+ats_scorer =ATSScorer ()
+cv_metrics ={
+    "cv_extract_fail_total":0,
+    "cv_score_type_error_total":0,
+    "cv_analyze_success_total":0,
+}
 
 def _normalize_structured_data(structured_data: Dict) -> Dict:
     if not isinstance(structured_data, dict):
@@ -96,13 +101,17 @@ async def analyze_cv (
 user_id :str ,
 file :UploadFile =File (...),
 use_ai :bool =True ,
-job_description :Optional [str ]=Form (None )
+job_description :Optional [str ]=Form (None ),
+
+request: Request = None
 ):
     """
     Analyze uploaded CV file and extract structured data with ATS scoring
     """
     try :
-        print (f"[CV Analysis] Starting CV analysis for: {file .filename }, user: {user_id }, AI: {use_ai }")
+        request_id = (request.headers.get("x-request-id") if request else None) or "n/a"
+        file_ext = os.path.splitext(file.filename or "")[1].lower()
+        print (f"[CV Analysis] request_id={request_id} start filename={file .filename }, user={user_id}, AI={use_ai }")
 
 
         allowed_types =[
@@ -158,7 +167,12 @@ job_description :Optional [str ]=Form (None )
 
 
             raw_text =await file_parser .parse_file (file_content ,file .content_type )
-            if not raw_text or len (raw_text .strip ())<10 :
+            if not raw_text or len (raw_text .strip ())<10 :
+                cv_metrics["cv_extract_fail_total"] +=1
+                print(
+                    f"[CV Analysis] request_id={request_id} outcome=extract_failed "
+                    f"user_id={user_id} mime={file.content_type} ext={file_ext} size={file_size}"
+                )
                 return JSONResponse (
                 status_code =400 ,
                 content ={"success":False ,"error":"Could not extract text from file"}
@@ -187,17 +201,18 @@ job_description :Optional [str ]=Form (None )
             print (f"Parsing took {processing_time:.2f} seconds")
 
 
-            cleaned_job_description =llm_service .clean_job_description (job_description or "") if job_description else ""
-            ats_result =ats_scorer .calculate_score (structured_data ,cleaned_job_description )
+            normalized_structured_data = _normalize_structured_data(structured_data)
+            cleaned_job_description =llm_service .clean_job_description (job_description or "") if job_description else ""
+            ats_result =ats_scorer .calculate_score (normalized_structured_data ,cleaned_job_description )
             ats_score =ats_result .get ("score",0.0 )
             print (f"ATS Score: {ats_score}")
 
 
-            features =ats_scorer .extract_cv_features (structured_data )
+            features =ats_scorer .extract_cv_features (normalized_structured_data )
             features .update (ats_result .get ("features",{}))
 
 
-            structured_data = _normalize_structured_data(structured_data)
+            structured_data = normalized_structured_data
             cv_structured_data =CVStructuredData (**structured_data )
             required_skills = llm_service.extract_required_skills(cleaned_job_description)
             competency_matrix = llm_service.build_competency_matrix(
@@ -233,7 +248,13 @@ job_description :Optional [str ]=Form (None )
             except Exception as log_error :
                 print (f"[CV Analysis] AI intelligence log failed: {log_error }")
 
-            return CVAnalysisResponse (
+            cv_metrics["cv_analyze_success_total"] +=1
+            print(
+                f"[CV Analysis] request_id={request_id} outcome=success "
+                f"user_id={user_id} status=200 method={analysis_method} score={ats_score} "
+                f"processing_time={processing_time:.2f}"
+            )
+            return CVAnalysisResponse (
             success =True ,
             structured_data =cv_structured_data ,
             ats_score =ats_score ,
@@ -266,7 +287,9 @@ job_description :Optional [str ]=Form (None )
 
     except HTTPException :
         raise 
-    except Exception as e :
+    except Exception as e :
+        if "object has no attribute 'get'" in str(e):
+            cv_metrics["cv_score_type_error_total"] +=1
         print (f"CV analysis error: {str(e)}")
         traceback .print_exc ()
 
@@ -337,17 +360,19 @@ async def analyze_cv_text (request: CVTextAnalyzeRequest):
         processing_time =(datetime .now ()-start_time ).total_seconds ()
 
 
-        cleaned_job_description =llm_service .clean_job_description (request.job_description or "") if request.job_description else ""
-        ats_result =ats_scorer .calculate_score (structured_data ,cleaned_job_description )
+        normalized_structured_data = _normalize_structured_data(structured_data)
+        cleaned_job_description =llm_service .clean_job_description (request.job_description or "") if request.job_description else ""
+        ats_result =ats_scorer .calculate_score (normalized_structured_data ,cleaned_job_description )
         required_skills = llm_service.extract_required_skills(cleaned_job_description)
         competency_matrix = llm_service.build_competency_matrix(
-            structured_data.get("skills", []),
+            normalized_structured_data.get("skills", []),
             required_skills
         )
 
 
-        features =ats_scorer .extract_cv_features (structured_data )
-        features .update (ats_result .get ("features",{}))
+        features =ats_scorer .extract_cv_features (normalized_structured_data )
+        features .update (ats_result .get ("features",{}))
+        structured_data = normalized_structured_data
 
 
         try :

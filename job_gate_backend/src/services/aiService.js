@@ -42,7 +42,10 @@ class AIService {
     });
 
     this.aiClient.interceptors.request.use((config) => {
-      config.headers["X-Request-Id"] = uuidv4();
+      config.headers = config.headers || {};
+      if (!config.headers["X-Request-Id"]) {
+        config.headers["X-Request-Id"] = uuidv4();
+      }
       const authHeaders = this._buildAuthHeaders();
       config.headers = {
         ...(config.headers || {}),
@@ -88,7 +91,7 @@ class AIService {
       cv_text: cvText,
       use_ai: useAI,
       job_description: options.job_description,
-    }, "CV Analysis");
+    }, "CV Analysis", "post", { requestId: options.request_id });
   }
 
   async analyzeCVFile(userId, cvFile, useAI = false, options = {}) {
@@ -97,7 +100,7 @@ class AIService {
       user_id: normalizedUserId,
       use_ai: useAI,
       job_description: options.job_description,
-    }, cvFile, "CV File Analysis");
+    }, cvFile, "CV File Analysis", { requestId: options.request_id });
   }
 
   async generateMatchPitch(cvText, jobDescription, language = "en") {
@@ -220,7 +223,7 @@ class AIService {
   }
 
   // Private Methods
-  async _requestWithRetry(endpoint, payload = {}, context = "", method = "post") {
+  async _requestWithRetry(endpoint, payload = {}, context = "", method = "post", options = {}) {
     let attempt = 0;
     let lastError = null;
 
@@ -229,13 +232,22 @@ class AIService {
         const verb = method.toLowerCase();
         let response;
         if (verb === "get") {
-          response = await this.aiClient.get(endpoint);
+          response = await this.aiClient.get(endpoint, {
+            headers: options.requestId ? { "X-Request-Id": options.requestId } : undefined,
+          });
         } else if (verb === "patch") {
-          response = await this.aiClient.patch(endpoint, payload);
+          response = await this.aiClient.patch(endpoint, payload, {
+            headers: options.requestId ? { "X-Request-Id": options.requestId } : undefined,
+          });
         } else if (verb === "delete") {
-          response = await this.aiClient.delete(endpoint, { data: payload || {} });
+          response = await this.aiClient.delete(endpoint, {
+            data: payload || {},
+            headers: options.requestId ? { "X-Request-Id": options.requestId } : undefined,
+          });
         } else {
-          response = await this.aiClient.post(endpoint, payload);
+          response = await this.aiClient.post(endpoint, payload, {
+            headers: options.requestId ? { "X-Request-Id": options.requestId } : undefined,
+          });
         }
 
         return response.data;
@@ -260,7 +272,7 @@ class AIService {
     this._handleError(context, lastError);
   }
 
-  async _requestFileWithRetry(endpoint, query = {}, file, context = "") {
+  async _requestFileWithRetry(endpoint, query = {}, file, context = "", options = {}) {
     let attempt = 0;
     let lastError = null;
 
@@ -282,6 +294,7 @@ class AIService {
           headers: {
             ...form.getHeaders(),
             ...this._buildAuthHeaders(),
+            ...(options.requestId ? { "X-Request-Id": options.requestId } : {}),
           },
         });
 
