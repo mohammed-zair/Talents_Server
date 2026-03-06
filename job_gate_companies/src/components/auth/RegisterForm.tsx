@@ -77,7 +77,8 @@ const RegisterForm: React.FC = () => {
       next: "Next",
       step1: "Company Details",
       step2: "Legal & Identity",
-      step3: "Account Setup",
+      step3: "Email Verification",
+      step4: "Account Setup",
       fileTooLarge: `File too large (max ${maxFileSizeMb}MB).`,
       selectedFile: "Selected",
       sendOtp: "Send OTP",
@@ -103,7 +104,8 @@ const RegisterForm: React.FC = () => {
       next: "التالي",
       step1: "بيانات الشركة",
       step2: "الهوية القانونية",
-      step3: "إعداد الحساب",
+      step3: "التحقق من البريد",
+      step4: "إعداد الحساب",
       fileTooLarge: `حجم الملف كبير (الحد ${maxFileSizeMb}MB).`,
       selectedFile: "الملف المختار",
       sendOtp: "إرسال رمز التحقق",
@@ -121,16 +123,16 @@ const RegisterForm: React.FC = () => {
       { key: 1, title: labels.step1 },
       { key: 2, title: labels.step2 },
       { key: 3, title: labels.step3 },
+      { key: 4, title: labels.step4 },
     ],
     [labels]
   );
 
   const canContinueStep1 = form.name.trim().length > 1 && form.email.trim().length > 3;
   const canContinueStep2 = Boolean(licenseFile);
-  const canContinueStep3 =
-    form.password.trim().length >= 6 &&
-    form.confirm_password.trim().length >= 6 &&
-    otpVerified;
+  const canContinueStep3 = otpVerified;
+  const canContinueStep4 =
+    form.password.trim().length >= 6 && form.confirm_password.trim().length >= 6;
 
   useEffect(() => {
     setOtpCode("");
@@ -383,6 +385,37 @@ const RegisterForm: React.FC = () => {
       )}
 
       {step === 3 && (
+        <div className="space-y-2">
+          <label className="text-xs text-[var(--text-muted)]">{labels.otpCode}</label>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSendOtp}
+              disabled={otpSending || !form.email.trim()}
+            >
+              {otpSending ? "..." : otpSent ? labels.resendOtp : labels.sendOtp}
+            </Button>
+            {otpSent && (
+              <span className="text-xs text-[var(--text-muted)]">{labels.otpSent}</span>
+            )}
+            {otpVerified && <span className="text-xs text-green-500">{labels.otpVerified}</span>}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <OtpInput value={otpCode} onChange={setOtpCode} />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleVerifyOtp}
+              disabled={otpVerifying || !otpSent || otpCode.trim().length !== 6}
+            >
+              {otpVerifying ? "..." : labels.verifyOtp}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 4 && (
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <label htmlFor="reg-password" className="text-xs text-[var(--text-muted)]">
@@ -456,34 +489,6 @@ const RegisterForm: React.FC = () => {
               </button>
             </div>
           </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-xs text-[var(--text-muted)]">{labels.otpCode}</label>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSendOtp}
-                disabled={otpSending || !form.email.trim()}
-              >
-                {otpSending ? "..." : otpSent ? labels.resendOtp : labels.sendOtp}
-              </Button>
-              {otpSent && (
-                <span className="text-xs text-[var(--text-muted)]">{labels.otpSent}</span>
-              )}
-              {otpVerified && <span className="text-xs text-green-500">{labels.otpVerified}</span>}
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <OtpInput value={otpCode} onChange={setOtpCode} />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleVerifyOtp}
-                disabled={otpVerifying || !otpSent || otpCode.trim().length !== 6}
-              >
-                {otpVerifying ? "..." : labels.verifyOtp}
-              </Button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -496,20 +501,28 @@ const RegisterForm: React.FC = () => {
         >
           {labels.back}
         </Button>
-        {step < 3 ? (
+        {step < 4 ? (
           <Button
             type="button"
             onClick={() => {
-              if ((step === 1 && canContinueStep1) || (step === 2 && canContinueStep2)) {
-                setStep((prev) => Math.min(3, prev + 1));
+              if (
+                (step === 1 && canContinueStep1) ||
+                (step === 2 && canContinueStep2) ||
+                (step === 3 && canContinueStep3)
+              ) {
+                setStep((prev) => Math.min(4, prev + 1));
               }
             }}
-            disabled={(step === 1 && !canContinueStep1) || (step === 2 && !canContinueStep2)}
+            disabled={
+              (step === 1 && !canContinueStep1) ||
+              (step === 2 && !canContinueStep2) ||
+              (step === 3 && !canContinueStep3)
+            }
           >
             {labels.next}
           </Button>
         ) : (
-          <Button type="submit" disabled={loading || !canContinueStep3}>
+          <Button type="submit" disabled={loading || !canContinueStep4}>
             {loading ? "..." : labels.submit}
           </Button>
         )}
