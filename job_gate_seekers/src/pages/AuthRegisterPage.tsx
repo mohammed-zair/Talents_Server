@@ -6,9 +6,18 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { getApiErrorMessage } from "../utils/apiError";
 import { setSession } from "../utils/auth";
 
+const OTP_LENGTH = 6;
+
+const formatCountdown = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
 const AuthRegisterPage: React.FC = () => {
   const [full_name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [preferredLanguage, setPreferredLanguage] = useState<"en" | "ar">("en");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [step, setStep] = useState(1);
@@ -32,6 +41,12 @@ const AuthRegisterPage: React.FC = () => {
     () => [t("registerStep1Title"), t("registerStep2Title"), t("registerStep3Title")],
     [t]
   );
+
+  useEffect(() => {
+    if (!full_name.trim() && !email.trim()) {
+      setPreferredLanguage(language === "ar" ? "ar" : "en");
+    }
+  }, [language, full_name, email]);
 
   useEffect(() => {
     setOtp("");
@@ -62,6 +77,7 @@ const AuthRegisterPage: React.FC = () => {
         full_name,
         language: language === "ar" ? "ar" : "en",
       });
+      setOtp("");
       setOtpSent(true);
       setOtpVerified(false);
       setOtpCooldown(60);
@@ -107,7 +123,12 @@ const AuthRegisterPage: React.FC = () => {
     }
     setLoading(true);
     try {
-      const res = await seekerApi.register({ full_name, email, password });
+      const res = await seekerApi.register({
+        full_name,
+        email,
+        password,
+        preferred_language: preferredLanguage,
+      });
       setSession(res.token, res.user);
       navigate("/pulse", { replace: true });
     } catch (err: unknown) {
@@ -156,13 +177,45 @@ const AuthRegisterPage: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
+            <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--surface-2)] p-3">
+              <label className="mb-2 block text-xs font-semibold text-[var(--text-muted)]">
+                {t("preferredLanguage")}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                    preferredLanguage === "en"
+                      ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                      : "border-[var(--panel-border)] bg-transparent text-[var(--text-primary)]"
+                  }`}
+                  onClick={() => setPreferredLanguage("en")}
+                >
+                  {t("englishLanguage")}
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                    preferredLanguage === "ar"
+                      ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                      : "border-[var(--panel-border)] bg-transparent text-[var(--text-primary)]"
+                  }`}
+                  onClick={() => setPreferredLanguage("ar")}
+                >
+                  {t("arabicLanguage")}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
         {step === 2 && (
-          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--surface-2)] p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-[var(--text-muted)]">{t("otpCode")}</span>
+          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--surface-2)] p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold text-[var(--text-muted)]">{t("otpCode")}</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">{t("otpHint")}</p>
+              </div>
               <span
                 className={`rounded-full px-2 py-1 text-[11px] ${
                   otpVerified
@@ -173,34 +226,56 @@ const AuthRegisterPage: React.FC = () => {
                 {otpVerified ? t("verified") : t("verifyOtp")}
               </span>
             </div>
-            <div className="flex flex-col gap-2 md:flex-row">
+
+            <input
+              className="field w-full text-center text-xl tracking-[0.5em] md:text-2xl"
+              placeholder="------"
+              value={otp}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={OTP_LENGTH}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && otpSent && otp.trim().length === OTP_LENGTH && !verifyLoading) {
+                  e.preventDefault();
+                  void verifyOtp();
+                }
+              }}
+            />
+
+            <div className="mt-2 flex items-center justify-between text-xs text-[var(--text-muted)]">
+              <span>
+                {otpSent && otpCooldown > 0
+                  ? `${t("resendIn")} ${formatCountdown(otpCooldown)}`
+                  : t("sendRegistrationOtp")}
+              </span>
               <button
                 type="button"
-                className="btn-primary md:w-44"
+                className="underline decoration-dotted underline-offset-4 hover:text-[var(--text-primary)]"
+                onClick={() => setStep(1)}
+              >
+                {t("changeEmail")}
+              </button>
+            </div>
+
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <button
+                type="button"
+                className="btn-primary"
                 onClick={sendOtp}
                 disabled={otpLoading || (otpSent && otpCooldown > 0)}
               >
                 {otpLoading
                   ? "..."
-                  : otpSent && otpCooldown > 0
-                    ? `${t("resendIn")} ${otpCooldown}s`
-                    : otpSent
-                      ? t("resendRegistrationOtp")
-                      : t("sendRegistrationOtp")}
+                  : otpSent
+                    ? t("resendRegistrationOtp")
+                    : t("sendRegistrationOtp")}
               </button>
-              <input
-                className="field flex-1"
-                placeholder={t("otpCode")}
-                value={otp}
-                inputMode="numeric"
-                maxLength={6}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-              />
               <button
                 type="button"
-                className="btn-primary md:w-36"
+                className="btn-primary"
                 onClick={verifyOtp}
-                disabled={!otpSent || verifyLoading || !otp.trim()}
+                disabled={!otpSent || verifyLoading || otp.trim().length !== OTP_LENGTH}
               >
                 {verifyLoading ? "..." : otpVerified ? t("verified") : t("verifyOtp")}
               </button>

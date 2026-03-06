@@ -8,6 +8,14 @@ import { mapAuthError } from "../../utils/authMessages";
 import Button from "../shared/Button";
 import OtpInput from "./OtpInput";
 
+const OTP_LENGTH = 6;
+const OTP_COOLDOWN_SECONDS = 60;
+const formatCountdown = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
 const registerSchema = z
   .object({
     name: z.string().min(2),
@@ -53,6 +61,7 @@ const RegisterForm: React.FC = () => {
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [step, setStep] = useState(1);
@@ -85,9 +94,11 @@ const RegisterForm: React.FC = () => {
       resendOtp: "Resend OTP",
       verifyOtp: "Verify OTP",
       otpCode: "Verification Code",
+      otpHint: "Enter the 6-digit code sent to your company email.",
       otpSent: "Verification code sent to your email.",
       otpVerified: "Email verified.",
       otpRequired: "Verify your email with OTP before submitting.",
+      wrongEmail: "Wrong email?",
     },
     ar: {
       name: "اسم الشركة",
@@ -112,9 +123,11 @@ const RegisterForm: React.FC = () => {
       resendOtp: "إعادة إرسال الرمز",
       verifyOtp: "تأكيد الرمز",
       otpCode: "رمز التحقق",
+      otpHint: "أدخل رمز التحقق المكوّن من 6 أرقام المرسل إلى بريد الشركة.",
       otpSent: "تم إرسال رمز التحقق إلى بريدك.",
       otpVerified: "تم التحقق من البريد.",
       otpRequired: "يلزم التحقق من البريد قبل إرسال الطلب.",
+      wrongEmail: "البريد غير صحيح؟",
     },
   }[language];
 
@@ -138,13 +151,23 @@ const RegisterForm: React.FC = () => {
     setOtpCode("");
     setOtpSent(false);
     setOtpVerified(false);
+    setOtpCooldown(0);
   }, [form.email]);
+
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setOtpCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [otpCooldown]);
 
   const handleSendOtp = async () => {
     if (!form.email.trim()) {
       toast.error(mapAuthError(422, language));
       return;
     }
+    if (otpSent && otpCooldown > 0) return;
 
     try {
       setOtpSending(true);
@@ -153,8 +176,10 @@ const RegisterForm: React.FC = () => {
         company_name: form.name.trim() || undefined,
         language: form.preferred_language,
       });
+      setOtpCode("");
       setOtpSent(true);
       setOtpVerified(false);
+      setOtpCooldown(OTP_COOLDOWN_SECONDS);
       toast.success(labels.otpSent);
     } catch (error: any) {
       const status = error?.response?.status;
@@ -165,7 +190,7 @@ const RegisterForm: React.FC = () => {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpSent || otpCode.trim().length !== 6) {
+    if (!otpSent || otpCode.trim().length !== OTP_LENGTH) {
       toast.error(mapAuthError(422, language));
       return;
     }
@@ -385,29 +410,54 @@ const RegisterForm: React.FC = () => {
       )}
 
       {step === 3 && (
-        <div className="space-y-2">
-          <label className="text-xs text-[var(--text-muted)]">{labels.otpCode}</label>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleSendOtp}
-              disabled={otpSending || !form.email.trim()}
-            >
-              {otpSending ? "..." : otpSent ? labels.resendOtp : labels.sendOtp}
-            </Button>
-            {otpSent && (
-              <span className="text-xs text-[var(--text-muted)]">{labels.otpSent}</span>
-            )}
-            {otpVerified && <span className="text-xs text-green-500">{labels.otpVerified}</span>}
+        <div className="space-y-3 rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/40 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold text-[var(--text-muted)]">{labels.otpCode}</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{labels.otpHint}</p>
+            </div>
+            {otpVerified && <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-xs text-emerald-500">{labels.otpVerified}</span>}
           </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
+            <span>
+              {otpSent && otpCooldown > 0
+                ? `${labels.resendOtp} ${formatCountdown(otpCooldown)}`
+                : otpSent
+                  ? labels.otpSent
+                  : labels.sendOtp}
+            </span>
+            <button
+              type="button"
+              className="underline decoration-dotted underline-offset-4 hover:text-[var(--text-primary)]"
+              onClick={() => setStep(1)}
+            >
+              {labels.wrongEmail}
+            </button>
+          </div>
+
           <div className="flex flex-wrap items-center gap-3">
-            <OtpInput value={otpCode} onChange={setOtpCode} />
             <Button
               type="button"
-              variant="outline"
+              variant="primary"
+              onClick={handleSendOtp}
+              disabled={otpSending || !form.email.trim() || (otpSent && otpCooldown > 0)}
+            >
+              {otpSending
+                ? "..."
+                : otpSent
+                  ? labels.resendOtp
+                  : labels.sendOtp}
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <OtpInput value={otpCode} onChange={setOtpCode} disabled={!otpSent} />
+            <Button
+              type="button"
+              variant="primary"
               onClick={handleVerifyOtp}
-              disabled={otpVerifying || !otpSent || otpCode.trim().length !== 6}
+              disabled={otpVerifying || !otpSent || otpCode.trim().length !== OTP_LENGTH}
             >
               {otpVerifying ? "..." : labels.verifyOtp}
             </Button>
