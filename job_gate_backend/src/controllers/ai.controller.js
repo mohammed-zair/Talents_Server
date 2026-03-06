@@ -120,6 +120,35 @@ const normalizeFeaturesFromAnalysis = (analysisResult) => {
   return isObject(raw) ? raw : {};
 };
 
+const aiMetrics = {
+  cv_analyze_success_total: 0,
+  cv_analyze_fail_total: 0,
+};
+
+const sanitizeAIServiceResponse = (payload) => {
+  if (!payload || typeof payload !== "object") return payload;
+  const clone = { ...payload };
+  if (typeof clone.raw_text === "string") {
+    delete clone.raw_text;
+  }
+  return clone;
+};
+
+const getAnalysisError = (analysisResult) =>
+  analysisResult?.error_message ||
+  analysisResult?.error ||
+  analysisResult?.message ||
+  "AI Core analysis failed";
+
+const isInvalidAnalysisResult = (analysisResult) => {
+  if (!analysisResult || typeof analysisResult !== "object") return true;
+  if (analysisResult.success === false) return true;
+  if (analysisResult.analysis_method === "error" || analysisResult.analysisMethod === "error") return true;
+  if (analysisResult.error_message) return true;
+  const structured = analysisResult.structured_data || analysisResult.structuredData;
+  return !isObject(structured) || !hasMeaningfulStructuredData(structured);
+};
+
 const buildFeaturesPayload = (cvId, features, atsScore, structuredData) => {
   const hasEducation =
     typeof features.has_education === "boolean"
@@ -299,16 +328,19 @@ exports.analyzeCVFile = async (req, res) => {
       return res.status(400).json({ message: 'Ù…Ù„Ù CV Ù…Ø·Ù„ÙˆØ¨', requestId });
     }
 
-    const analysisResult = await aiService.analyzeCVFile(userId, cvFile, useAI);
+    const analysisResult = await aiService.analyzeCVFile(userId, cvFile, useAI, {
+      request_id: requestId,
+    });
 
-    if (analysisResult?.success === false || analysisResult?.analysis_method === 'error') {
+    if (isInvalidAnalysisResult(analysisResult)) {
+      aiMetrics.cv_analyze_fail_total += 1;
+      console.warn(
+        `[${requestId}] outcome=failed endpoint=/api/ai/cv/analyze-file user_id=${userId} reason=invalid_ai_payload`
+      );
       return res.status(502).json({
         message: 'ÙØ´Ù„ ØªØ­Ù„ÙŠÙ„ CV (Ù…Ù„Ù) ÙÙŠ Ø®Ø¯Ù…Ø© Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ',
-        error:
-          analysisResult?.error_message ||
-          analysisResult?.error ||
-          'AI Core analysis failed',
-        ai_service_response: analysisResult,
+        error: getAnalysisError(analysisResult),
+        ai_service_response: sanitizeAIServiceResponse(analysisResult),
         requestId,
       });
     }
@@ -388,6 +420,10 @@ exports.analyzeCVFile = async (req, res) => {
       }
 
       console.log(`[${requestId}] CV File Analysis completed and saved for user ${userId}`);
+      aiMetrics.cv_analyze_success_total += 1;
+      console.log(
+        `[${requestId}] outcome=success endpoint=/api/ai/cv/analyze-file user_id=${userId} status=200 saved=true`
+      );
       return successResponse(
         res,
         {
@@ -410,6 +446,10 @@ exports.analyzeCVFile = async (req, res) => {
     }
 
     console.log(`[${requestId}] CV File Analysis completed (not saved) for user ${userId}`);
+    aiMetrics.cv_analyze_success_total += 1;
+    console.log(
+      `[${requestId}] outcome=success endpoint=/api/ai/cv/analyze-file user_id=${userId} status=200 saved=false`
+    );
     return successResponse(
       res,
       {
@@ -429,6 +469,10 @@ exports.analyzeCVFile = async (req, res) => {
       'ØªÙ… ØªØ­Ù„ÙŠÙ„ CV (Ù…Ù„Ù) Ø¨Ù†Ø¬Ø§Ø­ (Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø­ÙØ¸)'
     );
   } catch (error) {
+    aiMetrics.cv_analyze_fail_total += 1;
+    console.warn(
+      `[${requestId}] outcome=failed endpoint=/api/ai/cv/analyze-file user_id=${req?.user?.user_id} reason=exception`
+    );
     console.error(`[${requestId}] CV File Analysis Error:`, error);
     return res.status(500).json({
       message: 'ÙØ´Ù„ ÙÙŠ ØªØ­Ù„ÙŠÙ„ CV (Ù…Ù„Ù)',
@@ -627,7 +671,9 @@ exports.analyzeExistingCV = async (req, res) => {
       mimetype: cvRecord.file_type || "application/pdf",
     };
 
-    let analysisResult = await aiService.analyzeCVFile(userId, fileObj, useAI);
+    let analysisResult = await aiService.analyzeCVFile(userId, fileObj, useAI, {
+      request_id: requestId,
+    });
     try {
       console.log(
         `[${requestId}] AI raw result`,
@@ -637,14 +683,15 @@ exports.analyzeExistingCV = async (req, res) => {
       console.warn(`[${requestId}] Failed to log AI result`, logError?.message || logError);
     }
 
-    if (analysisResult?.success === false || analysisResult?.analysis_method === "error") {
+    if (isInvalidAnalysisResult(analysisResult)) {
+      aiMetrics.cv_analyze_fail_total += 1;
+      console.warn(
+        `[${requestId}] outcome=failed endpoint=/api/ai/cv/analyze/:cvId user_id=${userId} reason=invalid_ai_payload`
+      );
       return res.status(502).json({
         message: "CV analysis failed in AI service",
-        error:
-          analysisResult?.error_message ||
-          analysisResult?.error ||
-          "AI Core analysis failed",
-        ai_service_response: analysisResult,
+        error: getAnalysisError(analysisResult),
+        ai_service_response: sanitizeAIServiceResponse(analysisResult),
         requestId,
       });
     }
@@ -668,7 +715,8 @@ exports.analyzeExistingCV = async (req, res) => {
           const textAnalysisResult = await aiService.analyzeCVText(
             userId,
             extractedText,
-            useAI
+            useAI,
+            { request_id: requestId }
           );
           const textStructured =
             textAnalysisResult?.structured_data || textAnalysisResult?.structuredData || {};
@@ -713,10 +761,16 @@ exports.analyzeExistingCV = async (req, res) => {
 
     if (!hasMeaningfulStructuredData(structuredData)) {
       warnings.push("insufficient_structured_data");
-      ai_intelligence = null;
-      cleaned_job_description = null;
-      industry_ranking_score = null;
-      industry_ranking_label = null;
+      aiMetrics.cv_analyze_fail_total += 1;
+      console.warn(
+        `[${requestId}] outcome=failed endpoint=/api/ai/cv/analyze/:cvId user_id=${userId} reason=insufficient_structured_data`
+      );
+      return res.status(502).json({
+        message: "CV analysis failed in AI service",
+        error: "Structured data is empty or invalid",
+        ai_service_response: sanitizeAIServiceResponse(analysisResult),
+        requestId,
+      });
     }
 
     if (Number(ats_score) <= 0 && industry_ranking_label) {
@@ -758,6 +812,10 @@ exports.analyzeExistingCV = async (req, res) => {
       aiInsights = created.toJSON ? created.toJSON() : created;
     }
 
+    aiMetrics.cv_analyze_success_total += 1;
+    console.log(
+      `[${requestId}] outcome=success endpoint=/api/ai/cv/analyze/:cvId user_id=${userId} status=200 partial=${warnings.length > 0}`
+    );
     console.log(`[${requestId}] Existing CV analysis completed for user ${userId}`);
     return successResponse(res, {
       cv_id: cvRecord.cv_id,
@@ -773,6 +831,10 @@ exports.analyzeExistingCV = async (req, res) => {
       processing_time,
     }, "CV analysis generated successfully");
   } catch (error) {
+    aiMetrics.cv_analyze_fail_total += 1;
+    console.warn(
+      `[${requestId}] outcome=failed endpoint=/api/ai/cv/analyze/:cvId user_id=${req?.user?.user_id} reason=exception`
+    );
     console.error(`[${requestId}] Existing CV Analysis Error:`, error);
     return res.status(500).json({
       message: "Failed to analyze existing CV",
