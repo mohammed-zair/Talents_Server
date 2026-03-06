@@ -7,6 +7,11 @@ const User = sequelize.define("User", {
   email: { type: DataTypes.STRING, unique: true, allowNull: false },
   hashed_password: { type: DataTypes.STRING, allowNull: false },
   phone: { type: DataTypes.STRING },
+  preferred_language: {
+    type: DataTypes.ENUM("en", "ar"),
+    allowNull: false,
+    defaultValue: "en",
+  },
   user_type: {
     type: DataTypes.ENUM("admin", "seeker", "consultant", "company"),
     defaultValue: "seeker",

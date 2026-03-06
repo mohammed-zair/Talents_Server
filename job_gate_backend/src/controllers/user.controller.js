@@ -218,6 +218,11 @@ const resolveLanguage = (req) => {
   return candidate.startsWith("ar") ? "ar" : "en";
 };
 
+const normalizePreferredLanguage = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized.startsWith("ar") ? "ar" : "en";
+};
+
 const buildUserRegistrationOtpTemplate = ({ name, otpCode, language = "en" }) => {
   const safeName = String(name || "there").trim();
   const isArabic = language === "ar";
@@ -600,7 +605,7 @@ exports.login = async (req, res) => {
  * @access Public
  */
 exports.registerJobSeeker = async (req, res) => {
-  const { full_name, email, password, phone, user_type } = req.body;
+  const { full_name, email, password, phone, user_type, preferred_language } = req.body;
 
   // بدء عملية (Transaction) لضمان حفظ البيانات في الجدولين معاً
   const t = await sequelize.transaction();
@@ -608,6 +613,7 @@ exports.registerJobSeeker = async (req, res) => {
   try {
     // 1. التحقق من وجود المستخدم مسبقاً
     const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedPreferredLanguage = normalizePreferredLanguage(preferred_language);
     let existingUser = await User.findOne({ where: { email: normalizedEmail } });
     if (existingUser) {
       await t.rollback();
@@ -644,6 +650,7 @@ exports.registerJobSeeker = async (req, res) => {
         email: normalizedEmail,
         hashed_password,
         phone,
+        preferred_language: normalizedPreferredLanguage,
         user_type: user_type === "admin" ? "admin" : "seeker",
         profile_completed: false,
       },

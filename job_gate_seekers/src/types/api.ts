@@ -12,6 +12,7 @@ export type User = {
   full_name: string;
   email: string;
   phone?: string;
+  preferred_language?: Language;
   user_type: "seeker" | "admin" | "consultant" | "company";
 };
 

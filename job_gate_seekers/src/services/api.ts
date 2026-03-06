@@ -55,7 +55,13 @@ export const seekerApi = {
     const res = await api.post<ApiEnvelope<{ token: string; user: User }>>("/auth/login", data);
     return unwrap(res.data);
   },
-  register: async (data: { full_name: string; email: string; password: string; phone?: string }) => {
+  register: async (data: {
+    full_name: string;
+    email: string;
+    password: string;
+    phone?: string;
+    preferred_language?: "en" | "ar";
+  }) => {
     const res = await api.post<ApiEnvelope<{ token: string; user: User }>>("/auth/register-jobseeker", data);
     return unwrap(res.data);
   },

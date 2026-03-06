@@ -1,8 +1,9 @@
 // file: src/controllers/jobPosting.controller.js
 const sequelize = require("../config/db.config");
-const { JobPosting, JobForm, JobFormField, Application, CV, CVAIInsights } = require("../models");
+const { JobPosting, JobForm, JobFormField, Application, CV, CVAIInsights, User } = require("../models");
 const { successResponse } = require("../utils/responseHandler");
 const aiService = require("../services/aiService");
+const sendEmail = require("../utils/sendEmail");
 const fs = require("fs");
 const path = require("path");
 
@@ -85,6 +86,138 @@ const normalizeFormFields = (fields) => {
   }
 
   return { fields: normalized };
+};
+
+const normalizeSeekerLanguage = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized.startsWith("ar") ? "ar" : "en";
+};
+
+const getJobSeekersPortalUrl = () => {
+  const base =
+    process.env.TALENTS_JOB_SEEKERS_PORTAL_URL ||
+    process.env.TALENTS_SEEKER_PORTAL_URL ||
+    "https://job-seekers.talents-we-trust.tech";
+  return String(base).replace(/\/+$/, "");
+};
+
+const buildNewJobEmailTemplate = ({ language = "en", seekerName, companyName, jobTitle, jobUrl }) => {
+  const safeSeekerName = String(seekerName || "").trim() || "there";
+  const safeCompanyName = String(companyName || "a company").trim();
+  const safeJobTitle = String(jobTitle || "a new opportunity").trim();
+
+  if (language === "ar") {
+    const subject = `فرصة عمل جديدة من ${safeCompanyName}`;
+    const textBody =
+      `مرحباً ${safeSeekerName}،\n\n` +
+      `تم نشر فرصة عمل جديدة من ${safeCompanyName} بعنوان "${safeJobTitle}".\n\n` +
+      "إذا كانت مناسبة لك، ندعوك لمراجعة التفاصيل والتقديم مبكراً.\n\n" +
+      `عرض الفرصة: ${jobUrl}\n\n` +
+      "بالتوفيق,\n" +
+      "فريق Talents";
+    const htmlBody = `
+      <div style="font-family:Arial,sans-serif;background:#f4f7fb;padding:24px;" dir="rtl">
+        <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#0f172a,#1f2937);color:#fff;padding:18px 20px;">
+            <h2 style="margin:0;font-size:20px;">فرصة عمل جديدة</h2>
+            <p style="margin:6px 0 0;opacity:.9;">${safeCompanyName}</p>
+          </div>
+          <div style="padding:20px;color:#111827;">
+            <p style="margin:0 0 12px;">مرحباً <strong>${safeSeekerName}</strong>،</p>
+            <p style="margin:0 0 12px;">
+              تم نشر فرصة بعنوان <strong>${safeJobTitle}</strong> من <strong>${safeCompanyName}</strong>.
+            </p>
+            <p style="margin:0 0 16px;color:#374151;">
+              إذا كانت مناسبة لك، قدّم الآن وكن من أوائل المتقدمين.
+            </p>
+            <a href="${jobUrl}" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;">
+              عرض الفرصة
+            </a>
+            <p style="margin:16px 0 0;color:#6b7280;">بالتوفيق,<br/>فريق Talents</p>
+          </div>
+        </div>
+      </div>
+    `;
+    return { subject, textBody, htmlBody };
+  }
+
+  const subject = `New job opportunity from ${safeCompanyName}`;
+  const textBody =
+    `Hi ${safeSeekerName},\n\n` +
+    `${safeCompanyName} just posted a new role: "${safeJobTitle}".\n\n` +
+    "If this matches your goals, take a look and apply early.\n\n" +
+    `View job: ${jobUrl}\n\n` +
+    "Best of luck,\n" +
+    "Talents Team";
+  const htmlBody = `
+    <div style="font-family:Arial,sans-serif;background:#f4f7fb;padding:24px;">
+      <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#0f172a,#1f2937);color:#fff;padding:18px 20px;">
+          <h2 style="margin:0;font-size:20px;">New Job Opportunity</h2>
+          <p style="margin:6px 0 0;opacity:.9;">${safeCompanyName}</p>
+        </div>
+        <div style="padding:20px;color:#111827;">
+          <p style="margin:0 0 12px;">Hi <strong>${safeSeekerName}</strong>,</p>
+          <p style="margin:0 0 12px;">
+            <strong>${safeCompanyName}</strong> just posted a new role: <strong>${safeJobTitle}</strong>.
+          </p>
+          <p style="margin:0 0 16px;color:#374151;">
+            If this matches your goals, check the details and apply early.
+          </p>
+          <a href="${jobUrl}" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;">
+            View Opportunity
+          </a>
+          <p style="margin:16px 0 0;color:#6b7280;">Best of luck,<br/>Talents Team</p>
+        </div>
+      </div>
+    </div>
+  `;
+  return { subject, textBody, htmlBody };
+};
+
+const notifySeekersAboutNewJob = async ({ jobPosting, company }) => {
+  try {
+    const seekers = await User.findAll({
+      where: {
+        user_type: "seeker",
+        is_active: true,
+        is_deleted: false,
+      },
+      attributes: ["user_id", "full_name", "email", "preferred_language"],
+    });
+
+    if (!seekers.length) return;
+    const recipients = seekers.filter((seeker) => String(seeker.email || "").trim().length > 0);
+    if (!recipients.length) return;
+
+    const portalUrl = getJobSeekersPortalUrl();
+    const jobUrl = `${portalUrl}/opportunities`;
+    const companyName = company?.name || "Talents";
+
+    const sendTasks = recipients.map((seeker) => {
+      const language = normalizeSeekerLanguage(seeker.preferred_language);
+      const template = buildNewJobEmailTemplate({
+        language,
+        seekerName: seeker.full_name,
+        companyName,
+        jobTitle: jobPosting.title,
+        jobUrl,
+      });
+      return sendEmail(seeker.email, template.subject, template.textBody, {
+        html: template.htmlBody,
+      });
+    });
+
+    const outcomes = await Promise.allSettled(sendTasks);
+    const failed = outcomes.filter((outcome) => outcome.status === "rejected").length;
+    if (failed > 0) {
+      console.warn(
+        `[job-posting] New job email broadcast completed with failures: ${failed}/${outcomes.length}`
+      );
+    }
+  } catch (error) {
+    console.error("[job-posting] Failed to send new job notifications:", error?.message || error);
+  }
 };
 /**
  * @desc [Company] إنشاء إعلان توظيف جديد (مع صورة)
@@ -221,6 +354,9 @@ exports.createJobPosting = async (req, res) => {
     }
 
     await t.commit();
+    setImmediate(() => {
+      notifySeekersAboutNewJob({ jobPosting, company });
+    });
     return successResponse(res, jobPosting, "تم إنشاء إعلان التوظيف بنجاح", 201);
   } catch (error) {
     await t.rollback();
