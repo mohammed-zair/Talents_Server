@@ -19,6 +19,7 @@ const Blacklist = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [gridInstance, setGridInstance] = useState(null);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
 
   const selectionsettings = { persistSelection: true };
   const toolbarOptions = ['Unblock', 'Delete', 'Refresh'];
@@ -49,13 +50,60 @@ const Blacklist = () => {
   };
 
   const handleDeleteUsers = async (selected) => {
-    if (window.confirm(`Are you sure you want to permanently delete ${selected.length} user(s)?`)) {
-      try {
-        alert(`${selected.length} user(s) marked for deletion.`);
-      } catch (err) {
-        console.error('Error deleting users:', err);
-        alert('Error deleting users');
+    if (!Array.isArray(selected) || selected.length === 0) {
+      alert('Please select a user to delete.');
+      return;
+    }
+
+    if (deleteInProgress) return;
+
+    const loggedUserRaw = localStorage.getItem('user');
+    let loggedUser = null;
+    try {
+      loggedUser = loggedUserRaw ? JSON.parse(loggedUserRaw) : null;
+    } catch (_error) {
+      loggedUser = null;
+    }
+    const currentUserId = String(loggedUser?.id ?? loggedUser?.user_id ?? '');
+
+    const deletableUsers = selected.filter((user) => {
+      if (!user?.id) return false;
+      if (currentUserId && String(user.id) === currentUserId) return false;
+      return true;
+    });
+
+    if (deletableUsers.length === 0) {
+      alert('No valid users selected for deletion. You cannot delete your own account.');
+      return;
+    }
+
+    const hasSkippedCurrentUser = selected.length !== deletableUsers.length;
+    const confirmationText = hasSkippedCurrentUser
+      ? `Delete ${deletableUsers.length} selected user(s)? Your own account will be skipped.`
+      : `Are you sure you want to permanently delete ${deletableUsers.length} user(s)?`;
+
+    if (!window.confirm(confirmationText)) return;
+
+    try {
+      setDeleteInProgress(true);
+      const results = await Promise.allSettled(
+        deletableUsers.map((user) => axiosInstance.delete(`/admin/users/${user.id}`))
+      );
+      const failed = results.filter((result) => result.status === 'rejected');
+      await fetchBannedUsers();
+
+      if (failed.length > 0) {
+        alert(
+          `Deletion finished with partial failures. Deleted: ${deletableUsers.length - failed.length}, Failed: ${failed.length}.`
+        );
+      } else {
+        alert(`${deletableUsers.length} user(s) deleted successfully.`);
       }
+    } catch (err) {
+      console.error('Error deleting users:', err);
+      alert('Error deleting users');
+    } finally {
+      setDeleteInProgress(false);
     }
   };
 

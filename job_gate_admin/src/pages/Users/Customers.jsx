@@ -250,6 +250,7 @@ const Customers = () => {
   const [categories, setCategories] = useState([]);
   const [assigningUserId, setAssigningUserId] = useState(null);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
 
   const selectionsettings = { persistSelection: true };
   const toolbarOptions = [
@@ -668,14 +669,61 @@ const Customers = () => {
 
     const selected = gridInstance.getSelectedRecords();
     const safeSelected = Array.isArray(selected) ? selected : [];
+    const loggedUserRaw = localStorage.getItem('user');
+    let loggedUser = null;
+    try {
+      loggedUser = loggedUserRaw ? JSON.parse(loggedUserRaw) : null;
+    } catch (_error) {
+      loggedUser = null;
+    }
+    const currentUserId = String(loggedUser?.id ?? loggedUser?.user_id ?? '');
 
     if (args.item.id.includes('deletegrid')) {
-      if (safeSelected.length > 0) {
-        if (window.confirm(`Are you sure you want to delete ${safeSelected.length} customer(s)?`)) {
-          alert(`${safeSelected.length} customer(s) marked for deletion.`);
-        }
-      } else {
+      if (safeSelected.length === 0) {
         alert('Please select a customer to delete.');
+        return;
+      }
+
+      if (deleteInProgress) return;
+
+      const deletableUsers = safeSelected.filter((customer) => {
+        if (!customer?.id) return false;
+        if (currentUserId && String(customer.id) === currentUserId) return false;
+        return true;
+      });
+
+      if (deletableUsers.length === 0) {
+        alert('No valid users selected for deletion. You cannot delete your own account.');
+        return;
+      }
+
+      const hasSkippedCurrentUser = safeSelected.length !== deletableUsers.length;
+      const confirmationText = hasSkippedCurrentUser
+        ? `Delete ${deletableUsers.length} selected user(s)? Your own account will be skipped.`
+        : `Are you sure you want to permanently delete ${deletableUsers.length} user(s)?`;
+
+      if (!window.confirm(confirmationText)) return;
+
+      try {
+        setDeleteInProgress(true);
+        const results = await Promise.allSettled(
+          deletableUsers.map((customer) => axiosInstance.delete(`/admin/users/${customer.id}`))
+        );
+        const failed = results.filter((result) => result.status === 'rejected');
+        await fetchCustomers();
+
+        if (failed.length > 0) {
+          alert(
+            `Deletion finished with partial failures. Deleted: ${deletableUsers.length - failed.length}, Failed: ${failed.length}.`
+          );
+        } else {
+          alert(`${deletableUsers.length} user(s) deleted successfully.`);
+        }
+      } catch (err) {
+        console.error('Error deleting users:', err);
+        alert('Error deleting users');
+      } finally {
+        setDeleteInProgress(false);
       }
     }
 
@@ -754,7 +802,7 @@ const Customers = () => {
     if (args.item.id.includes('Refresh')) {
       fetchCustomers();
     }
-  }, [gridInstance, fetchCustomers, inviteSending, openAdminPromotionModal, sendInviteEmails]);
+  }, [deleteInProgress, gridInstance, fetchCustomers, inviteSending, openAdminPromotionModal, sendInviteEmails]);
 
   const pointRender = useCallback((args) => {
     const activityItem = userActivityData.find((item) => item.x === args.point.x);
