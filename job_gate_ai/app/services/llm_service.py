@@ -32,12 +32,65 @@ class LLMService :
     def is_available (self )->bool :
         return self .client is not None 
 
+    def _required_cv_keys(self) -> Dict[str, Any]:
+        return {
+            "personal_info": {},
+            "education": [],
+            "experience": [],
+            "skills": [],
+            "projects": [],
+            "certifications": [],
+            "languages": [],
+        }
+
+    def _coerce_json_object(self, payload: Any) -> Optional[Dict[str, Any]]:
+        candidate = payload
+        if isinstance(candidate, dict):
+            return candidate
+        if not isinstance(candidate, str):
+            return None
+
+        text = candidate.strip()
+        if not text:
+            return None
+
+        # Handle markdown fenced JSON.
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+            text = re.sub(r"\s*```$", "", text).strip()
+
+        # Some models return JSON string of JSON object; decode up to 2 levels.
+        for _ in range(2):
+            try:
+                decoded = json.loads(text)
+            except Exception:
+                return None
+            if isinstance(decoded, dict):
+                return decoded
+            if isinstance(decoded, str):
+                text = decoded.strip()
+                continue
+            return None
+        return None
+
+    def _normalize_cv_payload(self, payload: Any) -> Optional[Dict[str, Any]]:
+        obj = self._coerce_json_object(payload)
+        if not isinstance(obj, dict):
+            return None
+        base = self._required_cv_keys()
+        base.update(obj)
+        return base
+
     def parse_cv_text (self ,text :str ,use_ai :bool =True )->Dict [str ,Any ]:
         try :
             if use_ai and self .is_available ():
-                return self ._parse_with_ai (text )
-            else :
-                return self ._parse_with_fallback (text )
+                parsed = self._parse_with_ai(text)
+                normalized = self._normalize_cv_payload(parsed)
+                if isinstance(normalized, dict):
+                    return normalized
+                logger.warning("AI parser returned non-object payload, switching to fallback parser.")
+                return self._parse_with_fallback(text)
+            return self ._parse_with_fallback (text )
         except Exception as e :
             logger .error (f"Error parsing CV text: {e }")
             return self ._create_minimal_structure (text )
@@ -87,8 +140,11 @@ class LLMService :
             response_format ={"type":"json_object"}
             )
 
-            result =json .loads (response .choices [0 ].message .content )
-            return result 
+            content = response.choices[0].message.content
+            parsed = self._normalize_cv_payload(content)
+            if not isinstance(parsed, dict):
+                raise ValueError("AI response could not be parsed into structured JSON object")
+            return parsed
 
         except Exception as e :
             logger .error (f"AI parsing failed: {e }")
@@ -96,41 +152,13 @@ class LLMService :
             return self ._parse_with_fallback (text )
 
     def _parse_with_fallback (self ,text :str )->Dict [str ,Any ]:
-        import re 
+        from app.services.fallback_service import FallbackCVProcessor
 
-        result ={
-        "personal_info":{},
-        "education":[],
-        "experience":[],
-        "skills":[],
-        "projects":[],
-        "certifications":[],
-        "languages":[]
-        }
-
-
-
-        email_pattern =r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-        emails =re .findall (email_pattern ,text )
-        if emails :
-            result ["personal_info"]["email"]=emails [0 ]
-
-
-        phone_pattern =r'[\+\(]?[1-9][0-9 .\-\(\)]{8,}[0-9]'
-        phones =re .findall (phone_pattern ,text )
-        if phones :
-            result ["personal_info"]["phone"]=phones [0 ]
-
-
-        common_skills =["python","java","javascript","react","sql","aws","docker"]
-        found_skills =[]
-        for skill in common_skills :
-            if skill .lower ()in text .lower ():
-                found_skills .append (skill .title ())
-
-        result ["skills"]=found_skills 
-
-        return result 
+        fallback = FallbackCVProcessor.structure_cv_fallback(text or "")
+        normalized = self._normalize_cv_payload(fallback)
+        if isinstance(normalized, dict):
+            return normalized
+        return self._required_cv_keys()
 
     def _create_minimal_structure (self ,text :str )->Dict [str ,Any ]:
         return {

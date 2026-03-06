@@ -1,5 +1,6 @@
 import hashlib 
-import os 
+import os
+import json
 import tempfile 
 import traceback 
 from datetime import datetime 
@@ -28,8 +29,22 @@ cv_metrics ={
     "cv_analyze_success_total":0,
 }
 
-def _normalize_structured_data(structured_data: Dict) -> Dict:
-    if not isinstance(structured_data, dict):
+def _normalize_structured_data(structured_data: Dict) -> Dict:
+
+    if isinstance(structured_data, str):
+        text = structured_data.strip()
+        if text:
+            try:
+                decoded = json.loads(text)
+                if isinstance(decoded, str):
+                    decoded = json.loads(decoded)
+                if isinstance(decoded, dict):
+                    structured_data = decoded
+            except Exception:
+                structured_data = {}
+
+    if not isinstance(structured_data, dict):
+
         structured_data = {}
 
     def as_dict(v):

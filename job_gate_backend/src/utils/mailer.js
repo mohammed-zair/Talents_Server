@@ -61,7 +61,10 @@ async function sendWithGmail({ to, subject, html, text }) {
 }
 
 function toBase64Url(input) {
-  return Buffer.from(input, "utf8")
+  const buffer = Buffer.isBuffer(input)
+    ? input
+    : Buffer.from(String(input), "utf8");
+  return buffer
     .toString("base64")
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -110,10 +113,9 @@ async function sendWithGmailApi({ to, subject, html, text }) {
   });
 
   const rawBuffer = await mail.compile().build();
-  const rawMessage = rawBuffer.toString("utf8");
 
   const accessToken = await getGmailApiAccessToken();
-  const encoded = toBase64Url(rawMessage);
+  const encoded = toBase64Url(rawBuffer);
 
   const gmailUser = process.env.GMAIL_USER || "me";
   return axios.post(
