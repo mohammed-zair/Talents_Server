@@ -80,6 +80,10 @@ class FileParserService :
                 break
             out = new_out
 
+        # Fix prefix/suffix one-letter splits: "T ailwind" / "nativ e"
+        out = re.sub(r"\b([A-Za-z])\s+([A-Za-z]{2,})\b", r"\1\2", out)
+        out = re.sub(r"\b([A-Za-z]{2,})\s+([A-Za-z])\b", r"\1\2", out)
+
         return out
 
     def _clean_extracted_text(self, text: str) -> str:

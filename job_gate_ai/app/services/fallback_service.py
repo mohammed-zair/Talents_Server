@@ -28,6 +28,56 @@ class FallbackCVProcessor :
         }
         return section_map.get(token, "")
 
+    @staticmethod
+    def _normalize_skill(skill: str) -> str:
+        s = re.sub(r"\s+", " ", (skill or "").strip())
+        s = re.sub(r"\b([A-Za-z])\s+([A-Za-z]{2,})\b", r"\1\2", s)
+        s = re.sub(r"\b([A-Za-z]{2,})\s+([A-Za-z])\b", r"\1\2", s)
+        low = s.lower()
+        aliases = {
+            "ract native": "React Native",
+            "react native": "React Native",
+            "react.js": "React.js",
+            "tailwind": "Tailwind",
+            "javascript": "JavaScript",
+            "html/html5": "HTML/HTML5",
+            "css/css3": "CSS/CSS3",
+            "sql": "SQL",
+            "figma": "Figma",
+            "django": "Django",
+        }
+        if low in aliases:
+            return aliases[low]
+        if low.startswith("react native"):
+            return "React Native"
+        if low.startswith("tailwind"):
+            return "Tailwind"
+        if low.startswith("javascript"):
+            return "JavaScript"
+        return s
+
+    @staticmethod
+    def _normalize_contact_fields(result: Dict[str, Any], raw_text: str) -> None:
+        personal = result.get("personal_info") or {}
+        blob = raw_text or ""
+        compact = re.sub(r"\s+", "", blob)
+
+        email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", compact)
+        if email_match:
+            personal["email"] = email_match.group(0).lower()
+        else:
+            current_email = str(personal.get("email", ""))
+            if "@" in current_email:
+                current_email = re.sub(r"\s+", "", current_email)
+                m2 = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", current_email)
+                personal["email"] = m2.group(0).lower() if m2 else ""
+
+        phone_match = re.search(r"(\+?\d[\d\-\s]{7,}\d)", blob)
+        if phone_match:
+            personal["phone"] = re.sub(r"[^\d+]", "", phone_match.group(1))
+
+        result["personal_info"] = personal
+
     @staticmethod 
     def structure_cv_fallback (raw_text :str )->Dict [str ,Any ]:
 
@@ -491,7 +541,13 @@ class FallbackCVProcessor :
                     result["projects"].append({"title":title, "description":desc, "technologies":techs, "achievements":[]})
                 elif line and not line.startswith("-") and not line.startswith("•"):
                     # continuation/techs or description for last project
-                    if result["projects"]:
+                    if (
+                        len(line) > 8
+                        and any(k in line_lower for k in ["react", "django", "docker", "mysql", "app", "website", "mobile", "project"])
+                        and not any(k in line_lower for k in ["education", "skills", "languages", "certifications"])
+                    ):
+                        result["projects"].append({"title": line, "description": "", "technologies": [], "achievements": []})
+                    elif result["projects"]:
                         last = result["projects"][-1]
                         if any(k in line_lower for k in ["tech","technologies","tools"]):
                             if ':' in line:
@@ -570,11 +626,13 @@ class FallbackCVProcessor :
         seen = set()
         dedup_skills = []
         for s in result["skills"]:
+            s = FallbackCVProcessor._normalize_skill(str(s))
             key = re.sub(r"\s+", " ", str(s).strip()).lower()
             if not key or key in seen:
                 continue
             seen.add(key)
             dedup_skills.append(str(s).strip())
         result["skills"] = dedup_skills
+        FallbackCVProcessor._normalize_contact_fields(result, raw_text)
 
         return result 

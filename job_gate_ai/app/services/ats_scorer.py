@@ -77,7 +77,7 @@ class ATSScorer:
 
         return {
             "key_skills": skills,
-            "total_years_experience": self._calculate_years_experience(experience),
+            "total_years_experience": self._calculate_years_experience(experience, projects),
             "achievement_count": self._count_quantifiable_achievements(structured_data),
             "has_education": len(self._dict_list(structured_data.get("education"))) > 0,
             "has_certifications": len(self._string_list(structured_data.get("certifications"))) > 0,
@@ -163,8 +163,13 @@ class ATSScorer:
 
         return {"score": min(score, 100), "feedback": feedback, "features": features}
 
-    def _calculate_years_experience(self, experience: List[Dict[str, Any]]) -> float:
-        return len(self._dict_list(experience)) * 1.5
+    def _calculate_years_experience(self, experience: List[Dict[str, Any]], projects: List[Dict[str, Any]] = None) -> float:
+        exp_years = len(self._dict_list(experience)) * 1.5
+        if exp_years > 0:
+            return exp_years
+        project_count = len(self._dict_list(projects or []))
+        # Project-heavy early-career profiles should not be treated as zero experience.
+        return round(project_count * 0.5, 1)
 
     def _count_quantifiable_achievements(self, cv: Dict[str, Any]) -> int:
         count = 0
