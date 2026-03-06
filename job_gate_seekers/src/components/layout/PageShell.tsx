@@ -47,6 +47,7 @@ const PageShell: React.FC = () => {
   const navigate = useNavigate();
   const user = useMemo(() => getStoredUser(), []);
   const isRtl = language === "ar";
+  const logoSrc = `${import.meta.env.BASE_URL}logo.png`;
 
   const notificationsQ = useQuery({
     queryKey: ["notifications"],
@@ -81,7 +82,7 @@ const PageShell: React.FC = () => {
         >
           <div className="mb-6 flex items-center justify-between">
             <Link to="/pulse" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
-              <img src="/logo.png" alt="Talents" className="h-10 w-10 rounded-2xl object-cover" />
+              <img src={logoSrc} alt="Talents" className="h-10 w-10 rounded-2xl object-cover" />
               <div>
                 <p className="text-xs tracking-[0.35em] text-[var(--text-muted)]">TALENTS</p>
                 <p className="text-sm font-semibold">We Trust</p>
@@ -122,7 +123,7 @@ const PageShell: React.FC = () => {
         >
           <div className="mb-6 flex items-center justify-between">
             <Link to="/pulse" className="flex items-center gap-3">
-              <img src="/logo.png" alt="Talents" className="h-10 w-10 rounded-2xl object-cover" />
+              <img src={logoSrc} alt="Talents" className="h-10 w-10 rounded-2xl object-cover" />
               {!collapsed && (
                 <div>
                   <p className="text-xs tracking-[0.35em] text-[var(--text-muted)]">TALENTS</p>

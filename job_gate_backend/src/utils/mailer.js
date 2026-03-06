@@ -1,6 +1,7 @@
 // file: src/utils/mailer.js
 const axios = require("axios");
 const nodemailer = require("nodemailer");
+const MailComposer = require("nodemailer/lib/mail-composer");
 
 function getFrom() {
   const fromName = process.env.SMTP_FROM_NAME || "Talents We Trust";
@@ -99,18 +100,17 @@ async function getGmailApiAccessToken() {
 
 async function sendWithGmailApi({ to, subject, html, text }) {
   const from = getFrom();
-  const contentType = html ? "text/html; charset=UTF-8" : "text/plain; charset=UTF-8";
-  const body = html || text || "";
+  const mail = new MailComposer({
+    from,
+    to,
+    subject,
+    text: text || undefined,
+    html: html || undefined,
+    textEncoding: "base64",
+  });
 
-  const rawMessage = [
-    `From: ${from}`,
-    `To: ${to}`,
-    "MIME-Version: 1.0",
-    `Content-Type: ${contentType}`,
-    `Subject: ${subject}`,
-    "",
-    body,
-  ].join("\r\n");
+  const rawBuffer = await mail.compile().build();
+  const rawMessage = rawBuffer.toString("utf8");
 
   const accessToken = await getGmailApiAccessToken();
   const encoded = toBase64Url(rawMessage);

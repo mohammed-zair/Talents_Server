@@ -9,6 +9,7 @@ const AuthLayout: React.FC<React.PropsWithChildren<{ title: string; subtitle?: s
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const isRtl = language === "ar";
+  const logoSrc = `${import.meta.env.BASE_URL}logo.png`;
 
   return (
     <div className="min-h-screen mesh-bg p-4">
@@ -24,7 +25,7 @@ const AuthLayout: React.FC<React.PropsWithChildren<{ title: string; subtitle?: s
               </button>
             </div>
             <Link to="/auth/login" className="mb-4 inline-flex items-center gap-2">
-              <img src="/logo.png" alt="Talents" className="h-10 w-10 rounded-2xl object-cover" />
+              <img src={logoSrc} alt="Talents" className="h-10 w-10 rounded-2xl object-cover" />
               <div>
                 <p className="text-xs tracking-[0.35em] text-[var(--text-muted)]">TALENTS</p>
                 <p className="text-sm font-semibold">We Trust</p>

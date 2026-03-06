@@ -23,7 +23,7 @@ const Blacklist = () => {
 
   const selectionsettings = { persistSelection: true };
   const toolbarOptions = ['Unblock', 'Delete', 'Refresh'];
-  const editing = { allowDeleting: false, allowEditing: false, allowAdding: false };
+  const editing = { allowDeleting: true, allowEditing: false, allowAdding: false };
 
   const fetchBannedUsers = async () => {
     try {

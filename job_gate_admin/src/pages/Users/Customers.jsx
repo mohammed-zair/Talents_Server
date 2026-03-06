@@ -261,7 +261,7 @@ const Customers = () => {
     { text: 'Send Invite Email', tooltipText: 'Send Talents invite email', id: 'sendInviteEmail' },
     'Refresh',
   ];
-  const editing = { allowDeleting: false, allowEditing: true };
+  const editing = { allowDeleting: true, allowEditing: true };
 
   const fetchCustomers = useCallback(async () => {
     try {
