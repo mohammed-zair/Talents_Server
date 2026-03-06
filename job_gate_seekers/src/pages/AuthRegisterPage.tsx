@@ -37,7 +37,7 @@ const AuthRegisterPage: React.FC = () => {
       setOtpSent(true);
       setOtpVerified(false);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, "Failed to send OTP."));
+      setError(getApiErrorMessage(err, t("sendOtpFailed")));
     } finally {
       setOtpLoading(false);
     }
@@ -46,7 +46,7 @@ const AuthRegisterPage: React.FC = () => {
   const verifyOtp = async () => {
     setError("");
     if (!email.trim() || !otp.trim()) {
-      setError("Email and OTP are required.");
+      setError(t("emailOtpRequired"));
       return;
     }
     try {
@@ -55,7 +55,7 @@ const AuthRegisterPage: React.FC = () => {
       setOtpVerified(true);
     } catch (err: unknown) {
       setOtpVerified(false);
-      setError(getApiErrorMessage(err, "Invalid OTP."));
+      setError(getApiErrorMessage(err, t("invalidOtp")));
     } finally {
       setVerifyLoading(false);
     }
@@ -65,7 +65,7 @@ const AuthRegisterPage: React.FC = () => {
     e.preventDefault();
     setError("");
     if (!otpVerified) {
-      setError("Please verify your email OTP first.");
+      setError(t("verifyEmailOtpFirst"));
       return;
     }
     setLoading(true);
@@ -85,19 +85,40 @@ const AuthRegisterPage: React.FC = () => {
       <form onSubmit={submit} className="space-y-3">
         <input className="field" placeholder={t("fullName")} value={full_name} onChange={(e) => setName(e.target.value)} />
         <input className="field" placeholder={t("email")} value={email} onChange={(e) => setEmail(e.target.value)} />
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary" onClick={sendOtp} disabled={otpLoading}>
-            {otpLoading ? "..." : otpSent ? "Resend OTP" : "Send OTP"}
-          </button>
-          <input
-            className="field flex-1"
-            placeholder="OTP code"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-          />
-          <button type="button" className="btn-secondary" onClick={verifyOtp} disabled={verifyLoading || !otp.trim()}>
-            {verifyLoading ? "..." : otpVerified ? "Verified" : "Verify OTP"}
-          </button>
+        <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--surface-2)] p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold text-[var(--text-muted)]">{t("otpCode")}</span>
+            <span
+              className={`rounded-full px-2 py-1 text-[11px] ${
+                otpVerified
+                  ? "bg-emerald-500/20 text-emerald-300"
+                  : "bg-amber-500/20 text-amber-300"
+              }`}
+            >
+              {otpVerified ? t("verified") : t("verifyOtp")}
+            </span>
+          </div>
+          <div className="flex flex-col gap-2 md:flex-row">
+            <button type="button" className="btn-secondary md:w-40" onClick={sendOtp} disabled={otpLoading}>
+              {otpLoading ? "..." : otpSent ? t("resendRegistrationOtp") : t("sendRegistrationOtp")}
+            </button>
+            <input
+              className="field flex-1"
+              placeholder={t("otpCode")}
+              value={otp}
+              inputMode="numeric"
+              maxLength={6}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+            />
+            <button
+              type="button"
+              className="btn-secondary md:w-36"
+              onClick={verifyOtp}
+              disabled={verifyLoading || !otp.trim()}
+            >
+              {verifyLoading ? "..." : otpVerified ? t("verified") : t("verifyOtp")}
+            </button>
+          </div>
         </div>
         <input className="field" placeholder={t("phone")} value={phone} onChange={(e) => setPhone(e.target.value)} />
         <input className="field" placeholder={t("password")} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
