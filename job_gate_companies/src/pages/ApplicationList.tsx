@@ -23,6 +23,47 @@ const statusLabel = (status: ApplicationItem["status"], language: "en" | "ar") =
   return map[status]?.[language] ?? status;
 };
 
+const analysisLabel = (
+  status: ApplicationItem["analysis_status"],
+  language: "en" | "ar"
+) => {
+  const map = {
+    not_requested: { en: "No AI", ar: "بدون AI" },
+    pending: { en: "AI Pending", ar: "AI قيد المعالجة" },
+    succeeded: { en: "AI Ready", ar: "AI جاهز" },
+    failed: { en: "AI Unavailable", ar: "AI غير متاح" },
+  };
+  return map[status || "not_requested"]?.[language] ?? status ?? "No AI";
+};
+
+const compareAiRank = (a: ApplicationItem, b: ApplicationItem) => {
+  const aHasScore = typeof a.ai_score === "number";
+  const bHasScore = typeof b.ai_score === "number";
+
+  if (aHasScore && bHasScore) {
+    return (b.ai_score as number) - (a.ai_score as number);
+  }
+
+  if (aHasScore) return -1;
+  if (bHasScore) return 1;
+
+  const statusPriority = {
+    succeeded: 0,
+    pending: 1,
+    failed: 2,
+    not_requested: 3,
+  } as const;
+
+  const aPriority = statusPriority[a.analysis_status || "not_requested"] ?? 4;
+  const bPriority = statusPriority[b.analysis_status || "not_requested"] ?? 4;
+
+  if (aPriority !== bPriority) {
+    return aPriority - bPriority;
+  }
+
+  return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+};
+
 const ApplicationList: React.FC = () => {
   const { language } = useLanguage();
   const apiBase = getApiBaseUrl();
@@ -137,16 +178,16 @@ const ApplicationList: React.FC = () => {
         if (b._skillMatchCount !== a._skillMatchCount) {
           return b._skillMatchCount - a._skillMatchCount;
         }
-        return (b.ai_score ?? 0) - (a.ai_score ?? 0);
+        return compareAiRank(a, b);
       }
       if (effectiveSort === "experience") {
         if ((b.candidate_experience_years ?? 0) !== (a.candidate_experience_years ?? 0)) {
           return (b.candidate_experience_years ?? 0) - (a.candidate_experience_years ?? 0);
         }
-        return (b.ai_score ?? 0) - (a.ai_score ?? 0);
+        return compareAiRank(a, b);
       }
       if (effectiveSort === "ai") {
-        return (b.ai_score ?? 0) - (a.ai_score ?? 0);
+        return compareAiRank(a, b);
       }
       return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
     });
@@ -462,8 +503,9 @@ const ApplicationList: React.FC = () => {
                       {statusLabel(application.status, language)}
                     </span>
                     <span className="rounded-full bg-[var(--panel-bg)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
-                      {(copy as any).scoreLabel}{" "}
-                      {application.ai_score ?? "-"}
+                      {typeof application.ai_score === "number"
+                        ? `${(copy as any).scoreLabel} ${application.ai_score}`
+                        : analysisLabel(application.analysis_status, language)}
                     </span>
                     <button
                       type="button"
@@ -526,11 +568,17 @@ const ApplicationList: React.FC = () => {
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
                       {copy.job}: {application.job.title}
                     </p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      {language === "ar" ? "حالة التحليل" : "Analysis status"}:{" "}
+                      {analysisLabel(application.analysis_status, language)}
+                    </p>
                   </div>
                   <Button
                     variant="outline"
                     className="mt-4 justify-center"
+                    disabled={!application.cv}
                     onClick={() => {
+                      if (!application.cv) return;
                       window.open(
                         `${apiBase}/companies/company/applications/${application.id}/cv`,
                         "_blank"

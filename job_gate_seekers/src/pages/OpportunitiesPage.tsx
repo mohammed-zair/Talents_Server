@@ -24,6 +24,8 @@ type FormField = {
   choices?: string[];
 };
 
+type FormValue = string | string[] | File | null;
+
 const normalizeFieldOptions = (field: FormField): string[] => {
   const toCleanArray = (value: unknown): string[] => {
     if (Array.isArray(value)) {
@@ -49,9 +51,10 @@ const OpportunitiesPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [actionMsg, setActionMsg] = useState("");
   const [activeJob, setActiveJob] = useState<any | null>(null);
-  const [formValues, setFormValues] = useState<Record<string, string | string[]>>({});
+  const [formValues, setFormValues] = useState<Record<string, FormValue>>({});
   const [coverLetter, setCoverLetter] = useState("");
   const [selectedCvId, setSelectedCvId] = useState<number | "">("");
+  const [applicationCvFile, setApplicationCvFile] = useState<File | null>(null);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const [showAnalyzePrompt, setShowAnalyzePrompt] = useState(false);
@@ -101,8 +104,7 @@ const OpportunitiesPage: React.FC = () => {
       if (Number.isFinite(cvId) && cvId > 0) {
         await seekerApi.generatePitch({ cv_id: cvId, job_id: job.job_id, language });
       }
-      await seekerApi.submitApplication(payload.formData);
-      return true;
+      return seekerApi.submitApplication(payload.formData);
     },
     onSuccess: () => {
       setFormSuccess(t("applicationSubmitted"));
@@ -157,6 +159,7 @@ const OpportunitiesPage: React.FC = () => {
 
   const formFields: FormField[] = Array.isArray((formQ.data as any)?.fields) ? (formQ.data as any).fields : [];
   const formType = (formQ.data as any)?.form_type;
+  const requireCv = Boolean((formQ.data as any)?.require_cv);
   const selectedCvNumeric = selectedCvId ? Number(selectedCvId) : null;
 
   const cvAnalysisQ = useQuery({
@@ -175,26 +178,27 @@ const OpportunitiesPage: React.FC = () => {
     setFormValues({});
     setCoverLetter("");
     setSelectedCvId("");
+    setApplicationCvFile(null);
     setFormError("");
     setFormSuccess("");
   };
 
   const submitApplication = async () => {
     if (!activeJob) return;
-    if (formType === "external_link") {
-      const url = (formQ.data as any)?.external_form_url;
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-      return;
-    }
 
     setFormError("");
-    if (!hasAnalyzedCv) {
+    const cvId = selectedCvId ? Number(selectedCvId) : null;
+    const needsAnalyzedCv = Boolean(cvId) && !applicationCvFile;
+
+    if (needsAnalyzedCv && !hasAnalyzedCv) {
       setShowAnalyzePrompt(true);
       return;
     }
+
     const missingField = formFields.find((f) => {
       if (!f.is_required) return false;
       const value = formValues[String(f.field_id || f.title)];
+      if (value instanceof File) return value.size === 0;
       if (Array.isArray(value)) return value.length === 0;
       return !value;
     });
@@ -202,27 +206,47 @@ const OpportunitiesPage: React.FC = () => {
       setFormError(`${t("fieldRequired")}: ${missingField.title}`);
       return;
     }
-    const cvId = selectedCvId ? Number(selectedCvId) : null;
-    if (!cvId) {
+
+    if (requireCv && !cvId && !applicationCvFile) {
       setFormError(t("cvRequired"));
       return;
     }
 
     const formData = new FormData();
     formData.append("job_id", String(activeJob.job_id));
-    formData.append("cv_id", String(cvId));
+    if (cvId) formData.append("cv_id", String(cvId));
+    if (applicationCvFile) formData.append("cv_file", applicationCvFile);
     if (coverLetter) formData.append("cover_letter", coverLetter);
 
     if (formFields.length) {
       const payload: Record<string, string | string[]> = {};
       formFields.forEach((f) => {
         const key = String(f.field_id || f.title);
-        if (formValues[key]) payload[key] = formValues[key];
+        const value = formValues[key];
+        if (value instanceof File) {
+          formData.append(`application_field_${key}`, value);
+          return;
+        }
+        if (Array.isArray(value) && value.length > 0) {
+          payload[key] = value;
+          return;
+        }
+        if (typeof value === "string" && value) {
+          payload[key] = value;
+        }
       });
-      formData.append("form_data", JSON.stringify(payload));
+      if (Object.keys(payload).length > 0) {
+        formData.append("form_data", JSON.stringify(payload));
+      }
     }
 
-    await quickApply.mutateAsync({ job: activeJob, formData });
+    const result: any = await quickApply.mutateAsync({ job: activeJob, formData });
+    if (formType === "external_link") {
+      const url = result?.external_form_url || (formQ.data as any)?.external_form_url;
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+    }
   };
 
   return (
@@ -403,7 +427,8 @@ const OpportunitiesPage: React.FC = () => {
                   {formFields.map((field) => {
                     const key = String(field.field_id || field.title);
                     const rawValue = formValues[key];
-                    const value = Array.isArray(rawValue) ? "" : rawValue || "";
+                    const value =
+                      Array.isArray(rawValue) || rawValue instanceof File ? "" : rawValue || "";
                     const options = normalizeFieldOptions(field);
                     return (
                       <div key={key}>
@@ -484,12 +509,21 @@ const OpportunitiesPage: React.FC = () => {
                           />
                         )}
                         {field.input_type === "file" && (
-                          <input
-                            className="field mt-2"
-                            value={value}
-                            onChange={(e) => setFormValues((prev) => ({ ...prev, [key]: e.target.value }))}
-                            placeholder={t("fileFieldNote")}
-                          />
+                          <div className="mt-2 space-y-2">
+                            <input
+                              type="file"
+                              className="field"
+                              onChange={(e) =>
+                                setFormValues((prev) => ({
+                                  ...prev,
+                                  [key]: e.target.files?.[0] ?? null,
+                                }))
+                              }
+                            />
+                            {rawValue instanceof File && (
+                              <p className="text-xs text-[var(--text-muted)]">{rawValue.name}</p>
+                            )}
+                          </div>
                         )}
                         {field.description && <p className="mt-1 text-xs text-[var(--text-muted)]">{field.description}</p>}
                       </div>
@@ -508,11 +542,20 @@ const OpportunitiesPage: React.FC = () => {
 
                   <div className="rounded-xl border border-[var(--border)] p-3">
                     <div className="text-sm font-semibold">{t("chooseCv")}</div>
-                    <div className="mt-2">
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">
+                      {requireCv ? t("cvLabRequiredForApply") : t("applicationCvOptionalHint")}
+                    </p>
+                    <div className="mt-3">
+                      <label className="text-xs text-[var(--text-muted)]">{t("useCvFromLab")}</label>
                       <select
-                        className="field"
+                        className="field mt-2"
                         value={selectedCvId}
-                        onChange={(e) => setSelectedCvId(e.target.value ? Number(e.target.value) : "")}
+                        onChange={(e) => {
+                          setSelectedCvId(e.target.value ? Number(e.target.value) : "");
+                          if (e.target.value) {
+                            setApplicationCvFile(null);
+                          }
+                        }}
                       >
                         <option value="">{t("selectCv")}</option>
                         {(cvsQ.data || []).map((cv: any) => (
@@ -520,7 +563,29 @@ const OpportunitiesPage: React.FC = () => {
                         ))}
                       </select>
                     </div>
-                    <p className="mt-2 text-xs text-[var(--text-muted)]">{t("cvLabRequiredForApply")}</p>
+                    <div className="mt-4">
+                      <label className="text-xs text-[var(--text-muted)]">
+                        {t("useUploadedCvForApplication")}
+                      </label>
+                      <input
+                        type="file"
+                        className="field mt-2"
+                        accept=".pdf,.doc,.docx"
+                        onChange={(e) => {
+                          const nextFile = e.target.files?.[0] ?? null;
+                          setApplicationCvFile(nextFile);
+                          if (nextFile) {
+                            setSelectedCvId("");
+                          }
+                        }}
+                      />
+                      <p className="mt-2 text-xs text-[var(--text-muted)]">{t("uploadDifferentCvHint")}</p>
+                      {applicationCvFile && (
+                        <p className="mt-2 text-xs text-emerald-300">
+                          {t("uploadedApplicationCv")}: {applicationCvFile.name}
+                        </p>
+                      )}
+                    </div>
                     {Array.isArray(cvsQ.data) && cvsQ.data.length === 0 && (
                       <button
                         type="button"

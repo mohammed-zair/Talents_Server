@@ -4,6 +4,49 @@ import axiosInstance from '../../utils/axiosConfig';
 import { extractData } from '../../utils/api';
 
 const statusOptions = ['pending', 'reviewed', 'shortlisted', 'accepted', 'hired', 'rejected'];
+const apiBase = (process.env.REACT_APP_API_BASE_URL || 'https://talents-we-trust.tech/api').replace(/\/api\/?$/, '');
+
+const isApplicationFieldFile = (value) =>
+  Boolean(value && typeof value === 'object' && value.url && value.original_name);
+
+const renderApplicationAnswer = (key, value) => {
+  if (value === null || value === undefined || value === '') {
+    return <span className="text-gray-400">-</span>;
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {value.map((item, index) => (
+          <span key={`${key}-${index}`} className="px-2 py-1 rounded-full bg-gray-100 text-xs text-gray-700">
+            {String(item)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  if (isApplicationFieldFile(value)) {
+    const href = String(value.url || '').startsWith('http')
+      ? value.url
+      : `${apiBase}${value.url}`;
+    return (
+      <a href={href} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+        {value.original_name || 'Download file'}
+      </a>
+    );
+  }
+
+  if (typeof value === 'object') {
+    return (
+      <pre className="overflow-auto rounded bg-gray-50 p-2 text-xs text-gray-700">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+
+  return <span>{String(value)}</span>;
+};
 
 const Applications = () => {
   const [applications, setApplications] = useState([]);
@@ -126,11 +169,34 @@ const Applications = () => {
 
       {activeApp && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-2">Review Application</h3>
             <p className="text-sm text-gray-500 mb-4">
               {activeApp.JobPosting?.title} • {activeApp.User?.full_name}
             </p>
+            {activeApp.cover_letter && (
+              <div className="mb-4 rounded-lg border border-gray-200 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Cover Letter</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">{activeApp.cover_letter}</p>
+              </div>
+            )}
+            <div className="mb-4 rounded-lg border border-gray-200 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Application Answers</p>
+              {activeApp.form_data && Object.keys(activeApp.form_data).length > 0 ? (
+                <div className="mt-3 space-y-3">
+                  {Object.entries(activeApp.form_data).map(([key, value]) => (
+                    <div key={key} className="rounded-lg bg-gray-50 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{key}</p>
+                      <div className="mt-2 text-sm text-gray-700">
+                        {renderApplicationAnswer(key, value)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-gray-500">No custom application answers submitted.</p>
+              )}
+            </div>
             <div className="grid grid-cols-1 gap-4">
               <select
                 value={reviewData.status}

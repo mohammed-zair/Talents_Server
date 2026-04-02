@@ -121,6 +121,18 @@ const PulsePage: React.FC = () => {
     return stages;
   }, [applications]);
 
+  const analysisSummary = useMemo(() => {
+    let pending = 0;
+    let failed = 0;
+    let latestReady = null as any;
+    applications.forEach((app: any) => {
+      if (app.analysis_status === "pending") pending += 1;
+      if (app.analysis_status === "failed") failed += 1;
+      if (app.analysis_status === "succeeded" && !latestReady) latestReady = app;
+    });
+    return { pending, failed, latestReady };
+  }, [applications]);
+
   const latestInsight = useMemo(() => {
     if (!aiCvItems.length) return null;
     const toTs = (v: any) => {
@@ -218,6 +230,14 @@ const PulsePage: React.FC = () => {
           <p className="text-xs text-[var(--text-muted)]">{t("recommendedJobs")}</p>
           <p className="mt-2 text-3xl font-semibold">{jobs.length}</p>
         </div>
+        <div className="glass-card p-4">
+          <p className="text-xs text-[var(--text-muted)]">{t("analysisPendingCount")}</p>
+          <p className="mt-2 text-3xl font-semibold">{analysisSummary.pending}</p>
+        </div>
+        <div className="glass-card p-4">
+          <p className="text-xs text-[var(--text-muted)]">{t("analysisFailedCount")}</p>
+          <p className="mt-2 text-3xl font-semibold">{analysisSummary.failed}</p>
+        </div>
       </div>
 
       {(appsQ.isError || jobsQ.isError || cvsQ.isError || aiCvsQ.isError) && (
@@ -259,13 +279,23 @@ const PulsePage: React.FC = () => {
             {applications.slice(0, 3).map((app: any) => (
               <div key={app.application_id} className="rounded-xl border border-[var(--border)] p-3 text-sm">
                 <div className="font-semibold">{app.JobPosting?.title || t("applicationFallback")}</div>
-                <div className="text-xs text-[var(--text-muted)]">{app.status}</div>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                  <span className="text-[var(--text-muted)]">{app.status}</span>
+                  {app.analysis_status === "pending" && <span className="text-amber-300">{t("analysisPendingShort")}</span>}
+                  {app.analysis_status === "failed" && <span className="text-rose-300">{t("analysisFailedShort")}</span>}
+                  {app.analysis_status === "succeeded" && <span className="text-emerald-300">{t("analysisReadyShort")}</span>}
+                </div>
               </div>
             ))}
             {applications.length === 0 && (
               <p className="text-sm text-[var(--text-muted)]">{t("noApplicationsYet")}</p>
             )}
           </div>
+          {analysisSummary.latestReady && (
+            <div className="mt-3 rounded-xl border border-[var(--border)] p-3 text-xs text-[var(--text-muted)]">
+              {t("latestAnalysisReady")}: {analysisSummary.latestReady.JobPosting?.title || t("applicationFallback")}
+            </div>
+          )}
         </div>
 
         <div className="glass-card p-5">

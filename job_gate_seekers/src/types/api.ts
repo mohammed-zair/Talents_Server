@@ -43,11 +43,20 @@ export type Application = {
   status: string;
   submitted_at: string;
   review_notes?: string;
+  analysis_status?: "not_requested" | "pending" | "succeeded" | "failed";
+  analysis_error_message?: string | null;
+  analysis_started_at?: string | null;
+  analysis_completed_at?: string | null;
+  analysis_retry_count?: number;
+  analysis_source?: "cv_lab" | "application_upload" | null;
+  ai_score?: number | null;
+  ai_summary?: string | null;
   JobPosting?: JobPosting;
   CV?: {
     cv_id: number;
     title?: string;
     file_url?: string;
+    cv_source?: "cv_lab" | "application_upload";
   };
 };
 
@@ -57,6 +66,7 @@ export type CVItem = {
   file_url: string;
   file_type?: string;
   allow_promotion?: boolean;
+  cv_source?: "cv_lab" | "application_upload";
   created_at?: string;
   ats_score?: number | null;
 };

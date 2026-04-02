@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const { Op } = require("sequelize"); // أضف هذا الاستيراد
 const { successResponse, errorResponse } = require("../utils/responseHandler");
 const sendEmail = require("../utils/sendEmail");
+const { MailerError } = require("../utils/mailer");
 
 const ACCESS_TOKEN_TTL_MINUTES = parseInt(
   process.env.COMPANY_ACCESS_TOKEN_TTL_MINUTES || "15",
@@ -256,6 +257,7 @@ const createDeletedCompanyEmail = (companyId) =>
  * @access Public
  */
 exports.forgotCompanyPassword = async (req, res) => {
+  let createdResetToken = null;
   try {
     const { email } = req.body || {};
     if (!email) {
@@ -292,7 +294,7 @@ exports.forgotCompanyPassword = async (req, res) => {
       }
     );
 
-    await CompanyRefreshToken.create({
+    createdResetToken = await CompanyRefreshToken.create({
       company_id: company.company_id,
       token_hash: generateUniqueTokenHash(),
       login_email: normalizedEmail,
@@ -312,8 +314,21 @@ exports.forgotCompanyPassword = async (req, res) => {
 
     return successResponse(res, null, genericMessage);
   } catch (error) {
+    if (createdResetToken?.token_id) {
+      try {
+        await CompanyRefreshToken.destroy({
+          where: { token_id: createdResetToken.token_id },
+        });
+      } catch (rollbackError) {
+        console.error("Forgot company password rollback error:", rollbackError);
+      }
+    }
     console.error("Forgot company password error:", error);
-    return errorResponse(res, "Failed to process forgot-password request.", null, 500);
+    const message =
+      error instanceof MailerError
+        ? "Failed to send reset OTP email. Please try again."
+        : "Failed to process forgot-password request.";
+    return errorResponse(res, message, null, 500);
   }
 };
 

@@ -218,7 +218,7 @@ router.get("/user/cvs",
       };
 
       const cvs = await CV.findAll({
-        where: { user_id: userId },
+        where: { user_id: userId, cv_source: "cv_lab" },
         include: [
           { 
             model: CVStructuredData,

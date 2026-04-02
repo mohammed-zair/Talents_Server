@@ -20,7 +20,7 @@ exports.listUserCVs = async (req, res) => {
 
   try {
     const cvs = await CV.findAll({
-      where: { user_id: userId },
+      where: { user_id: userId, cv_source: "cv_lab" },
       attributes: ["cv_id", "title", "file_url", "file_type", "allow_promotion", "created_at"],
       order: [["created_at", "DESC"]],
     });
@@ -49,7 +49,7 @@ exports.getCVDetails = async (req, res) => {
 
   try {
     const cv = await CV.findOne({
-      where: { cv_id: id, user_id: userId },
+      where: { cv_id: id, user_id: userId, cv_source: "cv_lab" },
       attributes: ["cv_id", "title", "file_url", "file_type", "allow_promotion", "created_at"],
     });
 
@@ -134,6 +134,7 @@ exports.uploadNewCV = async (req, res) => {
       file_type: cvFile.mimetype,
       title: cv_title || `Uploaded CV - ${new Date().toISOString().slice(0, 10)}`,
       allow_promotion: allowPromotionValue,
+      cv_source: "cv_lab",
     });
 
     return successResponse(

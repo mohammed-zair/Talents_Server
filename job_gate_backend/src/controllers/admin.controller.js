@@ -414,8 +414,20 @@ exports.getJobPostingDetails = async (req, res) => {
  */
 exports.listAllApplications = async (req, res) => {
   try {
+    const applicationAttributes = [
+      "application_id",
+      "status",
+      "submitted_at",
+      "review_notes",
+      "form_data",
+    ];
+
+    if (Application.rawAttributes?.cover_letter) {
+      applicationAttributes.push("cover_letter");
+    }
+
     const applications = await Application.findAll({
-      attributes: ["application_id", "status", "submitted_at", "review_notes"],
+      attributes: applicationAttributes,
       include: [
         {
           model: JobPosting,

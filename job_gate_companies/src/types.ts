@@ -98,11 +98,23 @@ export interface CandidateProfile {
   phone?: string;
 }
 
+export interface ApplicationFieldFile {
+  field_name?: string;
+  original_name?: string;
+  stored_name?: string;
+  file_type?: string;
+  size?: number;
+  url?: string;
+}
+
 export interface ApplicationItem {
   id: string;
   status: "pending" | "reviewed" | "shortlisted" | "accepted" | "hired" | "rejected";
   submittedAt: string;
   is_starred?: boolean;
+  analysis_status?: "not_requested" | "pending" | "succeeded" | "failed";
+  analysis_error_message?: string | null;
+  analysis_source?: "cv_lab" | "application_upload" | null;
   candidate: CandidateProfile;
   job: {
     id: string;
@@ -125,6 +137,8 @@ export interface ApplicationItem {
   _skillMatchCount?: number;
   _tags?: string[];
   reviewNotes?: string | null;
+  coverLetter?: string | null;
+  customFormData?: Record<string, unknown> | null;
 }
 
 export interface ApplicationStatusUpdate {

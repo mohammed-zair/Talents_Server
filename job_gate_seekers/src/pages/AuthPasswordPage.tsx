@@ -29,8 +29,8 @@ const AuthPasswordPage: React.FC = () => {
     () =>
       language === "ar"
         ? {
-            requestSubtitle: "أدخل بريدك الإلكتروني وسنرسل رمز إعادة التعيين.",
-            resetSubtitle: "أدخل الرمز من البريد ثم اختر كلمة مرور جديدة.",
+            requestSubtitle: "أدخل بريدك الإلكتروني وسنرسل رمز إعادة التعيين إذا كان الحساب موجوداً.",
+            resetSubtitle: "أدخل رمز التحقق من البريد ثم اختر كلمة مرور جديدة.",
             requestStep: "طلب الرمز",
             resetStep: "إعادة التعيين",
             confirmPassword: "تأكيد كلمة المرور",
@@ -38,12 +38,12 @@ const AuthPasswordPage: React.FC = () => {
             passwordMismatch: "كلمتا المرور غير متطابقتين.",
           }
         : {
-            requestSubtitle: "Enter your email and we will send your reset token.",
-            resetSubtitle: "Enter the token from your email, then set a new password.",
-            requestStep: "Request token",
+            requestSubtitle: "Enter your email and we will send a reset code if the account exists.",
+            resetSubtitle: "Enter the code from your email, then set a new password.",
+            requestStep: "Request code",
             resetStep: "Reset password",
             confirmPassword: "Confirm Password",
-            requestAgain: "Request a new token",
+            requestAgain: "Request a new code",
             passwordMismatch: "Passwords do not match.",
           },
     [language]
@@ -55,8 +55,12 @@ const AuthPasswordPage: React.FC = () => {
     setError("");
     setLoading(true);
     try {
-      await seekerApi.forgotPassword({ email });
-      setMessage(t("resetLinkSent"));
+      const response = await seekerApi.forgotPassword({ email });
+      setMessage(
+        typeof response?.message === "string" && response.message.trim()
+          ? response.message
+          : t("resetLinkSent")
+      );
       setStep("reset");
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, t("authFailed")));

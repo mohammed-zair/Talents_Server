@@ -48,7 +48,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
       confirmPassword: "Confirm Password",
       submit: mode === "set" ? "Set Password" : "Reset Password",
       hint: "Minimum 6 characters",
-      otpSent: "OTP sent",
+      otpSent: "If this email is registered, an OTP code has been sent.",
       emailRequired: "Email is required",
       otpRequired: "OTP is required",
       allRequired: "Please fill all required fields",
@@ -67,7 +67,7 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
       confirmPassword: "تأكيد كلمة المرور",
       submit: mode === "set" ? "تعيين كلمة المرور" : "إعادة تعيين كلمة المرور",
       hint: "الحد الأدنى 6 أحرف",
-      otpSent: "تم إرسال رمز التحقق",
+      otpSent: "إذا كان هذا البريد مسجلاً، فقد تم إرسال رمز التحقق.",
       emailRequired: "يرجى إدخال البريد الإلكتروني",
       otpRequired: "يرجى إدخال رمز التحقق",
       allRequired: "يرجى إدخال كلمة المرور وتأكيدها",
@@ -87,8 +87,12 @@ const PasswordManagement: React.FC<{ mode: "set" | "reset" }> = ({ mode }) => {
 
     try {
       setLoading(true);
-      await authApi.forgotPassword({ email, language });
-      toast.success(labels.otpSent);
+      const response = await authApi.forgotPassword({ email, language });
+      toast.success(
+        typeof response?.message === "string" && response.message.trim()
+          ? response.message
+          : labels.otpSent
+      );
       setStep("reset");
     } catch (error: any) {
       toast.error(mapAuthError(error?.response?.status, language));

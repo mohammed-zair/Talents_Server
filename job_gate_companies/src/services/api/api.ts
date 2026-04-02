@@ -177,6 +177,9 @@ export const companyApi = {
       status: item.status ?? "pending",
       submittedAt: item.submitted_at ?? item.submittedAt ?? "",
       is_starred: item.is_starred ?? false,
+      analysis_status: item.analysis_status ?? "not_requested",
+      analysis_error_message: item.analysis_error_message ?? null,
+      analysis_source: item.analysis_source ?? null,
       candidate: {
         id: String(item.User?.user_id ?? item.user_id ?? ""),
         name: item.User?.full_name ?? item.full_name ?? "Candidate",
@@ -208,6 +211,9 @@ export const companyApi = {
       candidate_experience_years: item.candidate_experience_years ?? null,
       candidate_skills: item.candidate_skills ?? [],
       reviewNotes: item.review_notes ?? null,
+      coverLetter: item.cover_letter ?? null,
+      customFormData:
+        item.form_data && typeof item.form_data === "object" ? item.form_data : null,
     })) as ApplicationItem[];
   },
   getApplicationById: async (id: string) => {
@@ -217,6 +223,9 @@ export const companyApi = {
       id: String(item.application_id ?? item.id ?? id),
       status: item.status ?? "pending",
       submittedAt: item.submitted_at ?? item.submittedAt ?? "",
+      analysis_status: item.analysis_status ?? "not_requested",
+      analysis_error_message: item.analysis_error_message ?? null,
+      analysis_source: item.analysis_source ?? null,
       candidate: {
         id: String(item.User?.user_id ?? item.user_id ?? ""),
         name: item.User?.full_name ?? item.full_name ?? "Candidate",
@@ -241,6 +250,9 @@ export const companyApi = {
       cv_structured_data: item.CV?.CVStructuredData?.data_json ?? null,
       cv_features: item.CV?.CVFeaturesAnalytics ?? null,
       reviewNotes: item.review_notes ?? null,
+      coverLetter: item.cover_letter ?? null,
+      customFormData:
+        item.form_data && typeof item.form_data === "object" ? item.form_data : null,
     } as ApplicationItem;
   },
   refreshApplicationInsights: async (id: string) => {

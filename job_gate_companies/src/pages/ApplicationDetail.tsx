@@ -82,6 +82,67 @@ const toList = (value: unknown): string[] => {
   return value.filter(Boolean).map((item: unknown) => String(item));
 };
 
+const isApplicationFieldFile = (value: unknown) =>
+  Boolean(
+    value &&
+      typeof value === "object" &&
+      "url" in (value as Record<string, unknown>) &&
+      "original_name" in (value as Record<string, unknown>)
+  );
+
+const renderApplicationAnswer = (
+  key: string,
+  value: unknown,
+  apiBase: string
+): React.ReactNode => {
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-[var(--text-muted)]">-</span>;
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {value.map((item, index) => (
+          <span
+            key={`${key}-${index}`}
+            className="rounded-full bg-[var(--chip-bg)] px-2 py-1 text-xs text-[var(--text-primary)]"
+          >
+            {String(item)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  if (isApplicationFieldFile(value)) {
+    const file = value as Record<string, unknown>;
+    const rawUrl = String(file.url || "");
+    const href = rawUrl.startsWith("http")
+      ? rawUrl
+      : `${apiBase.replace(/\/api\/?$/, "")}${rawUrl}`;
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="text-cyan-300 underline underline-offset-2"
+      >
+        {String(file.original_name || "Download file")}
+      </a>
+    );
+  }
+
+  if (typeof value === "object") {
+    return (
+      <pre className="overflow-auto rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-3 text-xs">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+
+  return <span>{String(value)}</span>;
+};
+
 const normalizeHrHelper = (value: any) => {
   if (!value || typeof value !== "object") return null;
   const decision = String(value.decision || "consider").toLowerCase();
@@ -120,6 +181,19 @@ const getHrDecisionMeta = (decision: string, language: "en" | "ar") => {
     chipClass: "border-amber-400/40 bg-amber-500/15 text-amber-100",
     cardClass: "border-amber-400/35 bg-amber-500/10",
   };
+};
+
+const getApplicationAnalysisLabel = (
+  status: ApplicationItem["analysis_status"],
+  language: "en" | "ar"
+) => {
+  const map = {
+    not_requested: { en: "No AI analysis", ar: "لا يوجد تحليل AI" },
+    pending: { en: "AI analysis pending", ar: "تحليل AI قيد المعالجة" },
+    succeeded: { en: "AI analysis ready", ar: "تحليل AI جاهز" },
+    failed: { en: "AI analysis unavailable", ar: "تحليل AI غير متاح" },
+  };
+  return map[status || "not_requested"]?.[language] ?? status ?? "No AI analysis";
 };
 
 const RadarChartCard: React.FC<{
@@ -255,6 +329,9 @@ const ApplicationDetail: React.FC = () => {
       job: "Job",
       appliedAt: "Applied",
       cv: "Open CV",
+      coverLetter: "Cover Letter",
+      applicationAnswers: "Application Answers",
+      noApplicationAnswers: "No custom application answers submitted.",
       aiTitle: "AI CV Intelligence",
       viewFullInsights: "View Full AI Insights",
       closeInsights: "Close Insights",
@@ -305,6 +382,9 @@ const ApplicationDetail: React.FC = () => {
       job: "Ø§Ù„ÙˆØ¸ÙŠÙØ©",
       appliedAt: "ØªØ§Ø±ÙŠØ® Ø§Ù„ØªÙ‚Ø¯ÙŠÙ…",
       cv: "Ø¹Ø±Ø¶ Ø§Ù„Ø³ÙŠØ±Ø©",
+      coverLetter: "Ø§Ù„Ø±Ø³Ø§Ù„Ø© Ø§Ù„ØªØ¹Ø±ÙŠÙÙŠØ©",
+      applicationAnswers: "Ø¥Ø¬Ø§Ø¨Ø§Øª Ù†Ù…ÙˆØ°Ø¬ Ø§Ù„ØªÙ‚Ø¯ÙŠÙ…",
+      noApplicationAnswers: "Ù„Ù… ÙŠØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø¥Ø¬Ø§Ø¨Ø§Øª Ù…Ø®ØµØµØ© Ù…Ø¹ Ø§Ù„Ø·Ù„Ø¨.",
       aiTitle: "Ø°ÙƒØ§Ø¡ Ø§Ù„Ø³ÙŠØ±Ø© Ø§Ù„Ø°Ø§ØªÙŠØ©",
       viewFullInsights: "Ø¹Ø±Ø¶ Ø¬Ù…ÙŠØ¹ Ø§Ù„ØªØ­Ù„ÙŠÙ„",
       closeInsights: "Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„ØªØ­Ù„ÙŠÙ„",
@@ -501,6 +581,7 @@ const ApplicationDetail: React.FC = () => {
     return <Card>{copy.notFound}</Card>;
   }
   const structured = data.cv_structured_data ?? null;
+  const customAnswers = data.customFormData ?? null;
   const structuredSections = [
     { key: "experience", label: language === "ar" ? "Ø§Ù„Ø®Ø¨Ø±Ø§Øª" : "Experience" },
     { key: "skills", label: language === "ar" ? "Ø§Ù„Ù…Ù‡Ø§Ø±Ø§Øª" : "Skills" },
@@ -609,15 +690,60 @@ const ApplicationDetail: React.FC = () => {
             <p className="mt-2">{data.job.title}</p>
             <p className="text-xs text-[var(--text-muted)]">{data.job.location || "-"}</p>
           </div>
-          <Button
-            variant="outline"
-            className="justify-center"
-            onClick={() => {
-              window.open(`${apiBase}/companies/company/applications/${data.id}/cv`, "_blank");
-            }}
-          >
-            {copy.cv}
-          </Button>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+              {language === "ar" ? "حالة التحليل" : "Analysis Status"}
+            </p>
+            <p className="mt-2 text-sm">{getApplicationAnalysisLabel(data.analysis_status, language)}</p>
+            {data.analysis_status === "failed" && data.analysis_error_message ? (
+              <p className="mt-2 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                {data.analysis_error_message}
+              </p>
+            ) : null}
+          </div>
+          {data.coverLetter && (
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                {copy.coverLetter}
+              </p>
+              <p className="mt-2 whitespace-pre-wrap text-sm">{data.coverLetter}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+              {copy.applicationAnswers}
+            </p>
+            {customAnswers && Object.keys(customAnswers).length > 0 ? (
+              <div className="mt-3 space-y-3">
+                {Object.entries(customAnswers).map(([answerKey, answerValue]) => (
+                  <div
+                    key={answerKey}
+                    className="rounded-2xl border border-[var(--panel-border)] bg-[var(--panel-bg)]/60 p-3"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                      {answerKey}
+                    </p>
+                    <div className="mt-2 text-sm text-[var(--text-primary)]">
+                      {renderApplicationAnswer(answerKey, answerValue, apiBase)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{copy.noApplicationAnswers}</p>
+            )}
+          </div>
+          {data.cv && (
+            <Button
+              variant="outline"
+              className="justify-center"
+              onClick={() => {
+                window.open(`${apiBase}/companies/company/applications/${data.id}/cv`, "_blank");
+              }}
+            >
+              {copy.cv}
+            </Button>
+          )}
           {structured && (
             <div className="mt-6 border-t border-[var(--panel-border)] pt-4">
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">

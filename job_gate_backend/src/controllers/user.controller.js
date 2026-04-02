@@ -7,6 +7,7 @@ const {
   Application,
   CV,
   CVFeaturesAnalytics,
+  CVAIInsights,
   UserEmailOtp,
   sequelize,
   Admin,
@@ -16,10 +17,188 @@ const {
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const fs = require("fs");
 const { Op } = require("sequelize");
 const sendEmail = require("../utils/sendEmail");
+const { MailerError } = require("../utils/mailer");
 const { successResponse, errorResponse } = require("../utils/responseHandler"); // نفترض وجودها
 const { maskCompanyIfAnonymous } = require("../utils/companyBranding");
+const { queueApplicationCvAnalysis } = require("../services/applicationAnalysis.service");
+const APPLICATION_FIELD_UPLOAD_PREFIX = "application_field_";
+
+const getJobFormFieldKeys = (field) => {
+  const candidates = [field?.field_id, field?.title]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+  return [...new Set(candidates)];
+};
+
+const parseApplicationFormData = (rawFormData) => {
+  if (!rawFormData) {
+    return { data: {} };
+  }
+
+  if (typeof rawFormData === "object" && !Array.isArray(rawFormData)) {
+    return { data: rawFormData };
+  }
+
+  if (typeof rawFormData !== "string") {
+    return { error: "Application form data must be a JSON object." };
+  }
+
+  try {
+    const parsed = JSON.parse(rawFormData);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { error: "Application form data must be a JSON object." };
+    }
+    return { data: parsed };
+  } catch (error) {
+    return { error: "Application form data is not valid JSON." };
+  }
+};
+
+const buildStoredApplicationFile = (file) => ({
+  field_name: file.fieldname,
+  original_name: file.originalname,
+  stored_name: file.filename,
+  file_type: file.mimetype,
+  size: file.size,
+  url: `/uploads/application-fields/${file.filename}`,
+});
+
+const normalizeDynamicFieldValue = (field, value) => {
+  if (value === undefined || value === null) return null;
+
+  if (field.input_type === "checkbox") {
+    const list = Array.isArray(value) ? value : [value];
+    return list
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  return value;
+};
+
+const validateDynamicFieldValue = (field, value, uploadedFile) => {
+  const label = field.title || `Field ${field.field_id}`;
+  const options = Array.isArray(field.options)
+    ? field.options.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+
+  if (field.input_type === "file") {
+    if (field.is_required && !uploadedFile) {
+      return { error: `${label} is required.` };
+    }
+    return { value: uploadedFile ? buildStoredApplicationFile(uploadedFile) : null };
+  }
+
+  const normalizedValue = normalizeDynamicFieldValue(field, value);
+  const isEmpty =
+    normalizedValue === null ||
+    normalizedValue === undefined ||
+    (Array.isArray(normalizedValue) && normalizedValue.length === 0);
+
+  if (field.is_required && isEmpty) {
+    return { error: `${label} is required.` };
+  }
+
+  if (isEmpty) {
+    return { value: null };
+  }
+
+  if (field.input_type === "number") {
+    const numericValue = Number(normalizedValue);
+    if (!Number.isFinite(numericValue)) {
+      return { error: `${label} must be a valid number.` };
+    }
+    return { value: numericValue };
+  }
+
+  if (field.input_type === "email") {
+    const emailValue = String(normalizedValue);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailValue)) {
+      return { error: `${label} must be a valid email address.` };
+    }
+    return { value: emailValue };
+  }
+
+  if (field.input_type === "select" || field.input_type === "radio") {
+    const singleValue = String(normalizedValue);
+    if (options.length && !options.includes(singleValue)) {
+      return { error: `${label} has an invalid option.` };
+    }
+    return { value: singleValue };
+  }
+
+  if (field.input_type === "checkbox") {
+    const list = Array.isArray(normalizedValue) ? normalizedValue : [normalizedValue];
+    if (options.length && list.some((item) => !options.includes(String(item)))) {
+      return { error: `${label} has an invalid option.` };
+    }
+    return { value: list };
+  }
+
+  return { value: normalizedValue };
+};
+
+const validateApplicationFormSubmission = ({
+  fields,
+  rawFormData,
+  applicationFiles,
+}) => {
+  const parsed = parseApplicationFormData(rawFormData);
+  if (parsed.error) return parsed;
+
+  const formData = parsed.data || {};
+  const fileMap = new Map();
+  (Array.isArray(applicationFiles) ? applicationFiles : []).forEach((file) => {
+    fileMap.set(file.fieldname, file);
+  });
+
+  const sanitized = {};
+
+  for (const field of Array.isArray(fields) ? fields : []) {
+    const candidateKeys = getJobFormFieldKeys(field);
+    const matchedKey = candidateKeys.find((key) =>
+      Object.prototype.hasOwnProperty.call(formData, key)
+    );
+    const rawValue = matchedKey ? formData[matchedKey] : undefined;
+    const uploadedFile =
+      fileMap.get(`${APPLICATION_FIELD_UPLOAD_PREFIX}${field.field_id}`) || null;
+    const validation = validateDynamicFieldValue(field, rawValue, uploadedFile);
+
+    if (validation.error) {
+      return { error: validation.error };
+    }
+
+    if (validation.value !== null && validation.value !== undefined) {
+      sanitized[String(field.field_id)] = validation.value;
+    }
+  }
+
+  return { data: sanitized };
+};
+
+const resolveApplicationInsightForJob = (applicationData) => {
+  const insights = Array.isArray(applicationData?.CV?.CVAIInsights)
+    ? applicationData.CV.CVAIInsights
+    : [];
+  return (
+    insights.find((item) => item?.job_id === applicationData?.job_id) ||
+    insights.find((item) => item?.job_id === applicationData?.JobPosting?.job_id) ||
+    null
+  );
+};
 
 // افترض أن ملف الإعدادات يحوي JWT_SECRET
 const JWT_SECRET = process.env.JWT_SECRET ;
@@ -715,6 +894,7 @@ exports.registerJobSeeker = async (req, res) => {
  */
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
+  let user = null;
 
   try {
     if (!email) {
@@ -723,7 +903,7 @@ exports.forgotPassword = async (req, res) => {
     const normalizedEmail = String(email).trim().toLowerCase();
 
     const genericMsg = "If the email is registered, an OTP reset code has been sent.";
-    const user = await User.findOne({ where: { email: normalizedEmail } });
+    user = await User.findOne({ where: { email: normalizedEmail } });
 
     // Security: do not reveal whether the email exists.
     if (!user) {
@@ -751,8 +931,22 @@ exports.forgotPassword = async (req, res) => {
 
     return successResponse(res, null, genericMsg);
   } catch (error) {
+    if (user) {
+      try {
+        user.reset_password_token = null;
+        user.reset_password_expires = null;
+        user.reset_password_sent_at = null;
+        await user.save();
+      } catch (rollbackError) {
+        console.error("Forgot password rollback error:", rollbackError);
+      }
+    }
     console.error("Forgot password error:", error);
-    return errorResponse(res, "Failed to process forgot-password request.", null, 500);
+    const message =
+      error instanceof MailerError
+        ? "Failed to send reset OTP email. Please try again."
+        : "Failed to process forgot-password request.";
+    return errorResponse(res, message, null, 500);
   }
 };
 
@@ -1227,11 +1421,34 @@ exports.submitApplication = async (req, res) => {
   const { job_id, cv_id, cover_letter, form_data } = req.body;
   const { user_id } = req.user;
   const uploadedFile = req.file;
+  const applicationFiles = Array.isArray(req.applicationFiles)
+    ? req.applicationFiles
+    : [];
+  let shouldCleanupUploadedCv = false;
 
   const t = await sequelize.transaction();
   try {
     const job = await JobPosting.findByPk(job_id, {
-      include: [{ model: JobForm, attributes: ["form_id", "require_cv"], required: false }],
+      include: [
+        {
+          model: JobForm,
+          attributes: ["form_id", "require_cv"],
+          required: false,
+          include: [
+            {
+              model: JobFormField,
+              attributes: [
+                "field_id",
+                "title",
+                "description",
+                "is_required",
+                "input_type",
+                "options",
+              ],
+            },
+          ],
+        },
+      ],
       transaction: t,
     });
     if (!job || job.status !== "open") {
@@ -1248,20 +1465,66 @@ exports.submitApplication = async (req, res) => {
       return res.status(400).json({ message: "You already applied to this job." });
     }
 
-    let finalCvId = cv_id || null;
+    let finalCvId = cv_id ? Number(cv_id) : null;
+    const requiresCv =
+      job.form_type === "internal_form" ? Boolean(job.JobForm?.require_cv) : false;
+    let normalizedFormData = null;
+    let analysisStatus = "not_requested";
+    let analysisSource = null;
+    let shouldQueueAnalysis = false;
 
-    if (uploadedFile) {
-      await t.rollback();
-      return res.status(400).json({
-        message: "Upload external CVs in CV Lab, run AI analysis, then apply using a CV from CV Lab.",
+    if (job.form_type === "internal_form") {
+      if (!job.JobForm) {
+        await t.rollback();
+        return res.status(400).json({
+          message: "This job is missing its application form.",
+        });
+      }
+
+      const formValidation = validateApplicationFormSubmission({
+        fields: job.JobForm.JobFormFields || [],
+        rawFormData: form_data,
+        applicationFiles,
       });
+      if (formValidation.error) {
+        await t.rollback();
+        return res.status(400).json({ message: formValidation.error });
+      }
+      normalizedFormData = formValidation.data;
+    } else if (job.form_type === "external_link") {
+      normalizedFormData = {
+        submission_mode: "external_link_redirect",
+        external_form_url: job.external_form_url || null,
+      };
     }
 
-    if (!finalCvId) {
+    if (requiresCv && !finalCvId) {
       await t.rollback();
       return res
         .status(400)
         .json({ message: "A CV from CV Lab is required for this application." });
+    }
+
+    if (uploadedFile) {
+      const applicationCv = await CV.create(
+        {
+          user_id,
+          file_url: uploadedFile.path,
+          file_type: uploadedFile.mimetype,
+          title:
+            req.body?.application_cv_title ||
+            uploadedFile.originalname ||
+            `Application CV - ${new Date().toISOString().slice(0, 10)}`,
+          allow_promotion: false,
+          cv_source: "application_upload",
+        },
+        { transaction: t }
+      );
+      finalCvId = applicationCv.cv_id;
+      analysisStatus = "pending";
+      analysisSource = "application_upload";
+      shouldQueueAnalysis = true;
+      shouldCleanupUploadedCv = true;
     }
 
     if (finalCvId) {
@@ -1276,32 +1539,46 @@ exports.submitApplication = async (req, res) => {
         });
       }
 
-      const analyzedCv = await CVFeaturesAnalytics.findOne({
-        where: { cv_id: finalCvId },
-        attributes: ["cv_id"],
-        transaction: t,
-      });
-      if (!analyzedCv) {
-        await t.rollback();
-        return res.status(400).json({
-          message: "Please run CV analysis in CV Lab before applying.",
+      if (userCv.cv_source !== "application_upload" && !shouldQueueAnalysis) {
+        const analyzedCv = await CVFeaturesAnalytics.findOne({
+          where: { cv_id: finalCvId },
+          attributes: ["cv_id"],
+          transaction: t,
         });
+        if (!analyzedCv) {
+          await t.rollback();
+          return res.status(400).json({
+            message: "Please run CV analysis in CV Lab before applying.",
+          });
+        }
+        analysisStatus = "succeeded";
+        analysisSource = "cv_lab";
       }
     }
 
+    const applicationPayload = {
+      user_id,
+      job_id,
+      cv_id: finalCvId,
+      cover_letter: cover_letter || null,
+      form_data:
+        normalizedFormData && Object.keys(normalizedFormData).length > 0
+          ? normalizedFormData
+          : null,
+      status: "pending",
+      analysis_status: analysisStatus,
+      analysis_source: analysisSource,
+      analysis_started_at: analysisStatus === "pending" ? new Date() : null,
+      analysis_completed_at: analysisStatus === "succeeded" ? new Date() : null,
+    };
+
     const application = await Application.create(
-      {
-        user_id,
-        job_id,
-        cv_id: finalCvId,
-        cover_letter: cover_letter || null,
-        form_data: form_data ? JSON.parse(form_data) : null,
-        status: "pending",
-      },
+      applicationPayload,
       { transaction: t }
     );
 
     await t.commit();
+    shouldCleanupUploadedCv = false;
 
     try {
       const [jobWithCompany, applicant, cvRecord] = await Promise.all([
@@ -1340,14 +1617,32 @@ exports.submitApplication = async (req, res) => {
       console.error("Company new-application email failed:", emailError);
     }
 
+    if (shouldQueueAnalysis) {
+      queueApplicationCvAnalysis({ applicationId: application.application_id });
+    }
+
     return successResponse(
       res,
-      { application_id: application.application_id },
-      "Application submitted successfully.",
+      {
+        application_id: application.application_id,
+        analysis_status: application.analysis_status,
+        external_form_url:
+          job.form_type === "external_link" ? job.external_form_url || null : null,
+      },
+      job.form_type === "external_link"
+        ? "Application recorded. Continue in the external form."
+        : "Application submitted successfully.",
       201
     );
   } catch (error) {
     await t.rollback();
+    if (shouldCleanupUploadedCv && uploadedFile?.path) {
+      try {
+        fs.unlinkSync(uploadedFile.path);
+      } catch (cleanupError) {
+        console.error("Failed to cleanup uploaded application CV after rollback:", cleanupError);
+      }
+    }
     console.error("Error submitting application:", error);
     return res
       .status(500)
@@ -1364,6 +1659,12 @@ exports.listUserApplications = async (req, res) => {
       "status",
       "submitted_at",
       "review_notes",
+      "analysis_status",
+      "analysis_error_message",
+      "analysis_started_at",
+      "analysis_completed_at",
+      "analysis_retry_count",
+      "analysis_source",
     ];
 
     // Keep query compatible with environments where this legacy column is absent.
@@ -1382,7 +1683,11 @@ exports.listUserApplications = async (req, res) => {
         },
         {
           model: CV,
-          attributes: ["cv_id", "title", "file_url"],  
+          attributes: ["cv_id", "title", "file_url", "cv_source"],
+          include: [
+            { model: CVFeaturesAnalytics, attributes: ["ats_score"], required: false },
+            { model: CVAIInsights, required: false },
+          ],
         },
       ],
       order: [["submitted_at", "DESC"]],
@@ -1390,10 +1695,25 @@ exports.listUserApplications = async (req, res) => {
 
     const payload = applications.map((application) => {
       const data = application.toJSON ? application.toJSON() : { ...application };
+      const jobInsight = resolveApplicationInsightForJob(data);
+      const aiScore =
+        typeof jobInsight?.ats_score === "number"
+          ? jobInsight.ats_score
+          : typeof data?.CV?.CVFeaturesAnalytics?.ats_score === "number"
+          ? data.CV.CVFeaturesAnalytics.ats_score
+          : null;
       if (data.JobPosting?.Company) {
         data.JobPosting.Company = maskCompanyIfAnonymous(data.JobPosting, data.JobPosting.Company);
       }
-      return data;
+      return {
+        ...data,
+        ai_score: aiScore,
+        ai_summary:
+          jobInsight?.ai_intelligence?.summary ||
+          jobInsight?.ai_intelligence?.contextual_summary ||
+          jobInsight?.ai_intelligence?.professional_summary ||
+          null,
+      };
     });
     return successResponse(res, payload);
   } catch (error) {
@@ -1403,7 +1723,17 @@ exports.listUserApplications = async (req, res) => {
     try {
       const fallbackApps = await Application.findAll({
         where: { user_id },
-        attributes: ["application_id", "status", "submitted_at"],
+        attributes: [
+          "application_id",
+          "status",
+          "submitted_at",
+          "analysis_status",
+          "analysis_error_message",
+          "analysis_started_at",
+          "analysis_completed_at",
+          "analysis_retry_count",
+          "analysis_source",
+        ],
         order: [["submitted_at", "DESC"]],
       });
 
@@ -1411,6 +1741,12 @@ exports.listUserApplications = async (req, res) => {
         application_id: app.application_id,
         status: app.status,
         submitted_at: app.submitted_at,
+        analysis_status: app.analysis_status,
+        analysis_error_message: app.analysis_error_message,
+        analysis_started_at: app.analysis_started_at,
+        analysis_completed_at: app.analysis_completed_at,
+        analysis_retry_count: app.analysis_retry_count,
+        analysis_source: app.analysis_source,
         JobPosting: null,
         CV: null,
       }));
@@ -1430,6 +1766,65 @@ exports.listUserApplications = async (req, res) => {
         "Applications are temporarily unavailable. Please try again later."
       );
     }
+  }
+};
+
+exports.retryApplicationAnalysis = async (req, res) => {
+  const { user_id } = req.user;
+  const applicationId = Number(req.params.id);
+
+  if (!Number.isFinite(applicationId) || applicationId <= 0) {
+    return res.status(400).json({ message: "Invalid application ID." });
+  }
+
+  try {
+    const application = await Application.findOne({
+      where: { application_id: applicationId, user_id },
+      include: [{ model: CV, attributes: ["cv_id", "file_url", "cv_source"] }],
+    });
+
+    if (!application) {
+      return res.status(404).json({ message: "Application not found." });
+    }
+
+    if (application.analysis_source !== "application_upload") {
+      return res.status(400).json({
+        message: "Only application-upload CVs can be retried.",
+      });
+    }
+
+    if (!application.cv_id || !application.CV?.file_url) {
+      return res.status(400).json({
+        message: "No uploaded CV is available for retry.",
+      });
+    }
+
+    const nextRetryCount = Number(application.analysis_retry_count || 0) + 1;
+    await application.update({
+      analysis_status: "pending",
+      analysis_error_message: null,
+      analysis_started_at: new Date(),
+      analysis_completed_at: null,
+      analysis_retry_count: nextRetryCount,
+    });
+
+    queueApplicationCvAnalysis({ applicationId: application.application_id });
+
+    return successResponse(
+      res,
+      {
+        application_id: application.application_id,
+        analysis_status: "pending",
+        analysis_retry_count: nextRetryCount,
+      },
+      "Application CV analysis retry started."
+    );
+  } catch (error) {
+    console.error("Error retrying application analysis:", error);
+    return res.status(500).json({
+      message: "Failed to retry application analysis.",
+      error: error.message,
+    });
   }
 };
 

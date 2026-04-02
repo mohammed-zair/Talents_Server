@@ -26,6 +26,11 @@ router.post(
   userController.submitApplication
 );  
 router.get("/applications/user", verifyToken, userController.listUserApplications);  
+router.post(
+  "/applications/:id/retry-analysis",
+  verifyToken,
+  userController.retryApplicationAnalysis
+);
 router.get("/profile/cv", verifyToken, cvController.listUserCVs);  
 router.put("/profile/cv", verifyToken, uploadCV, cvController.uploadNewCV);
 router.delete("/profile/cv/:id", verifyToken, cvController.deleteUserCV);

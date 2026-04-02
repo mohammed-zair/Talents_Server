@@ -14,6 +14,11 @@ const CV = sequelize.define(
     file_type: { type: DataTypes.STRING, allowNull: true },
     title: { type: DataTypes.STRING, allowNull: true },
     allow_promotion: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    cv_source: {
+      type: DataTypes.ENUM("cv_lab", "application_upload"),
+      allowNull: false,
+      defaultValue: "cv_lab",
+    },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     last_updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   },

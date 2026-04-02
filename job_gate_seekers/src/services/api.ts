@@ -73,9 +73,14 @@ export const seekerApi = {
     const res = await api.post("/auth/register-jobseeker/verify-otp", data);
     return unwrap(res.data);
   },
-  forgotPassword: async (data: { email: string }) => api.post("/auth/forgot-password", data),
-  resetPassword: async (data: { email: string; token: string; newPassword: string }) =>
-    api.post("/auth/reset-password", data),
+  forgotPassword: async (data: { email: string }) => {
+    const res = await api.post("/auth/forgot-password", data);
+    return res.data as { success?: boolean; message?: string; data?: unknown };
+  },
+  resetPassword: async (data: { email: string; token: string; newPassword: string }) => {
+    const res = await api.post("/auth/reset-password", data);
+    return res.data as { success?: boolean; message?: string; data?: unknown };
+  },
   requestDeleteAccount: async (data: {
     current_password: string;
     reason?: string;
@@ -130,6 +135,10 @@ export const seekerApi = {
   listApplications: async () => {
     const res = await api.get<ApiEnvelope<Application[]>>("/jop_seeker/applications/user");
     return ensureArray<Application>(unwrap<any>(res.data), ["applications"]);
+  },
+  retryApplicationAnalysis: async (applicationId: number) => {
+    const res = await api.post(`/jop_seeker/applications/${applicationId}/retry-analysis`);
+    return unwrap(res.data);
   },
 
   listCVs: async () => {
