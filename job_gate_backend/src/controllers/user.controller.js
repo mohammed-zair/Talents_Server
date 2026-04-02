@@ -1498,13 +1498,6 @@ exports.submitApplication = async (req, res) => {
       };
     }
 
-    if (requiresCv && !finalCvId) {
-      await t.rollback();
-      return res
-        .status(400)
-        .json({ message: "A CV from CV Lab is required for this application." });
-    }
-
     if (uploadedFile) {
       const applicationCv = await CV.create(
         {
@@ -1525,6 +1518,13 @@ exports.submitApplication = async (req, res) => {
       analysisSource = "application_upload";
       shouldQueueAnalysis = true;
       shouldCleanupUploadedCv = true;
+    }
+
+    if (requiresCv && !finalCvId) {
+      await t.rollback();
+      return res
+        .status(400)
+        .json({ message: "A CV is required for this application." });
     }
 
     if (finalCvId) {
