@@ -377,7 +377,7 @@ const OpportunitiesPage: React.FC = () => {
       )}
 
       {activeJob && (
-        <div className="fixed inset-0 z-[10050] flex items-start justify-center bg-black/50 p-4 sm:items-center">
+        <div className="fixed inset-0 z-[100000] flex items-start justify-center bg-black/50 p-4 sm:items-center">
           <div className="glass-card w-full max-w-3xl max-h-[85vh] overflow-y-auto p-4 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -540,51 +540,111 @@ const OpportunitiesPage: React.FC = () => {
                     />
                   </div>
 
-                  <div className="rounded-xl border border-[var(--border)] p-3">
+                  <div className="rounded-2xl border border-[var(--border)] bg-[var(--glass)]/40 p-4">
                     <div className="text-sm font-semibold">{t("chooseCv")}</div>
                     <p className="mt-2 text-xs text-[var(--text-muted)]">
                       {requireCv ? t("cvLabRequiredForApply") : t("applicationCvOptionalHint")}
                     </p>
-                    <div className="mt-3">
-                      <label className="text-xs text-[var(--text-muted)]">{t("useCvFromLab")}</label>
-                      <select
-                        className="field mt-2"
-                        value={selectedCvId}
-                        onChange={(e) => {
-                          setSelectedCvId(e.target.value ? Number(e.target.value) : "");
-                          if (e.target.value) {
-                            setApplicationCvFile(null);
-                          }
-                        }}
+                    <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                      <div
+                        className={`rounded-2xl border p-3 transition ${
+                          selectedCvId
+                            ? "border-emerald-400/50 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                            : "border-[var(--border)] bg-[var(--panel-bg)]/40"
+                        }`}
                       >
-                        <option value="">{t("selectCv")}</option>
-                        {(cvsQ.data || []).map((cv: any) => (
-                          <option key={cv.cv_id} value={cv.cv_id}>{cv.title || `CV #${cv.cv_id}`}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="mt-4">
-                      <label className="text-xs text-[var(--text-muted)]">
-                        {t("useUploadedCvForApplication")}
-                      </label>
-                      <input
-                        type="file"
-                        className="field mt-2"
-                        accept=".pdf,.doc,.docx"
-                        onChange={(e) => {
-                          const nextFile = e.target.files?.[0] ?? null;
-                          setApplicationCvFile(nextFile);
-                          if (nextFile) {
-                            setSelectedCvId("");
-                          }
-                        }}
-                      />
-                      <p className="mt-2 text-xs text-[var(--text-muted)]">{t("uploadDifferentCvHint")}</p>
-                      {applicationCvFile && (
-                        <p className="mt-2 text-xs text-emerald-300">
-                          {t("uploadedApplicationCv")}: {applicationCvFile.name}
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="text-sm font-medium">{t("useCvFromLab")}</label>
+                          {selectedCvId ? (
+                            <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold text-emerald-200">
+                              {language === "ar" ? "محدد" : "Selected"}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-xs text-[var(--text-muted)]">
+                          {t("analyzeRequiredDesc")}
                         </p>
-                      )}
+                        <select
+                          className="field mt-3"
+                          value={selectedCvId}
+                          onChange={(e) => {
+                            setSelectedCvId(e.target.value ? Number(e.target.value) : "");
+                            if (e.target.value) {
+                              setApplicationCvFile(null);
+                            }
+                          }}
+                        >
+                          <option value="">{t("selectCv")}</option>
+                          {(cvsQ.data || []).map((cv: any) => (
+                            <option key={cv.cv_id} value={cv.cv_id}>{cv.title || `CV #${cv.cv_id}`}</option>
+                          ))}
+                        </select>
+                        {selectedCvId && (
+                          <p className="mt-2 text-xs text-[var(--text-muted)]">
+                            {hasAnalyzedCv ? t("analysisReady") : t("analyzeRequiredTitle")}
+                          </p>
+                        )}
+                      </div>
+
+                      <div
+                        className={`rounded-2xl border p-3 transition ${
+                          applicationCvFile
+                            ? "border-sky-400/50 bg-sky-500/10 shadow-[0_0_20px_rgba(14,165,233,0.15)]"
+                            : "border-[var(--border)] bg-[var(--panel-bg)]/40"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="text-sm font-medium">
+                            {t("useUploadedCvForApplication")}
+                          </label>
+                          {applicationCvFile ? (
+                            <span className="rounded-full bg-sky-500/15 px-2 py-1 text-[10px] font-semibold text-sky-200">
+                              {language === "ar" ? "محدد" : "Selected"}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-xs text-[var(--text-muted)]">{t("uploadDifferentCvHint")}</p>
+                        <input
+                          type="file"
+                          className="field mt-3"
+                          accept=".pdf,.doc,.docx"
+                          onChange={(e) => {
+                            const nextFile = e.target.files?.[0] ?? null;
+                            setApplicationCvFile(nextFile);
+                            if (nextFile) {
+                              setSelectedCvId("");
+                            }
+                          }}
+                        />
+                        {applicationCvFile ? (
+                          <div className="mt-3 rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 py-2">
+                            <p className="text-xs font-medium text-sky-200">
+                              {t("uploadedApplicationCv")}: {applicationCvFile.name}
+                            </p>
+                            <button
+                              type="button"
+                              className="mt-2 text-xs text-sky-200 underline underline-offset-2"
+                              onClick={() => setApplicationCvFile(null)}
+                            >
+                              {t("cancel")}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--panel-bg)]/40 px-3 py-2 text-xs text-[var(--text-muted)]">
+                      {selectedCvId
+                        ? hasAnalyzedCv
+                          ? t("analysisReady")
+                          : t("analyzeRequiredDesc")
+                        : applicationCvFile
+                        ? language === "ar"
+                          ? "سيتم تحليل هذا الملف بعد إرسال الطلب"
+                          : "This file will be analyzed after submission"
+                        : requireCv
+                        ? t("cvRequired")
+                        : t("applicationCvOptionalHint")}
                     </div>
                     {Array.isArray(cvsQ.data) && cvsQ.data.length === 0 && (
                       <button
